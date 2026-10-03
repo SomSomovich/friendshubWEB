@@ -52,13 +52,15 @@ export default defineConfig({
       },
       workbox: {
         /**
-         * Everything needed to boot offline. Branding source art and the unused
-         * favicon sizes (16/32/64) stay out; the manifest icons (192, 512,
-         * maskable) are added to the precache by the plugin itself from
-         * `manifest.icons`, so they are not repeated here.
+         * Everything needed to boot offline. Branding source art stays out; the
+         * manifest icons (192, 512, maskable) are added to the precache by the
+         * plugin itself from `manifest.icons`, so they are not repeated here.
+         * The favicons and the apple touch icon are only referenced by
+         * index.html, hence the explicit patterns.
          */
         globPatterns: [
           '**/*.{js,css,html,svg,ico,webp,woff,woff2}',
+          'pwa-icons/favicon-*.png',
           'pwa-icons/apple-touch-*.png',
         ],
         navigateFallback: '/index.html',

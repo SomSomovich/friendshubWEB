@@ -20,6 +20,25 @@ const preset: Preset = {
   apple: {
     sizes: [180],
   },
+  /**
+   * Mirrors the generator's default naming — `pwa-<w>x<h>.png`,
+   * `maskable-icon-<w>x<h>.png`, `apple-touch-icon-<w>x<h>.png`, all of which
+   * the web manifest and index.html depend on — except for the 16/32 px sizes,
+   * which are wired as `<link rel="icon">` favicons and therefore use the
+   * conventional `favicon-<w>x<h>.png` names.
+   */
+  assetName: (type, size) => {
+    if (type === 'transparent' && (size.width === 16 || size.width === 32)) {
+      return `favicon-${size.width}x${size.height}.png`
+    }
+    const prefix =
+      type === 'maskable'
+        ? 'maskable-icon'
+        : type === 'apple'
+          ? 'apple-touch-icon'
+          : 'pwa'
+    return `${prefix}-${size.width}x${size.height}.png`
+  },
 }
 
 export default defineConfig({
