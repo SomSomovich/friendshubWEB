@@ -17,6 +17,9 @@ dist-ssr
 # Its binary is never committed; rebuild it from the source repo instead.
 src/wasm/pkg/*.wasm
 
+# Local browser harnesses that need IndexedDB and Web Locks, which Node lacks.
+dev-tests/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

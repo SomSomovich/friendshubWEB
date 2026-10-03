@@ -1,0 +1,33 @@
+/* tslint:disable */
+/* eslint-disable */
+export const memory: WebAssembly.Memory;
+export const clear_identity_changes: (a: number, b: number) => void;
+export const create_sender_key_distribution: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
+export const decrypt: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => [number, number, number, number];
+export const encrypt: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number, number, number];
+export const establish_session: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number];
+export const generate_attachment_key: () => [number, number, number, number];
+export const generate_identity: (a: number, b: number, c: number) => [number, number, number, number];
+export const generate_prekeys: (a: number, b: number, c: number) => [number, number, number, number];
+export const group_decrypt: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
+export const group_encrypt: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
+export const identity_changes: (a: number, b: number) => [number, number, number, number];
+export const load_identity: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+export const local_identity_public: (a: number, b: number) => [number, number, number, number];
+export const open_chunk: (a: number, b: number, c: number, d: number, e: bigint, f: number, g: number) => [number, number, number, number];
+export const ping: () => [number, number];
+export const prekey_counts: (a: number, b: number) => [number, number, number, number];
+export const process_sender_key_distribution: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number];
+export const reset: (a: number, b: number) => void;
+export const restore: (a: number, b: number, c: number, d: number) => [number, number];
+export const seal_chunk: (a: number, b: number, c: number, d: number, e: bigint, f: number, g: number) => [number, number, number, number];
+export const snapshot: (a: number, b: number) => [number, number, number, number];
+export const start: () => void;
+export const __wbindgen_free: (a: number, b: number, c: number) => void;
+export const __wbindgen_exn_store: (a: number) => void;
+export const __externref_table_alloc: () => number;
+export const __wbindgen_externrefs: WebAssembly.Table;
+export const __wbindgen_malloc: (a: number, b: number) => number;
+export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+export const __externref_table_dealloc: (a: number) => void;
+export const __wbindgen_start: () => void;

@@ -1,0 +1,21 @@
+{
+  "name": "friendshub-wasm",
+  "type": "module",
+  "description": "WASM bindings for libsignal-protocol v0.103.1, used by the FriendsHub web client.",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SomSomovich/friendshub-wasm"
+  },
+  "files": [
+    "friendshub_wasm_bg.wasm",
+    "friendshub_wasm.js",
+    "friendshub_wasm.d.ts"
+  ],
+  "main": "friendshub_wasm.js",
+  "types": "friendshub_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
