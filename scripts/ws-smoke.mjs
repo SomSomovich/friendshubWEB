@@ -18,18 +18,18 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { login, register } from '../src/api/auth.ts'
-import { registerDevice } from '../src/api/devices.ts'
 import { ApiError } from '../src/api/errors.ts'
-import { getPrekeyStatus, uploadPrekeys } from '../src/api/prekeys.ts'
+import { getPrekeyStatus } from '../src/api/prekeys.ts'
 import { getSavedConversation } from '../src/api/saved.ts'
-import { generateIdentity, generatePrekeys, initWasm, localIdentityPublic } from '../src/wasm/index.ts'
+import { initializeAccount } from '../src/crypto/account.ts'
+import { initWasm } from '../src/wasm/index.ts'
 import { WsClient } from '../src/ws/client.ts'
 import { ENVELOPE_TYPE_MESSAGE } from '../src/ws/envelopeTypes.ts'
 import { WsError } from '../src/ws/errors.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const accountFile = join(here, '.smoke-account.json')
-const TRANSPORT_ATTEMPTS = 6
+const TRANSPORT_ATTEMPTS = 10
 
 /** Retries a call whose failure was `status: 0` — a dropped connection, not an answer. */
 async function call(invoke) {
@@ -79,35 +79,6 @@ async function waitFor(predicate, timeoutMs) {
   }
 }
 
-/**
- * Keys per request: ~16 KiB.
- *
- * Measured on this link: 13 KiB and 16 KiB requests go through on the first
- * attempt, 19 KiB and up fail often enough that retrying is a coin flip. The
- * size is a property of the network path, not of the server, which accepts the
- * documented 100-key upload happily when it fits through.
- */
-const PREKEY_BATCH_SIZE = 4
-
-/**
- * Uploads `total` one-time prekeys as several requests.
- *
- * Each batch is generated separately, so ids never collide (the module continues
- * numbering from the highest id it holds) and a retry after a dropped connection
- * cannot reuse a batch that the server already stored.
- */
-async function uploadPrekeysInBatches(sessionToken, accountId, deviceNumber, total) {
-  const auth = { sessionToken, deviceNumber }
-  let uploaded = 0
-  while (uploaded < total) {
-    const size = Math.min(PREKEY_BATCH_SIZE, total - uploaded)
-    const prekeys = await generatePrekeys(accountId, size)
-    await call(() => uploadPrekeys(auth, prekeys))
-    uploaded += size
-  }
-  return uploaded
-}
-
 /** Logs in when a previous run left an account behind, registers one otherwise. */
 async function ensureAccount() {
   if (existsSync(accountFile)) {
@@ -135,32 +106,34 @@ async function ensureAccount() {
   }
 
   // A real identity and a real prekey pool, so the account is usable for the
-  // end-to-end round trip in 2.8 as well.
-  const registrationId = Math.floor(Math.random() * 16_384)
-  await generateIdentity(registered.id, registrationId)
-  const identityKeyPub = await localIdentityPublic(registered.id)
-
-  const device = await call(() =>
-    registerDevice(
-      { sessionToken: session.sessionToken },
-      { name: 'smoke-ws', registrationId, identityKeyPub },
-    ),
+  // end-to-end round trip in 2.8 as well. This is the production path — the same
+  // `initializeAccount` the app runs, including the batched prekey upload.
+  //
+  // Deliberately not wrapped in the transport retry: the flow registers a device,
+  // and re-running it would create a second one while the session stays bound to
+  // the first (which is exactly the failure `registerDeviceOrRecover` handles
+  // internally).
+  const initialised = await initializeAccount(
+    {
+      id: registered.id,
+      userId: registered.userId,
+      fhNumber: registered.fhNumber,
+      username: registered.username,
+      avatarUrl: null,
+      totpEnabled: false,
+      deviceNumber: 1,
+      sessionToken: session.sessionToken,
+      expiresAt: session.expiresAt,
+    },
+    'smoke-ws',
   )
-
-  // Prekeys go up in small batches on purpose. The measured payload is ~3.2 KiB
-  // per key (a Kyber public key is ~1.5 KiB, hex-encoded), so the documented
-  // 100-key upload is ~320 KiB — and on this link anything past a few tens of
-  // KiB drops the connection mid-body often enough to be unusable. The server
-  // accumulates across requests (verified: 3 + 3 + 3 keys leave a pool of 9) and
-  // each call allocates fresh ids, so batching costs nothing but requests.
-  await uploadPrekeysInBatches(session.sessionToken, registered.id, device.deviceNumber, 100)
 
   const stored = {
     fhNumber: registered.fhNumber,
     password,
     accountId: registered.id,
-    deviceNumber: device.deviceNumber,
-    identityKeyPub,
+    deviceNumber: initialised.deviceNumber,
+    identityKeyPub: initialised.identityPubHex,
   }
   writeFileSync(accountFile, `${JSON.stringify(stored, null, 2)}\n`)
   return { ...stored, sessionToken: session.sessionToken }

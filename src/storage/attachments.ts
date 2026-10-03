@@ -23,26 +23,37 @@ export async function getAttachment(
 }
 
 /**
- * Attaches the key from a received key envelope. Does nothing when the
- * attachment is unknown — the message may not have arrived yet, and a key
- * without metadata has nowhere to live.
+ * Stores the key from a received key envelope.
+ *
+ * A key can arrive before the message that references the attachment — the
+ * protocol sends them as independent envelopes — so a missing row is created as
+ * a placeholder instead of dropping the key. The real sizes are not needed: the
+ * download path reads them from `GET /attachments/{id}`, so the placeholders
+ * only have to be honest about being unknown.
  */
 export async function setAttachmentKey(
   accountId: string,
   attachmentId: string,
   keyHex: string,
   baseNonceHex: string,
-): Promise<boolean> {
+  conversationId: string | null,
+): Promise<void> {
   const database = await openDatabase()
   const transaction = database.transaction('attachments', 'readwrite')
-  const record = await transaction.store.get([accountId, attachmentId])
+  const existing = await transaction.store.get([accountId, attachmentId])
 
-  if (!record) {
-    await transaction.done
-    return false
+  const record: AttachmentRecord = existing ?? {
+    id: attachmentId,
+    accountId,
+    conversationId: conversationId ?? '',
+    totalSize: 0,
+    chunkCount: 0,
+    kind: 'attachment',
+    keyHex: null,
+    baseNonceHex: null,
+    localPath: null,
   }
 
   await transaction.store.put({ ...record, keyHex, baseNonceHex })
   await transaction.done
-  return true
 }
