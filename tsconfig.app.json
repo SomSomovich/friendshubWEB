@@ -7,6 +7,12 @@
     "types": ["vite/client"],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
+    "resolveJsonModule": true,
+
+    /* Strictness */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
 
     /* Bundler mode */
     "moduleResolution": "bundler",

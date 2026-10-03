@@ -1,0 +1,36 @@
+{
+  "common": {
+    "appName": "FriendsHub",
+    "tagline": "Private end-to-end encrypted messenger",
+    "back": "Back",
+    "phaseBadge": "Phase 1 — skeleton"
+  },
+  "landing": {
+    "login": "Sign in",
+    "register": "Create account",
+    "phaseNote": "Theming, localization, routing and PWA are wired up. Sign-in, chats and calls arrive in later phases."
+  },
+  "auth": {
+    "loginTitle": "Sign in",
+    "registerTitle": "Sign up",
+    "pending": "The “{{screen}}” screen is not implemented yet."
+  },
+  "app": {
+    "chatIndexEmpty": "Pick a chat to start messaging",
+    "chatTitle": "Chat",
+    "pending": "The chat list and message history arrive in later phases."
+  },
+  "settings": {
+    "theme": "Theme",
+    "themeDark": "Dark",
+    "themeLight": "Light",
+    "language": "Language",
+    "languageRu": "Русский",
+    "languageEn": "English"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "There is nothing at this address.",
+    "home": "Go home"
+  }
+}

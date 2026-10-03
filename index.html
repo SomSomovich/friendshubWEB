@@ -1,10 +1,63 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta
+      name="description"
+      content="FriendsHub — приватный мессенджер со сквозным шифрованием"
+    />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>friendshubweb</title>
+    <link rel="apple-touch-icon" href="/pwa-icons/apple-touch-icon-180x180.png" />
+    <!-- Kept in sync with the active theme tokens by src/theme/theme.ts. -->
+    <meta name="theme-color" content="#1a1a3a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <!--
+      "black-translucent" would force white status bar glyphs, which are
+      invisible on the light theme. "default" stays readable in both themes.
+    -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="FriendsHub" />
+    <title>FriendsHub</title>
+    <script>
+      /*
+       * Applies the stored theme/language before the first paint so the app
+       * never flashes the wrong palette or language. This is a plain-JS copy of
+       * src/theme/theme.ts (data-theme attribute) and src/i18n/language.ts
+       * (storage keys, supported languages, RU fallback) — keep the three in
+       * sync when changing any of them.
+       */
+      (function () {
+        var root = document.documentElement
+        var theme = 'dark'
+        var language = 'ru'
+        try {
+          var storedTheme = window.localStorage.getItem('fh.theme')
+          if (storedTheme === 'light' || storedTheme === 'dark') {
+            theme = storedTheme
+          }
+          var storedLanguage = window.localStorage.getItem('fh.lang')
+          if (storedLanguage === 'ru' || storedLanguage === 'en') {
+            language = storedLanguage
+          } else {
+            var preferred = String(navigator.language || '')
+              .toLowerCase()
+              .split('-')[0]
+            if (preferred === 'ru' || preferred === 'en') {
+              language = preferred
+            }
+          }
+        } catch {
+          /* localStorage is unavailable (private mode) — defaults apply. */
+        }
+        root.setAttribute('data-theme', theme)
+        root.lang = language
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

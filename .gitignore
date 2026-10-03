@@ -13,6 +13,10 @@ dist
 dist-ssr
 *.local
 
+# The WASM crypto module is built from github.com/SomSomovich/friendshub-wasm.
+# Its binary is never committed; rebuild it from the source repo instead.
+src/wasm/pkg/*.wasm
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
