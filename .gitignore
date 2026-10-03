@@ -30,3 +30,6 @@ dev-tests/
 *.njsproj
 *.sln
 *.sw?
+
+# Throwaway credentials created by scripts/*-smoke.mjs
+scripts/.smoke-account.json

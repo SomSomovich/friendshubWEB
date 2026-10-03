@@ -1,4 +1,5 @@
 import type { Account } from '../types'
+import { asBinaryPayload } from '../utils/bytes'
 import { readEnvVar } from '../utils/env'
 import { camelizeKeys } from './case'
 import { ApiError, toApiError } from './errors'
@@ -221,14 +222,8 @@ function apiOrigin(base: string): string {
   return /^https?:\/\//i.test(base) ? new URL(base).origin : ''
 }
 
-/**
- * `BodyInit` in current lib.dom wants an `ArrayBufferView<ArrayBuffer>` while a
- * plain `Uint8Array` is `Uint8Array<ArrayBufferLike>`, so the two do not line up
- * without a cast. Every real byte view passed here is an ordinary `Uint8Array`,
- * which fetch accepts unchanged — no copy is made.
- */
 function toBodyInit(body: BodyInit | Uint8Array | undefined): BodyInit | undefined {
-  return body instanceof Uint8Array ? (body as unknown as BodyInit) : body
+  return body instanceof Uint8Array ? asBinaryPayload(body) : body
 }
 
 /** `Retry-After` is in seconds; 5 s is the native client's fallback. */

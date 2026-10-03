@@ -10,4 +10,5 @@
 export type { Account } from './account'
 export type { Attachment, AttachmentKind } from './attachment'
 export type { Conversation, ConversationKind } from './conversation'
+export type { Envelope } from './envelope'
 export type { Message, MessageStatus, Reaction } from './message'
