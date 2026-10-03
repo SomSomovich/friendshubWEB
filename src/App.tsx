@@ -1,11 +1,10 @@
 import { RouterProvider } from 'react-router-dom'
 import { router } from './router/routes'
-import { ThemeProvider } from './theme/ThemeProvider'
 
+/**
+ * Theme and language are owned by the UI store (`src/state/uiStore.ts`), so the
+ * app needs no provider around the router.
+ */
 export function App() {
-  return (
-    <ThemeProvider>
-      <RouterProvider router={router} />
-    </ThemeProvider>
-  )
+  return <RouterProvider router={router} />
 }

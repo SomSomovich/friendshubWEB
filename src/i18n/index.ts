@@ -25,6 +25,7 @@ i18n.on('languageChanged', (language: string) => {
 i18n
   .use(initReactI18next)
   .init({
+
     resources: {
       ru: { translation: ru },
       en: { translation: en },
@@ -44,3 +45,9 @@ i18n
   .catch((error: unknown) => {
     console.error('[i18n] initialization failed', error)
   })
+
+/**
+ * The i18next instance, for callers that are not React components — the UI store
+ * switches languages through it.
+ */
+export { default as i18n } from 'i18next'

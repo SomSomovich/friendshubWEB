@@ -163,7 +163,15 @@ export async function sendToSaved(
     await requireActiveClient().uploadEnvelopes(envelopes)
   }
 
-  const message = buildLocalMessage(account, saved, plaintext)
+  const message = buildLocalMessageRecord(
+    account,
+    saved,
+    plaintext,
+    // The first envelope is the identity this device will use for its own copy:
+    // edits and reactions are addressed per envelope, and the sync payload lists
+    // these ids for the account's other devices.
+    envelopes[0]?.envelopeId,
+  )
   await saveMessage(message)
   await persistSnapshot(account.id)
 
@@ -329,15 +337,20 @@ async function sendSyncCopies(account: Account, payload: SyncSentPayload): Promi
  * There is no server timestamp yet, and for Saved Messages no envelope arrives
  * back either, so the local clock is the only source — which is also why the
  * ordering fields are set from it rather than left at zero.
+ *
+ * `envelopeId` is one of the ids that actually went out, when the caller knows
+ * it: an edit or a reaction is addressed by envelope id, and a local row that no
+ * envelope id points at could never be matched to one.
  */
-function buildLocalMessage(
+export function buildLocalMessageRecord(
   account: Account,
   conversationId: string,
   plaintext: string,
+  envelopeId?: string,
 ): MessageRecord {
   const timestamp = nowSeconds()
   return {
-    envelopeId: crypto.randomUUID(),
+    envelopeId: envelopeId ?? crypto.randomUUID(),
     accountId: account.id,
     conversationId,
     senderAccountId: account.id,
