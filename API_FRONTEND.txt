@@ -1,1475 +1,2545 @@
 ================================================================================
-FRIENDSHUB — API ФРОНТЕНД
-Версия: 1.0
-Base URL: https://api.fh.somuch-system.ru/api/v1
+FRIENDSHUB API
+================================================================================
+Полное описание HTTP API для фронта и бота.
+Дата: 2026-10-03
+Версия: см. GET /health
+================================================================================
+
+
+ОГЛАВЛЕНИЕ
+--------------------------------------------------------------------------------
+  0. Общее
+  1. Auth
+  2. Account (удаление)
+  3. Sessions
+  4. Profile
+  5. Contacts и Blocks
+  6. Presence
+  7. Devices
+  8. Prekeys
+  9. Conversations
+  10. Saved Messages
+  11. Attachments
+  12. Avatars
+  13. Groups
+  14. Channels
+  15. Channel Posts
+  16. Bots (владелец)
+  17. Bots (пользователь)
+  18. Bot API
+  19. Invites
+  20. Handles
+  21. Calls
+  22. WebRTC
+  23. WebSocket
+  24. Health
+
+
+================================================================================
+0. ОБЩЕЕ
+================================================================================
+
+Базовые URL
+--------------------------------------------------------------------------------
+Пользовательский API:  http://host:8080/api/v1
+Bot API:               http://host:8080/api/bot/v1
+WebSocket:             ws://host:8080/ws
+Health:                http://host:8080/health
+
+
+Аутентификация
+--------------------------------------------------------------------------------
+Пользовательский API:
+    Authorization: Bearer <session_token>
+    X-Device-Number: <n>          (опционально, но если задан — должен
+                                   совпадать с device_number сессии,
+                                   иначе 403)
+
+Bot API:
+    X-Bot-Token: <bot_token>      (без префикса "Bearer")
+
+
+Формат ошибок
+--------------------------------------------------------------------------------
+Все ошибки — JSON. Тело одинаковое для любого эндпоинта:
+
+    {
+      "error": "not_found",
+      "message": "not found"
+    }
+
+Если есть детали:
+    {
+      "error": "replenish_required",
+      "message": "prekey pool needs replenishing",
+      "details": {
+        "one_time_available": 2,
+        "kyber_one_time_available": 5,
+        "minimum_required": 4
+      }
+    }
+
+Значения поля "error":
+    not_found            404
+    unauthorized         401
+    forbidden            403
+    bad_request          400
+    conflict             409
+    rate_limited         429  (заголовок Retry-After)
+    replenish_required   503
+    payload_too_large    413
+    internal_error       500
+
+
+Rate limits
+--------------------------------------------------------------------------------
+Все лимиты — на минуту, фиксированное окно, ключ — IP либо account_id,
+в зависимости от эндпоинта.
+
+    /register                     5 / IP
+    /login, /login/2fa           10 / IP
+    /2fa/*                       10 / IP
+    /account/delete/*            10 / IP
+    /attachments/init            30 / account
+    /accounts/{id}/devices       30 / account
+    /accounts/{id}/devices/{n}/bundle   10 / (account, device)
+    /handles/*                   60 / account
+    /groups/by-handle/{h}        60 / account
+    /getUpdates (bot)            60 / bot
+    /accounts/{fh} (bot)         60 / bot
+
+При превышении:
+    HTTP/1.1 429 Too Many Requests
+    Retry-After: 42
+    { "error": "rate_limited", "message": "rate limited" }
+
+
+Соглашения
+--------------------------------------------------------------------------------
+- Все timestamps — unix-время в секундах (i64).
+- Все id аккаунтов/конверсаций/устройств — UUID-строки.
+- В WebSocket-протоколе UUID передаются бинарно (16 байт).
+- Пагинация — курсорная, а не offset. Курсоры описаны в каждом эндпоинте.
+- Формат полей — snake_case.
+- "…" в примерах — сокращение, не литерал.
+
+
+================================================================================
+1. AUTH
 ================================================================================
 
 --------------------------------------------------------------------------------
-1. ОБЩИЕ СВЕДЕНИЯ
+POST /api/v1/register
 --------------------------------------------------------------------------------
+Создаёт аккаунт. Пароль хешируется на сервере.
 
-1.1. Формат обмена
-    Все запросы и ответы, если не указано иное, используют JSON:
-    Content-Type: application/json
-    Accept: application/json
+Auth: нет
+Лимит: 5/IP/мин
 
-1.2. Аутентификация
-    После успешного входа клиент получает session_token. Токен передаётся
-    в заголовке каждого защищённого запроса:
+Запрос:
+    {
+      "password": "correct horse battery staple"
+    }
 
-        Authorization: Bearer <session_token>
+Ограничения пароля:
+    8..128 символов
 
-    Дополнительно клиент ОБЯЗАН передавать номер своего устройства, к
-    которому привязана сессия:
+Ответ 201:
+    {
+      "id": "<uuid>",
+      "user_id": 42,
+      "fh_number": "FH1234567",
+      "username": "User_1234567"
+    }
 
-        X-Device-Number: <device_number>
+Ошибки:
+    400 — пароль не проходит проверку длины
+    429 — rate limit
 
-    Сервер сверяет это значение с device_number, зафиксированным в сессии.
-    Несовпадение — 403 Forbidden. Заголовок опционален, но если он передан
-    и не совпадает с сессией, запрос будет отклонён.
+Пример:
+    curl -X POST http://host:8080/api/v1/register \
+         -H 'Content-Type: application/json' \
+         -d '{"password":"correct horse battery staple"}'
 
-1.3. Единый формат ошибок
-    Любая ошибка возвращается в виде:
-
-        {
-          "error": "<код>",
-          "message": "<человекочитаемое сообщение>",
-          "details": { ... }        // опционально, зависит от ошибки
-        }
-
-    Возможные значения "error":
-        not_found          — объект не найден (404)
-        unauthorized       — не аутентифицирован / неверный пароль / код (401)
-        forbidden          — нет прав (403)
-        bad_request        — некорректные данные (400)
-        conflict           — конфликт состояния (409)
-        rate_limited       — сработал лимит (429)
-        replenish_required — у получателя почти пустой пул prekey (503)
-        payload_too_large  — слишком большой объём (413)
-        internal_error     — внутренняя ошибка сервера (500)
-
-1.4. Rate limit
-    Ответы с кодом 429 содержат заголовок Retry-After — число секунд до
-    сброса окна.
-
-    Лимиты по адресу клиента:
-        POST /register                 — 5/мин (RATE_LIMIT_REGISTER_PER_MINUTE)
-        POST /login, /login/2fa        — 10/мин (RATE_LIMIT_LOGIN_PER_MINUTE)
-        POST /2fa/*                    — 10/мин
-        POST /account/delete/*         — 10/мин (общий с login)
-
-    Лимиты по аккаунту:
-        GET /handles/*, POST /handles/batch    — 60/мин
-        POST /attachments/init                 — 30/мин
-        GET /accounts/{id}/devices             — 30/мин
-        GET /accounts/{a}/devices/{d}/bundle   — 10/мин на (account, device)
-
-1.5. Периодическая переаутентификация
-    Сессия живёт SESSION_TOKEN_TTL_SECONDS (по умолчанию 30 дней).
-    WebSocket-соединение проверяет валидность сессии каждые 30 секунд.
-    Если сессия или устройство отозваны — соединение закрывается.
 
 --------------------------------------------------------------------------------
-2. РЕГИСТРАЦИЯ И ВХОД
+POST /api/v1/login
 --------------------------------------------------------------------------------
+Фаза 1 логина: пароль. Если у аккаунта включена 2FA — вернёт challenge
+вместо сессии.
 
-2.1. POST /register — регистрация
+Auth: нет
+Лимит: 10/IP/мин
 
-    Запрос:
-        POST /api/v1/register
-        Content-Type: application/json
+Запрос:
+    {
+      "fh_number": "FH1234567",
+      "password": "correct horse battery staple",
+      "device_number": 1
+    }
 
-        {
-          "password": "correct horse battery staple"
-        }
+device_number — устройство, к которому будет привязана сессия. Оно должно
+существовать (или быть "1" для аккаунта без устройств — это bootstrap-случай,
+когда регистрируется первый девайс после логина).
 
-    Требования к паролю: 8–128 символов.
+Ответ 200 — без 2FA:
+    {
+      "kind": "session",
+      "session_token": "<token>",
+      "expires_at": 1772592000
+    }
 
-    Ответ 201:
-        {
-          "id": "01923c4e-...",
-          "user_id": 42,
-          "fh_number": "FH1234567",
-          "username": "User_1234567"
-        }
+Ответ 200 — с 2FA:
+    {
+      "kind": "totp_required",
+      "challenge_token": "<token>",
+      "expires_in_seconds": 300
+    }
 
-    Ошибки:
-        400 bad_request — пароль короче 8 или длиннее 128 символов
-        429 rate_limited
+Ошибки:
+    401 — нет такого FH, неверный пароль, либо несуществующее устройство
+    429 — аккаунт залочен (per-account lockout) или IP rate limit
 
---------------------------------------------------------------------------------
-2.2. POST /login — вход (фаза 1: пароль)
+Пример:
+    curl -X POST http://host:8080/api/v1/login \
+         -H 'Content-Type: application/json' \
+         -d '{"fh_number":"FH1234567","password":"...","device_number":1}'
 
-    Запрос:
-        POST /api/v1/login
-        Content-Type: application/json
-
-        {
-          "fh_number": "FH1234567",
-          "password": "correct horse battery staple",
-          "device_number": 1
-        }
-
-    Поле device_number — номер устройства, к которому клиент хочет
-    привязать сессию. Устройство должно существовать в аккаунте, кроме
-    одного исключения: если у аккаунта ещё нет ни одного активного
-    устройства, разрешается запросить device_number = 1 для «бутстрапа»
-    первого устройства.
-
-    Ответ 200 (2FA выключена):
-        {
-          "kind": "session",
-          "session_token": "eY3...QK",
-          "expires_at": 1799999999
-        }
-
-    Ответ 200 (2FA включена):
-        {
-          "kind": "totp_required",
-          "challenge_token": "Lq3...mA",
-          "expires_in_seconds": 300
-        }
-
-    Ошибки:
-        401 unauthorized — аккаунт не найден, пароль неверен или устройство
-                           не принадлежит аккаунту
-        429 rate_limited — сработал лимит на аккаунт
 
 --------------------------------------------------------------------------------
-2.3. POST /login/2fa — вход (фаза 2: TOTP или backup-код)
+POST /api/v1/login/2fa
+--------------------------------------------------------------------------------
+Фаза 2 логина: TOTP-код или backup-код. Расходует challenge.
 
-    Запрос:
-        POST /api/v1/login/2fa
-        Content-Type: application/json
+Auth: нет
+Лимит: 10/IP/мин
 
-        {
-          "challenge_token": "Lq3...mA",
-          "code": "123456",
-          "device_number": 1
-        }
+Запрос:
+    {
+      "challenge_token": "<token из /login>",
+      "code": "123456",
+      "device_number": 1
+    }
 
-    Поле code может быть 6-значным TOTP-кодом или backup-кодом.
-    Номер устройства проверяется ДО того, как код будет списан.
+Формат code:
+    6 цифр             — TOTP
+    A-Z, 2-9 (10 симв.) — backup-код (регистр не важен, дефисы допустимы)
 
-    Ответ 200: то же, что у /login (kind = "session").
+Ответ 200:
+    {
+      "kind": "session",
+      "session_token": "<token>",
+      "expires_at": 1772592000
+    }
 
-    Ошибки:
-        401 unauthorized — challenge истёк, устройство неизвестно, код неверен
-        429 rate_limited — аккаунт заблокирован
+Ошибки:
+    401 — нет/протух challenge, неверный код, несуществующее устройство
+    429 — аккаунт залочен или IP rate limit
+
+Пример:
+    curl -X POST http://host:8080/api/v1/login/2fa \
+         -H 'Content-Type: application/json' \
+         -d '{"challenge_token":"...","code":"123456","device_number":1}'
+
 
 --------------------------------------------------------------------------------
-2.4. POST /logout — выход
+POST /api/v1/logout
+--------------------------------------------------------------------------------
+Отзывает текущую сессию.
 
-    Запрос:
-        POST /api/v1/logout
-        Authorization: Bearer <token>
-        X-Device-Number: <n>
+Auth: Bearer
+Ответ: 204
 
-    Ответ 204.
 
 --------------------------------------------------------------------------------
-2.5. GET /me — мой профиль
+GET /api/v1/me
+--------------------------------------------------------------------------------
+Информация о текущем аккаунте.
 
-    Запрос:
-        GET /api/v1/me
-        Authorization: Bearer <token>
+Auth: Bearer
 
-    Ответ 200:
-        {
-          "id": "01923c4e-...",
-          "user_id": 42,
-          "fh_number": "FH1234567",
-          "username": "Alice",
-          "avatar_url": "/avatars/01923c4e-...",
-          "totp_enabled": true,
-          "custom_status_text": "работаю",
-          "custom_status_emoji": "💻",
-          "custom_status_expires_at": 1799999999
-        }
+Ответ 200:
+    {
+      "id": "<uuid>",
+      "user_id": 42,
+      "fh_number": "FH1234567",
+      "username": "User_1234567",
+      "avatar_url": "/avatars/<uuid>",
+      "totp_enabled": true,
+      "custom_status_text": "работаю",
+      "custom_status_emoji": "💻",
+      "custom_status_expires_at": 1772600000
+    }
+
 
 --------------------------------------------------------------------------------
-3. ДВУХФАКТОРНАЯ АУТЕНТИФИКАЦИЯ (2FA / TOTP)
+2FA: ENROLL / VERIFY / DISABLE
 --------------------------------------------------------------------------------
 
-3.1. POST /2fa/enroll — начало подключения 2FA
-
-    Запрос:
-        POST /api/v1/2fa/enroll
-        Authorization: Bearer <token>
-
+POST /api/v1/2fa/enroll
+    Auth: Bearer
+    Лимит: 10/IP/мин
+    Запрос: {}
     Ответ 200:
         {
           "secret_base32": "JBSWY3DPEHPK3PXP",
           "otpauth_uri": "otpauth://totp/FH:FH1234567?secret=...&issuer=FH"
         }
-
     Ошибки:
-        409 conflict — 2FA уже включена
+        409 — 2FA уже включена
 
-3.2. POST /2fa/enroll/verify — подтверждение и включение 2FA
-
+POST /api/v1/2fa/enroll/verify
+    Auth: Bearer
+    Лимит: 10/IP/мин
     Запрос:
-        POST /api/v1/2fa/enroll/verify
-        Authorization: Bearer <token>
-
-        {
-          "code": "123456"
-        }
-
+        { "code": "123456" }
     Ответ 200:
         {
-          "backup_codes": [
-            "ABCDE12345",
-            "FGHJK67890",
-            ...     // ровно 10 кодов
-          ]
+          "backup_codes": ["ABCD2345EF","GHJK6789MN", "..."]
         }
-
-    Клиент обязан показать backup-коды пользователю и не хранить их у себя.
-
+    Важно: backup_codes показываются ОДИН РАЗ.
     Ошибки:
-        400 bad_request — нет отложенной регистрации 2FA
-        401 unauthorized — код неверен (после TOTP_MAX_ATTEMPTS попыток
-                            регистрация сбрасывается)
-        409 conflict — 2FA уже включена
+        400 — нет pending enrollment
+        401 — неверный код
+        409 — 2FA уже включена
 
-3.3. POST /2fa/disable — отключение 2FA
-
+POST /api/v1/2fa/disable
+    Auth: Bearer
+    Лимит: 10/IP/мин
     Запрос:
-        POST /api/v1/2fa/disable
-        Authorization: Bearer <token>
-
-        {
-          "password": "...",
-          "code": "123456"
-        }
-
-    Ответ 204.
-
+        { "password": "...", "code": "123456" }
+    Ответ: 204
     Ошибки:
-        401 unauthorized — неверный пароль или код
-        429 rate_limited — аккаунт заблокирован
+        401 — неверный пароль или код
+        409 — 2FA не включена
+        429 — аккаунт залочен
 
---------------------------------------------------------------------------------
-4. СЕССИИ
---------------------------------------------------------------------------------
-
-4.1. GET /sessions — список активных сессий
-
-    Запрос:
-        GET /api/v1/sessions
-        Authorization: Bearer <token>
-
-    Ответ 200:
-        [
-          {
-            "id": "...",
-            "ip_address": "203.0.113.7",
-            "user_agent": "FriendsHub/1.0 (iOS)",
-            "created_at": 1799999000,
-            "expires_at": 1802591000,
-            "revoked_at": null,
-            "is_current": true
-          }
-        ]
-
-4.2. DELETE /sessions/{id} — отозвать одну сессию
-
-    Ответ 204. 404, если сессия не ваша или не найдена.
-
-4.3. POST /sessions/revoke-all — отозвать все сессии
-
-    Ответ 200:
-        { "revoked": 5 }
-
---------------------------------------------------------------------------------
-5. УДАЛЕНИЕ АККАУНТА
---------------------------------------------------------------------------------
-
-5.1. POST /account/delete/initiate — начать процедуру
-
-    Запрос:
-        POST /api/v1/account/delete/initiate
-        Authorization: Bearer <token>
-
-    Ответ 200:
-        {
-          "confirm_after": 1799999300,
-          "confirm_until": 1799999600,
-          "confirm_after_seconds": 300,
-          "confirm_window_seconds": 300
-        }
-
-    Клиент должен показать таймер: подтверждение доступно только в интервале
-    [confirm_after, confirm_until].
-
-5.2. POST /account/delete/confirm — подтвердить удаление
-
-    Запрос:
-        POST /api/v1/account/delete/confirm
-        Authorization: Bearer <token>
-
-        {
-          "password": "...",
-          "code": "123456"        // обязательно, если 2FA включена
-        }
-
-    Ответ 204. С этого момента аккаунт, все его данные и объекты в S3
-    безвозвратно удалены.
-
-    Ошибки:
-        400 bad_request  — нет pending-записи или она отменена
-        401 unauthorized — пароль/код неверен
-        409 conflict     — ещё не пришло время подтверждения, либо окно истекло
-        429 rate_limited
-
-5.3. POST /account/delete/cancel — отменить удаление
-
-    Ответ 204.
-
-5.4. GET /account/delete/status — статус
-
-    Ответ 200:
-        {
-          "pending": true,
-          "account_id": "...",
-          "initiated_at": 1799999000,
-          "confirm_after": 1799999300,
-          "confirm_until": 1799999600
-        }
-
-    Если удаления нет:
-        {
-          "pending": false,
-          "account_id": null,
-          "initiated_at": null,
-          "confirm_after": null,
-          "confirm_until": null
-        }
-
---------------------------------------------------------------------------------
-6. ПРОФИЛЬ
---------------------------------------------------------------------------------
-
-6.1. PUT /profile/username — изменить username
-
-    Запрос:
-        PUT /api/v1/profile/username
-
-        { "username": "Alice" }
-
-    Допускаются: A–Z, a–z, 0–9, "_", "-", ".", " ". Длина 1–64.
-    Двойные пробелы запрещены.
-
-    Ответ 204.
-
-6.2. PUT /profile/status — установить статус
-
-    Запрос:
-        PUT /api/v1/profile/status
-
-        {
-          "text": "работаю",
-          "emoji": "💻",
-          "ttl_seconds": 3600
-        }
-
-    Ограничения: text ≤ 100 символов, emoji ≤ 8 символов.
-    ttl_seconds > 0 — срок жизни; иначе статус бессрочный.
-
-    Ответ 204.
-
-6.3. DELETE /profile/status — очистить статус. Ответ 204.
-
-6.4. PUT /profile/invisible — невидимый режим
-
-    Запрос:
-        PUT /api/v1/profile/invisible
-
-        { "enabled": true }
-
-    Ответ 204.
-
-6.5. GET /profile/presence-exceptions — список исключений
-
-    Ответ 200:
-        [
-          {
-            "target_account_id": "...",
-            "kind": "always_visible",
-            "created_at": 1799999000
-          }
-        ]
-
-6.6. POST /profile/presence-exceptions — добавить исключение
-
-    Запрос:
-        {
-          "target_account_id": "...",
-          "kind": "always_visible"     // или "always_invisible"
-        }
-
-    Ответ 204.
-
-6.7. POST /profile/presence-exceptions/remove — убрать исключение
-
-    Запрос — тот же. Ответ 204. 404, если правила не было.
-
-6.8. GET /accounts/{id}/profile — публичный профиль
-
-    Ответ 200:
-        {
-          "id": "...",
-          "user_id": 42,
-          "fh_number": "FH1234567",
-          "username": "Alice",
-          "avatar_url": null,
-          "custom_status_text": null,
-          "custom_status_emoji": null,
-          "custom_status_expires_at": null,
-          "is_blocked_by_me": false,
-          "is_contact": true
-        }
-
-6.9. GET /accounts/{id}/presence — presence одного аккаунта
-
-    Ответ 200:
-        {
-          "account_id": "...",
-          "is_online": true,
-          "last_seen": 1799999000,
-          "custom_status_text": "работаю",
-          "custom_status_emoji": "💻",
-          "custom_status_expires_at": 1799999999,
-          "visible": true
-        }
-
-    Если аккаунт скрыт от вас:
-        visible = false, остальные поля пустые.
-
-    Presence видна только тем, с кем у вас есть peer-разговор (direct
-    или группа). Для остальных — 404.
-
---------------------------------------------------------------------------------
-7. КОНТАКТЫ И БЛОКИРОВКИ
---------------------------------------------------------------------------------
-
-7.1. GET /contacts — список контактов
-
-    Ответ 200:
-        [
-          {
-            "target_account_id": "...",
-            "local_username": "Мама",
-            "user_id": 77,
-            "fh_number": "FH7654321",
-            "username": "Mom",
-            "avatar_url": null
-          }
-        ]
-
-7.2. POST /contacts — добавить контакт
-
-    Запрос:
-        {
-          "target_fh_number": "FH7654321",
-          "local_username": "Мама"
-        }
-
-    Ответ 201: тот же объект, что в списке.
-
-    Ошибки:
-        400 bad_request — local_username пустой/слишком длинный, добавление себя
-        404 not_found — target_fh_number не существует
-
-7.3. DELETE /contacts/{target_account_id} — удалить контакт. 204.
-
-7.4. GET /blocks — список заблокированных
-
-    Ответ 200:
-        [
-          {
-            "account_id": "...",
-            "fh_number": "...",
-            "username": "...",
-            "avatar_url": null,
-            "blocked_at": 1799999000
-          }
-        ]
-
-7.5. POST /blocks/{target_account_id} — заблокировать. 204.
-
-7.6. DELETE /blocks/{target_account_id} — разблокировать. 204.
-
---------------------------------------------------------------------------------
-8. УСТРОЙСТВА
---------------------------------------------------------------------------------
-
-8.1. GET /devices — список моих устройств
-
-    Ответ 200:
-        [
-          {
-            "id": "...",
-            "device_number": 1,
-            "name": "iPhone Алисы",
-            "registration_id": 1234,
-            "identity_key_pub": "a1b2c3...",
-            "created_at": 1799999000,
-            "last_seen_at": 1799999500
-          }
-        ]
-
-8.2. POST /devices — зарегистрировать устройство
-
-    Запрос:
-        {
-          "name": "iPhone Алисы",
-          "registration_id": 1234,
-          "identity_key_pub": "hex, 32 или 33 байта"
-        }
-
-    Ответ 201: объект DeviceItem (см. 8.1).
-
-    Ограничения:
-        registration_id — 14-битное (0..16383)
-        активных устройств на аккаунт — не больше 10 (MAX_DEVICES_PER_ACCOUNT)
-        name — 1–64 символа
-
-    Ошибки:
-        400 bad_request — невалидный hex, неверный размер ключа
-        409 conflict   — превышен лимит устройств
-
-8.3. DELETE /devices/{id} — отозвать устройство
-
-    Отозвать чужое устройство своего аккаунта можно, только если ваше
-    текущее устройство имеет device_number = 1 или создано более 3 дней
-    назад. Само себя устройство может отозвать всегда.
-
-    Ответ 204. Устройство получит по WS кадр Error с code="revoked",
-    fatal=true.
-
-8.4. GET /accounts/{account_id}/devices — устройства другого аккаунта
-
-    Содержит минимум, необходимый для сборки prekey bundle — без имён
-    и времени последнего онлайна. Видно только тем, с кем есть peer-разговор.
-
-    Ответ 200:
-        [
-          {
-            "device_number": 1,
-            "registration_id": 1234,
-            "identity_key_pub": "a1b2..."
-          }
-        ]
-
---------------------------------------------------------------------------------
-9. PREKEY BUNDLE
---------------------------------------------------------------------------------
-
-9.1. POST /devices/me/prekeys — загрузить prekey-и
-
-    Запрос:
-        {
-          "signed_prekey":      { "id": 1, "pub": "hex", "sig": "hex" },
-          "kyber_last_resort":  { "id": 1, "pub": "hex", "sig": "hex" },
-          "one_time_prekeys":        [ {"id": 1, "pub": "hex"}, ... ],
-          "kyber_one_time_prekeys":  [ {"id": 1, "pub": "hex"}, ... ]
-        }
-
-    Все поля, кроме массивов, опциональны. Массивы могут быть пустыми.
-
-    Ответ 200:
-        {
-          "one_time_inserted": 50,
-          "kyber_one_time_inserted": 50
-        }
-
-    Ограничения:
-        каждый пул (X25519 и Kyber) — не более 200 ключей на устройство
-        один size ≤ 32 МиБ не применимо — это не вложения
-
-    Ошибки:
-        400 bad_request — превышение лимита пула, невалидный hex
-
-9.2. GET /devices/me/prekeys/status — состояние пула
-
-    Ответ 200:
-        {
-          "one_time_available": 50,
-          "kyber_one_time_available": 50,
-          "has_signed_prekey": true,
-          "has_kyber_last_resort": true
-        }
-
-9.3. GET /accounts/{account_id}/devices/{n}/bundle — получить bundle
-
-    Ответ 200:
-        {
-          "account_id": "...",
-          "device_number": 1,
-          "registration_id": 1234,
-          "identity_key_pub": "hex",
-          "signed_prekey":       { "id": 1, "pub": "hex", "sig": "hex" },
-          "kyber_last_resort":   { "id": 1, "pub": "hex", "sig": "hex" },
-          "one_time_prekey":       { "id": 1, "pub": "hex" } | null,
-          "kyber_one_time_prekey": { "id": 1, "pub": "hex" } | null
-        }
-
-    Ошибки:
-        404 not_found — устройства или аккаунта нет
-        503 replenish_required — у получателя осталось ≤ 3 OTK; details:
-            {
-              "one_time_available": 3,
-              "kyber_one_time_available": 20,
-              "minimum_required": 4
-            }
-        429 rate_limited
-
---------------------------------------------------------------------------------
-10. РАЗГОВОРЫ (DIRECT / GROUP / CHANNEL)
---------------------------------------------------------------------------------
-
-10.1. GET /conversations — список разговоров
-
-    Ответ 200:
-        [
-          {
-            "id": "...",
-            "kind": "direct|group|channel",
-            "title": "Семья",
-            "member_count": 5,
-            "last_envelope_at": 1799999500,
-            "created_at": 1799000000,
-            "updated_at": 1799999500,
-            "archived_at": null,
-            "muted_until": null
-          }
-        ]
-
-    Сортировка — по последней активности (envelope или updated_at).
-
-10.2. POST /conversations/direct — создать/получить direct
-
-    Запрос:
-        { "peer_fh_number": "FH7654321" }
-
-    Ответ 201:
-        { "id": "...", "kind": "direct" }
-
-    Идентификатор детерминированный (UUID v5), повторный запрос вернёт
-    тот же id.
-
-10.3. GET /conversations/{id} — детали разговора
-
-    Ответ 200:
-        {
-          "id": "...",
-          "kind": "group",
-          "title": "Семья",
-          "created_by": "...",
-          "created_at": 1799000000,
-          "updated_at": 1799999500,
-          "members": ["...", "..."]
-        }
-
-10.4. POST /conversations/{id}/leave — покинуть. 204.
-
-10.5. POST /conversations/{id}/archive — в архив. 204.
-      DELETE /conversations/{id}/archive — из архива. 204.
-
-10.6. POST /conversations/{id}/mute — замьютить
-
-    Запрос:
-        { "duration_seconds": 3600 }   // null или отсутствие = навсегда
-
-    Ответ 204.
-
-10.7. DELETE /conversations/{id}/mute — снять мьют. 204.
-
---------------------------------------------------------------------------------
-11. ГРУППЫ
---------------------------------------------------------------------------------
-
-11.1. POST /groups — создать группу
-
-    Запрос:
-        {
-          "title": "Семья",
-          "member_ids": ["uuid-1", "uuid-2"],
-          "is_public": false,
-          "description": "Наш маленький чат"
-        }
-
-    Ответ 201:
-        {
-          "conversation_id": "...",
-          "title": "Семья",
-          "is_public": false,
-          "description": "Наш маленький чат",
-          "owner_account_id": "...",
-          "created_at": 1799999000
-        }
-
-    Ограничения: title ≤ 128 символов, description ≤ 512.
-
-11.2. GET /groups/public?limit=50 — публичные группы
-
-    Ответ 200:
-        [
-          {
-            "conversation_id": "...",
-            "title": "...",
-            "description": "...",
-            "owner_account_id": "...",
-            "created_at": ...,
-            "updated_at": ...,
-            "member_count": 12,
-            "handle": "family",
-            "handle_normalized": "family"
-          }
-        ]
-
-11.3. POST /groups/{id}/join — присоединиться к публичной. 204.
-
-11.4. GET /groups/by-handle/{handle} — найти группу по handle
-
-    Ответ 200:
-        {
-          "conversation_id": "...",
-          "title": "...",
-          "description": null,
-          "member_count": 5,
-          "already_member": false
-        }
-
-11.5. GET /groups/{id}/members — участники
-
-    Ответ 200:
-        [
-          {
-            "account_id": "...",
-            "role": "owner|admin|member",
-            "permissions": 1023,
-            "muted_until": null,
-            "joined_at": 1799000000
-          }
-        ]
-
-11.6. POST /groups/{id}/members/role — выдать роль/права
-
-    Запрос:
-        {
-          "target_account_id": "...",
-          "role": "admin",
-          "permissions": 1023
-        }
-
-    Биты разрешений (см. ALL_ADMIN_PERMS):
-        1<<0  — CHANGE_PROFILE
-        1<<1  — MANAGE_GREETINGS
-        1<<2  — DELETE_MESSAGES
-        1<<3  — BAN_USERS
-        1<<4  — MANAGE_INVITES
-        1<<5  — PIN_MESSAGES
-        1<<6  — MANAGE_VIDEO_CHATS
-        1<<7  — CHANGE_TAGS
-        1<<8  — ANONYMOUS_POST
-        1<<9  — ADD_ADMINS
-
-    Правила:
-        - владельца через этот эндпоинт не затронуть (403)
-        - админ не может выдать бит, которого у него самого нет
-        - админ не может выдать роль admin, если у него нет ADD_ADMINS
-
-    Ответ 204.
-
-11.7. POST /groups/{id}/members/mute — замьютить участника
-
-    Запрос:
-        {
-          "target_account_id": "...",
-          "muted_until": 1799999999      // null — снять мьют
-        }
-
-    Владельца мьютить нельзя. Нужен бит BAN_USERS.
-
-    Ответ 204.
-
-11.8. POST /groups/{id}/profile — установить handle группы
-
-    Запрос:  { "handle": "family" }
-    Ответ:  { "handle": "family", "handle_normalized": "family" }
-
-    Handle не должен оканчиваться на "bot". Нужно право CHANGE_PROFILE
-    или владение.
-
---------------------------------------------------------------------------------
-12. КАНАЛЫ И ПОСТЫ
---------------------------------------------------------------------------------
-
-12.1. POST /channels — создать канал
-
-    Запрос:
-        {
-          "title": "Новости",
-          "description": "Официальные обновления",
-          "is_public": false
-        }
-
-    Ответ 201:
-        {
-          "conversation_id": "...",
-          "title": "Новости",
-          "description": "Официальные обновления",
-          "owner_account_id": "...",
-          "linked_group_conversation_id": null,
-          "is_public": false,
-          "created_at": 1799999000
-        }
-
-12.2. GET /channels/{id}/members — список участников
-
-    Ответ 200:
-        [
-          {
-            "actor_type": "account|bot",
-            "actor_id": "...",
-            "role": "owner|admin|subscriber",
-            "joined_at": 1799999000
-          }
-        ]
-
-12.3. POST /channels/{id}/members/role — назначить роль
-
-    Запрос:
-        {
-          "actor_type": "account",
-          "actor_id": "...",
-          "role": "admin"            // или "subscriber"
-        }
-
-    Только владелец. Ответ 204.
-
-12.4. POST /channels/{id}/members/remove — удалить участника
-
-    Запрос: { "actor_type": "account", "actor_id": "..." }
-
-    Владельца удалить нельзя. Ответ 204.
-
-12.5. POST /channels/{id}/linked-group — привязать группу обсуждений
-
-    Запрос: { "linked_group_conversation_id": "..." }  // null — отвязать
-
-    Нужно быть участником группы. Ответ 204.
-
-12.6. POST /channels/{id}/public — сменить публичность
-
-    Запрос: { "is_public": true }. Только владелец. Ответ 204.
-
-12.7. POST /channels/{id}/profile — handle канала
-
-    Запрос: { "handle": "news" }
-    Ответ:  { "handle": "news", "handle_normalized": "news" }
-
-    Handle не должен заканчиваться на "bot". Только владелец.
-
-12.8. POST /channels/{id}/bots — добавить бота
-
-    Запрос: { "bot_id": "..." }
-
-    Только владелец; бот должен принадлежать владельцу. Ответ 204.
-
-12.9. GET /channels/{id}/can-publish — может ли текущий аккаунт постить
-
-    Ответ 200: { "can_publish": true }
-
-12.10. POST /channels/{id}/subscribe — подписаться. 204.
-       DELETE /channels/{id}/subscribe — отписаться. 204.
-
-    Владелец отписаться не может (403). Приватный канал подписчика
-    не пустит (403).
-
-12.11. GET /channels/{id}/posts?before=<ts>&limit=50 — посты
-
-    before — unix-время; вернутся посты, созданные раньше.
-    limit — 1..100 (по умолчанию 50).
-
-    Ответ 200: список PostItem (см. ниже).
-
-12.12. POST /channels/{id}/posts — опубликовать
-
-    Запрос:
-        {
-          "text": "Привет!",
-          "attachment_ids": ["...", "..."],
-          "reply_to_post_id": null,
-          "forward_from": null
-        }
-
-    Ограничения: text ≤ 4096, attachment_ids ≤ max_files_per_message,
-    forward_from ≤ 128 символов из набора [A-Za-z0-9 _ . : @ -].
-
-    Ответ 201:
-        {
-          "id": "...",
-          "channel_id": "...",
-          "author_type": "account",
-          "author_id": "...",
-          "text": "Привет!",
-          "attachment_ids": [],
-          "forward_from": null,
-          "reply_to_post_id": null,
-          "created_at": 1799999000,
-          "edited_at": null,
-          "pinned_at": null,
-          "discussion_comment_count": 0
-        }
-
-    Ошибки:
-        400 bad_request — невалидный forward_from, reply_to_post_id из другого
-                          канала, невалидные attachment_ids
-        403 forbidden — нет прав на публикацию
-
-12.13. PATCH /channel-posts/{id} — редактировать
-
-    Запрос: { "text": "..." }  Ответ 204.
-
-    Только автор-аккаунт. Боты редактируют через bot API.
-
-12.14. DELETE /channel-posts/{id} — soft delete. 204.
-
-    Автор или владелец канала.
-
-12.15. POST /channel-posts/{id}/pin — закрепить. 204.
-       DELETE /channel-posts/{id}/pin — открепить. 204.
-
-    Владелец или админ.
-
-12.16. GET /channels/{id}/pinned — закреплённые посты. 200.
-
-12.17. GET /channel-posts/{id}/reactions — реакции
-
-    Ответ 200:
-        [
-          {
-            "actor_type": "account|bot",
-            "actor_id": "...",
-            "emoji": "👍",
-            "created_at": 1799999000
-          }
-        ]
-
-12.18. POST /channel-posts/{id}/reactions — поставить реакцию
-
-    Запрос: { "emoji": "👍" }. emoji ≤ 16 символов. Ответ 204.
-
-12.19. DELETE /channel-posts/{id}/reactions — убрать свою реакцию. 204.
-
-12.20. GET /channel-posts/{id}/discussion — тред обсуждения
-
-    Ответ 200:
-        {
-          "channel_id": "...",
-          "post_id": "...",
-          "linked_group_id": "...",   // может быть null
-          "thread_id": "...",         // = post_id
-          "comment_count": 0
-        }
-
---------------------------------------------------------------------------------
-13. ВЛОЖЕНИЯ
---------------------------------------------------------------------------------
-
-13.1. POST /attachments/recommend — рекомендованный размер чанка
-
-    Запрос: { "total_size": 12345678 }
-
-    Ответ 200:
-        {
-          "chunk_size": 5242880,
-          "chunk_sizes": [5242880, 5242880, 1860898],
-          "chunk_count": 3
-        }
-
-    Ошибки:
-        413 payload_too_large — размер файла > max_file_size_mb
-
-13.2. POST /attachments/init — начать загрузку
-
-    Запрос:
-        {
-          "chunk_sizes": [5242880, 5242880, 1860898],
-          "conversation_id": "...",
-          "kind": "attachment"       // или "thumbnail"
-        }
-
-    Ограничения:
-        chunk_count ≤ 500 (MAX_CHUNKS)
-        каждый chunk ≤ 32 МиБ (MAX_CHUNK_BYTES)
-        сумма ≤ max_file_size_mb
-        вы должны быть участником указанного conversation
-
-    Ответ 201:
-        {
-          "attachment_id": "...",
-          "chunk_count": 3,
-          "total_size": 12345678,
-          "uploads": [
-            { "chunk_index": 0, "url": "https://s3.../..." },
-            { "chunk_index": 1, "url": "https://s3.../..." },
-            { "chunk_index": 2, "url": "https://s3.../..." }
-          ]
-        }
-
-    Клиент должен сделать PUT на каждый URL с телом соответствующего чанка.
-    Content-Length должен точно совпадать с заявленным размером чанка.
-
-    Ошибки:
-        400 bad_request
-        413 payload_too_large
-        429 rate_limited (30/мин)
-
-13.3. POST /attachments/{id}/finalize — финализировать
-
-    Сервер проверит через HEAD реальный размер каждого чанка в S3, затем
-    скачает его, чтобы убедиться, что он читается. При успехе вложение
-    становится is_ready = 1 и uploader получает claim.
-
-    Ответ 204.
-
-    Ошибки:
-        400 bad_request — размер не совпадает, чанк отсутствует
-        403 forbidden   — вы не загрузивший
-        409 conflict    — уже финализировано
-
-13.4. POST /attachments/{id}/claim — добавить claim
-
-    Используется при пересылке или получении. Ответ 204.
-
-13.5. POST /attachments/{id}/release — снять claim
-
-    Если это был последний claim — S3-объекты удаляются, запись вложения
-    тоже. Ответ 204.
-
-13.6. GET /attachments/{id} — получить presigned GET URL-ы
-
-    Ответ 200:
-        {
-          "attachment_id": "...",
-          "total_size": 12345678,
-          "chunk_count": 3,
-          "chunks": [
-            { "chunk_index": 0, "size_bytes": 5242880, "url": "..." },
-            ...
-          ]
-        }
-
-    Доступ: только участники разговора, в который было загружено вложение
-    (или сам загрузивший, если conversation_id отсутствует).
-
---------------------------------------------------------------------------------
-14. АВАТАРЫ
---------------------------------------------------------------------------------
-
-14.1. POST /avatars/me — загрузить аватар
-
-    Запрос:
-        POST /api/v1/avatars/me
-        Content-Type: image/webp
-        Authorization: Bearer <token>
-
-        <бинарное тело — WebP, ≤ 5 МиБ>
-
-    Ответ 200:
-        {
-          "avatar_url": "/avatars/01923c4e-..."
-        }
-
-    Ошибки:
-        400 bad_request — Content-Type не image/webp или плохие magic-байты
-        413 payload_too_large
-
-14.2. DELETE /avatars/me — удалить. 204.
-
-14.3. GET /avatars/{account_id} — получить аватар
-
-    Ответ 200: бинарный WebP, Cache-Control: public, max-age=86400.
-
---------------------------------------------------------------------------------
-15. БОТЫ (СО СТОРОНЫ ВЛАДЕЛЬЦА)
---------------------------------------------------------------------------------
-
-15.1. POST /bots — создать бота
-
-    Ответ 201:
-        {
-          "bot_id": "...",
-          "token": "fhbot_...",     // показывается РОВНО ОДИН РАЗ
-          "token_prefix": "fhbot_0123456789"
-        }
-
-    Ограничения: не более 20 ботов на аккаунт.
-
-    Ошибки:
-        409 conflict — превышен лимит
-
-15.2. GET /bots — список моих ботов
-
-    Ответ 200:
-        [
-          {
-            "id": "...",
-            "token_prefix": "fhbot_0123456789",
-            "created_at": 1799999000,
-            "updated_at": 1799999000,
-            "handle": "mybot"
-          }
-        ]
-
-15.3. POST /bots/{id}/profile — установить handle
-
-    Запрос: { "handle": "mybot" }
-
-    Handle должен оканчиваться на "bot" (регистронезависимо).
-
-    Ответ 200:
-        { "handle": "mybot", "handle_normalized": "mybot" }
-
-    Ошибки:
-        400 bad_request — handle не заканчивается на "bot"
-        409 conflict   — handle занят
-
-15.4. POST /bots/{id}/rotate-token — перевыпустить токен
-
-    Ответ 200: { "token": "fhbot_..." }
-
-    Старый токен немедленно становится недействительным.
-
-15.5. DELETE /bots/{id} — удалить бота. 204.
-
---------------------------------------------------------------------------------
-16. USER BOTS (ВЗАИМОДЕЙСТВИЕ С БОТАМИ)
---------------------------------------------------------------------------------
-
-16.1. GET /user/bots — список ботов, с которыми я общался
-
-    Ответ 200:
-        [
-          {
-            "bot_id": "...",
-            "handle": "mybot",
-            "token_prefix": "fhbot_0123456789",
-            "created_at": 1799999000,
-            "has_webhook": false
-          }
-        ]
-
-16.2. GET /bots/{id}/info — публичная информация о боте
-
-    Ответ 200:
-        {
-          "bot_id": "...",
-          "owner_account_id": "...",
-          "handle": "mybot",
-          "created_at": 1799999000
-        }
-
-16.3. GET /bots/{id}/messages — история переписки
-
-    Ответ 200:
-        [
-          {
-            "id": "...",
-            "bot_id": "...",
-            "sender_account_id": "...",
-            "direction": "to_bot|from_bot",
-            "text": "привет",
-            "reply_to_id": null,
-            "created_at": 1799999000
-          }
-        ]
-
-    Лимит: 200 последних сообщений.
-
-16.4. POST /bots/{id}/messages — отправить сообщение боту
-
-    Запрос:
-        {
-          "text": "привет",
-          "reply_to_message_id": null
-        }
-
-    Ответ 201: объект BotMessageItem.
-
-    Ошибки:
-        409 conflict — очередь бота переполнена (MAX_PENDING_PER_BOT = 10000);
-                       владелец бота должен разгрести или удалить updates
-
---------------------------------------------------------------------------------
-17. ПРИГЛАШЕНИЯ
---------------------------------------------------------------------------------
-
-17.1. GET /conversations/{id}/invites — список приглашений
-
-    Ответ 200:
-        [
-          {
-            "id": "...",
-            "token": "abc...xyz",
-            "kind": "permanent|one_time",
-            "used_count": 3,
-            "max_uses": null,
-            "created_at": 1799999000
-          }
-        ]
-
-17.2. POST /conversations/{id}/invites — создать приглашение
-
-    Запрос:
-        { "kind": "permanent" }    // или "one_time"
-
-    Ответ 201: объект InviteResponse.
-
-    Не работает для direct-разговоров (400 bad_request).
-    Для каналов требуется роль owner/admin.
-
-    Ошибки:
-        400 bad_request — direct-разговор
-        403 forbidden   — недостаточно прав в канале/группе
-
-17.3. DELETE /invites/{id} — отозвать. 204.
-
-17.4. POST /invites/join/{token} — присоединиться по токену
-
-    Ответ 200: { "conversation_id": "..." }
-
-    Работает ТОЛЬКО для групп (не для каналов и не для direct).
-
-    Ошибки:
-        400 bad_request — не группа
-        404 not_found   — токен неизвестен
-        409 conflict    — приглашение исчерпано
-
---------------------------------------------------------------------------------
-18. ХЕНДЛЫ
---------------------------------------------------------------------------------
-
-18.1. GET /handles/{handle} — резолв хендла
-
-    Ответ 200:
-        {
-          "entity_type": "group|channel|bot",
-          "entity_id": "...",
-          "handle_display": "Family",
-          "handle_normalized": "family"
-        }
-
-    Лимит: 60/мин на аккаунт.
-
-18.2. POST /handles/batch — пакетный резолв
-
-    Запрос:
-        {
-          "handles": ["family", "news", "mybot"]
-        }
-
-    Ответ 200:
-        {
-          "items": [
-            {
-              "handle_input": "family",
-              "normalized": "family",
-              "found": true,
-              "entity_type": "group",
-              "entity_id": "...",
-              "handle_display": "Family",
-              "handle_normalized": "family"
-            },
-            {
-              "handle_input": "unknown",
-              "normalized": "unknown",
-              "found": false,
-              "entity_type": null,
-              "entity_id": null,
-              "handle_display": null,
-              "handle_normalized": null
-            }
-          ]
-        }
-
-    Лимит: не более 200 хендлов на запрос, 60 запросов/мин.
-
-18.3. GET /handles/{handle}/available — проверка доступности
-
-    Ответ 200:
-        {
-          "handle": "family",
-          "normalized": "family",
-          "available": true,
-          "handle_kind": "regular"     // "bot" | "regular"
-        }
-
-    handle_kind:
-        "bot"     — только боты могут взять (оканчивается на "bot")
-        "regular" — только группы и каналы
-
---------------------------------------------------------------------------------
-19. ЗВОНКИ
---------------------------------------------------------------------------------
-
-19.1. GET /calls?peer_account_id=&limit=50 — история
-
-    Ответ 200:
-        [
-          {
-            "id": "...",
-            "peer_account_id": "...",
-            "direction": "incoming|outgoing",
-            "status": "completed|missed|rejected|cancelled|failed",
-            "started_at": 1799999000,
-            "ended_at": 1799999030
-          }
-        ]
-
-    limit: 1..200.
-
-19.2. POST /calls — записать звонок
-
-    Запрос:
-        {
-          "peer_account_id": "...",
-          "direction": "outgoing",
-          "status": "completed",
-          "started_at": 1799999000,
-          "ended_at": 1799999030
-        }
-
-    Ответ 201: объект записи.
-
-    Ошибки:
-        400 bad_request — некорректная direction/status, звонок себе,
-                          время в будущем, ended_at < started_at
-
-19.3. POST /calls/clear — очистить всю историю. 204.
-
-19.4. DELETE /calls/{id} — удалить одну запись. 204.
-
---------------------------------------------------------------------------------
-20. WEBRTC ICE
---------------------------------------------------------------------------------
-
-20.1. GET /webrtc/ice-servers
-
-    Ответ 200:
-        {
-          "ice_servers": [
-            {
-              "urls": ["stun:stun.example.com:3478"]
-            },
-            {
-              "urls": ["turn:turn.example.com:3478"],
-              "username": "1799999999:01923c4e-...",
-              "credential": "base64hmac=="
-            }
-          ],
-          "ttl_seconds": 3600
-        }
-
-    Клиент должен обновлять список до истечения ttl_seconds.
-
---------------------------------------------------------------------------------
-21. HEALTH
---------------------------------------------------------------------------------
-
-21.1. GET /health  (без префикса /api/v1, монтируется в корне)
-
-    Ответ 200 (или 503, если БД недоступна):
-        {
-          "status": "ok|degraded",
-          "version": "0.1.0",
-          "uptime_secs": 3600,
-          "database": "ok|down",
-          "timestamp": 1799999000
-        }
-
---------------------------------------------------------------------------------
-22. WEBSOCKET
---------------------------------------------------------------------------------
-
-22.1. Подключение
-
-    URL:  ws(s)://<host>/ws
-    Протокол: бинарные кадры, protobuf (схема — fh.proto)
-    Максимальный размер кадра/сообщения — 256 КиБ
-
-22.2. Порядок работы
-
-    A. Клиент открывает соединение и в течение 10 секунд отправляет
-       кадр ClientHello:
-           {
-             "session_token": "...",
-             "device_number": 1,
-             "client_name": "FriendsHub iOS/1.0"
-           }
-
-       Сервер проверяет:
-         - session_token существует и не отозван
-         - device_number совпадает с device_number сессии
-         - устройство существует и активно
-         - protocol_major совпадает с серверным (0)
-
-    B. Сервер отвечает ServerHello:
-           {
-             "session_id": "...",
-             "account_id": "...",
-             "device_number": 1,
-             "server_timestamp": 1799999000,
-             "protocol_major": 0,
-             "protocol_minor": 1,
-             "protocol_patch": 0
-           }
-
-    C. Сервер отправляет недоставленные конверты (до 500 штук):
-           { "delivery": { "envelopes": [ ... ] } }
-
-    D. Дальнейший обмен:
-       - Client → Server: Upload, Ack, Ping
-       - Server → Client: Delivery, Receipt, Pong, Presence, Error,
-                          BotMessage, ChannelPost
-
-22.3. Ограничения кадра Upload
-
-    - не более 128 конвертов в одном Upload
-    - ciphertext одного конверта ≤ 64 КиБ
-    - envelope_type — 1..17
-    - sender_account_id обязан совпадать с account_id отправителя
-    - получатель и получающее устройство должны существовать
-    - при блокировке в любую сторону конверт дропается
-
-    Кадр Receipt приходит с массивом envelope_id, успешно сохранённых.
-
-22.4. Контроль потока
-
-    - 100 кадров/сек — мягкий предел; 5 секунд подряд выше — разрыв
-    - 30 сек интервал переаутентификации: если сессия или устройство
-      отозвано — fatal-ошибка и закрытие
-    - ошибка с fatal=true даёт серверу 150 мс на отправку перед закрытием
-
-22.5. Коды ошибок в кадре Error
-
-    unauthorized     — невалидная сессия
-    device_mismatch  — Hello.device_number ≠ сессия
-    replaced         — подключилось другое устройство с тем же номером
-    session_revoked  — сессия отозвана
-    device_revoked   — устройство отозвано
-    account_deleted  — аккаунт удалён
-    prekeys_low      — заканчиваются prekey (fatal=false)
-    flood            — слишком много кадров
-    protocol         — несовпадение major-версии
-    decode           — ошибка разбора protobuf
-    dispatch         — ошибка обработчика
 
 ================================================================================
-КОНЕЦ ДОКУМЕНТА
+2. ACCOUNT (УДАЛЕНИЕ)
+================================================================================
+
+Двухфазное удаление:
+  Фаза 1 — initiate:  создаётся pending-запись.
+  Фаза 2 — confirm:   через 5 минут и в течение 5 минут после этого —
+                      повторная аутентификация (пароль + 2FA) и hard-delete.
+  cancel: отменяет на любом этапе до confirm.
+
+--------------------------------------------------------------------------------
+POST /api/v1/account/delete/initiate
+--------------------------------------------------------------------------------
+Auth: Bearer
+Лимит: 10/IP/мин
+
+Запрос: {}
+
+Ответ 200:
+    {
+      "confirm_after": 1770000300,
+      "confirm_until": 1770000600,
+      "confirm_after_seconds": 300,
+      "confirm_window_seconds": 300
+    }
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/account/delete/confirm
+--------------------------------------------------------------------------------
+Auth: Bearer
+Лимит: 10/IP/мин
+
+Запрос:
+    {
+      "password": "...",
+      "code": "123456"     // обязателен, если 2FA включена
+    }
+
+Ответ: 204 (аккаунт удалён)
+
+Ошибки:
+    400 — нет pending-записи, отменена, рано или окно истекло
+    401 — неверный пароль/код
+    409 — окно ещё не открылось / уже закрылось
+    429 — залочен
+
+Пример:
+    curl -X POST http://host:8080/api/v1/account/delete/confirm \
+         -H "Authorization: Bearer $T" \
+         -H 'Content-Type: application/json' \
+         -d '{"password":"...","code":"123456"}'
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/account/delete/cancel
+--------------------------------------------------------------------------------
+Auth: Bearer
+Ответ: 204
+Ошибки: 404 — нет pending-записи
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/account/delete/status
+--------------------------------------------------------------------------------
+Auth: Bearer
+
+Ответ 200 (есть pending):
+    {
+      "pending": true,
+      "account_id": "<uuid>",
+      "initiated_at": 1770000000,
+      "confirm_after": 1770000300,
+      "confirm_until": 1770000600
+    }
+
+Ответ 200 (нет):
+    { "pending": false, "account_id": null, "initiated_at": null,
+      "confirm_after": null, "confirm_until": null }
+
+
+================================================================================
+3. SESSIONS
+================================================================================
+
+--------------------------------------------------------------------------------
+GET /api/v1/sessions
+--------------------------------------------------------------------------------
+Список активных сессий аккаунта.
+
+Auth: Bearer
+
+Ответ 200:
+    [
+      {
+        "id": "<uuid>",
+        "ip_address": "203.0.113.7",
+        "user_agent": "Mozilla/5.0 …",
+        "created_at": 1770000000,
+        "expires_at": 1772592000,
+        "revoked_at": null,
+        "is_current": true
+      },
+      { "id": "...", "is_current": false, "…": "…" }
+    ]
+
+
+--------------------------------------------------------------------------------
+DELETE /api/v1/sessions/{id}
+--------------------------------------------------------------------------------
+Отзывает одну сессию (свою).
+
+Auth: Bearer
+Ответ: 204
+Ошибки: 404 — не твоя или не существует
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/sessions/revoke-all
+--------------------------------------------------------------------------------
+Отзывает все сессии аккаунта, включая текущую.
+
+Auth: Bearer
+Ответ 200:
+    { "revoked": 3 }
+
+
+================================================================================
+4. PROFILE
+================================================================================
+
+--------------------------------------------------------------------------------
+PUT /api/v1/profile/username
+--------------------------------------------------------------------------------
+Меняет отображаемое имя.
+
+Auth: Bearer
+
+Запрос:
+    { "username": "John Doe" }
+
+Правила:
+    1..64 символов, только [A-Za-z0-9_. ] и одиночные пробелы.
+
+Ответ: 204
+Ошибки: 400 — недопустимые символы / слишком длинный
+
+
+--------------------------------------------------------------------------------
+PUT /api/v1/profile/status
+--------------------------------------------------------------------------------
+Устанавливает кастомный статус.
+
+Auth: Bearer
+
+Запрос:
+    {
+      "text": "работаю",
+      "emoji": "💻",
+      "ttl_seconds": 3600
+    }
+
+Поля:
+    text         — до 100 символов, опционально
+    emoji        — до 8 символов, опционально
+    ttl_seconds  — >0, опционально. Без него — бессрочно.
+                   0 или отрицательное — 400.
+
+Ответ: 204
+Побочный эффект: presence broadcast всем, кто тебя видит.
+
+
+--------------------------------------------------------------------------------
+DELETE /api/v1/profile/status
+--------------------------------------------------------------------------------
+Сбрасывает кастомный статус.
+Ответ: 204
+
+
+--------------------------------------------------------------------------------
+PUT /api/v1/profile/invisible
+--------------------------------------------------------------------------------
+Включает/выключает невидимку.
+
+Запрос:
+    { "enabled": true }
+Ответ: 204
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/profile/presence-exceptions
+--------------------------------------------------------------------------------
+Список исключений (кому видно/не видно твой presence).
+
+Ответ 200:
+    [
+      { "target_account_id": "<uuid>", "kind": "always_visible", "created_at": 1770000000 },
+      { "target_account_id": "<uuid>", "kind": "always_invisible", "created_at": 1770000100 }
+    ]
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/profile/presence-exceptions
+--------------------------------------------------------------------------------
+Добавляет исключение.
+
+Запрос:
+    { "target_account_id": "<uuid>", "kind": "always_visible" }
+
+kind: "always_visible" | "always_invisible"
+Ответ: 204
+Ошибки: 400 — неверный kind, себя нельзя
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/profile/presence-exceptions/remove
+--------------------------------------------------------------------------------
+Убирает исключение.
+
+Запрос:
+    { "target_account_id": "<uuid>", "kind": "always_visible" }
+
+Ответ: 204
+Ошибки: 404 — нет такого
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/accounts/{id}/profile
+--------------------------------------------------------------------------------
+Публичный профиль другого аккаунта.
+
+Auth: Bearer
+
+Ответ 200:
+    {
+      "id": "<uuid>",
+      "user_id": 42,
+      "fh_number": "FH1234567",
+      "username": "User_1234567",
+      "avatar_url": "/avatars/<uuid>",
+      "custom_status_text": "работаю",
+      "custom_status_emoji": "💻",
+      "custom_status_expires_at": 1772600000,
+      "is_blocked_by_me": false,
+      "is_contact": true
+    }
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/accounts/{id}/presence
+--------------------------------------------------------------------------------
+Presence одного аккаунта (одноразовый fetch; live — через WS).
+
+Auth: Bearer
+
+Ограничение: доступно только если есть общая peer-конверсация (direct или
+group), либо это ты сам. Иначе 404.
+
+Ответ 200:
+    {
+      "account_id": "<uuid>",
+      "is_online": true,
+      "last_seen": 1770000000,
+      "custom_status_text": "работаю",
+      "custom_status_emoji": "💻",
+      "custom_status_expires_at": 1772600000,
+      "visible": true
+    }
+
+Если invisible_mode скрывает тебя от этого viewer'а:
+    { "…": "…", "is_online": false, "last_seen": null,
+      "custom_status_text": null, "visible": false }
+
+
+================================================================================
+5. CONTACTS И BLOCKS
+================================================================================
+
+--------------------------------------------------------------------------------
+GET /api/v1/contacts
+--------------------------------------------------------------------------------
+Ответ 200:
+    [
+      {
+        "target_account_id": "<uuid>",
+        "local_username": "мама",
+        "user_id": 43,
+        "fh_number": "FH9876543",
+        "username": "User_9876543",
+        "avatar_url": "/avatars/<uuid>"
+      }
+    ]
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/contacts
+--------------------------------------------------------------------------------
+Добавляет в контакты (или обновляет local_username).
+
+Запрос:
+    {
+      "target_fh_number": "FH9876543",
+      "local_username": "мама"
+    }
+
+Ограничения local_username: 1..64 символов.
+Ответ 201:
+    {
+      "target_account_id": "<uuid>",
+      "local_username": "мама",
+      "user_id": 43,
+      "fh_number": "FH9876543",
+      "username": "User_9876543",
+      "avatar_url": "/avatars/<uuid>"
+    }
+Ошибки:
+    400 — неверные поля, попытка добавить себя
+    404 — нет такого FH
+
+
+--------------------------------------------------------------------------------
+DELETE /api/v1/contacts/{target_account_id}
+--------------------------------------------------------------------------------
+Ответ: 204
+Ошибки: 404
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/blocks
+--------------------------------------------------------------------------------
+Список заблокированных.
+
+Ответ 200:
+    [
+      {
+        "account_id": "<uuid>",
+        "fh_number": "FH9876543",
+        "username": "User_9876543",
+        "avatar_url": "/avatars/<uuid>",
+        "blocked_at": 1770000000
+      }
+    ]
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/blocks/{target_account_id}
+--------------------------------------------------------------------------------
+Блокирует.
+
+Ответ: 204
+Ошибки: 400 — себя нельзя
+
+
+--------------------------------------------------------------------------------
+DELETE /api/v1/blocks/{target_account_id}
+--------------------------------------------------------------------------------
+Разблокирует.
+Ответ: 204
+Ошибки: 404
+
+
+================================================================================
+6. PRESENCE
+================================================================================
+REST-эндпоинт — см. "GET /api/v1/accounts/{id}/presence" в разделе 4.
+Live-обновления приходят через WebSocket (см. раздел 23).
+
+
+================================================================================
+7. DEVICES
+================================================================================
+
+--------------------------------------------------------------------------------
+GET /api/v1/devices
+--------------------------------------------------------------------------------
+Список СВОИХ активных устройств.
+
+Auth: Bearer
+
+Ответ 200:
+    [
+      {
+        "id": "<uuid>",
+        "device_number": 1,
+        "name": "Pixel 8",
+        "registration_id": 12345,
+        "identity_key_pub": "<hex>",
+        "created_at": 1770000000,
+        "last_seen_at": 1770000500
+      }
+    ]
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/devices
+--------------------------------------------------------------------------------
+Регистрирует новое устройство.
+
+Auth: Bearer
+
+Запрос:
+    {
+      "name": "Pixel 8",
+      "registration_id": 12345,
+      "identity_key_pub": "<hex>"
+    }
+
+Ограничения:
+    name              1..64 символов
+    registration_id   0..16383 (14-битное)
+    identity_key_pub  32 или 33 байта в hex (64 или 66 hex-символов)
+
+Ответ 201:
+    {
+      "id": "<uuid>",
+      "device_number": 2,
+      "name": "Pixel 8",
+      "registration_id": 12345,
+      "identity_key_pub": "<hex>",
+      "created_at": 1770000000,
+      "last_seen_at": null
+    }
+
+Ошибки:
+    400 — bad fields
+    409 — лимит устройств (10 активных на аккаунт)
+
+
+--------------------------------------------------------------------------------
+DELETE /api/v1/devices/{device_id}
+--------------------------------------------------------------------------------
+Отзывает устройство (своё).
+
+Правило: отозвать чужое устройство можно, только если твоё устройство
+device_number == 1 ИЛИ старше 3 суток. Иначе 403.
+
+Ответ: 204
+Побочный эффект: WS этого девайса получает ErrorFrame { code:"revoked", fatal:true }
+и соединение закрывается. Все сессии девайса становятся недействительны.
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/accounts/{account_id}/devices
+--------------------------------------------------------------------------------
+Список устройств ДРУГОГО аккаунта — минимальные данные для prekey bundle.
+
+Auth: Bearer
+Лимит: 30/account/мин
+
+Ограничение: доступно только если есть общая peer-конверсация.
+
+Ответ 200:
+    [
+      {
+        "device_number": 1,
+        "registration_id": 12345,
+        "identity_key_pub": "<hex>"
+      }
+    ]
+
+Ошибки: 404 — нет аккаунта или нет общей конверсации
+
+
+================================================================================
+8. PREKEYS
+================================================================================
+
+--------------------------------------------------------------------------------
+POST /api/v1/devices/me/prekeys
+--------------------------------------------------------------------------------
+Загружает signed prekey, kyber last-resort и one-time prekeys для СВОЕГО
+устройства.
+
+Auth: Bearer
+
+Запрос:
+    {
+      "signed_prekey": {
+        "id": 42,
+        "pub": "<hex>",
+        "sig": "<hex>"
+      },
+      "kyber_last_resort": {
+        "id": 43,
+        "pub": "<hex>",
+        "sig": "<hex>"
+      },
+      "one_time_prekeys": [
+        { "id": 100, "pub": "<hex>" },
+        { "id": 101, "pub": "<hex>" }
+      ],
+      "kyber_one_time_prekeys": [
+        { "id": 200, "pub": "<hex>" }
+      ]
+    }
+
+Все поля, кроме signed_prekey/kyber_last_resort, опциональны.
+Лимит на пул: 200 unconsumed ключей каждого вида на устройство.
+
+Ответ 200:
+    {
+      "one_time_inserted": 2,
+      "kyber_one_time_inserted": 1
+    }
+
+Ошибки:
+    400 — превышение лимита, невалидный hex
+    401 — нет device этого номера
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/devices/me/prekeys/status
+--------------------------------------------------------------------------------
+Ответ 200:
+    {
+      "one_time_available": 87,
+      "kyber_one_time_available": 42,
+      "has_signed_prekey": true,
+      "has_kyber_last_resort": true
+    }
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/accounts/{account_id}/devices/{device_number}/bundle
+--------------------------------------------------------------------------------
+Получить bundle для установления сессии с чужим устройством.
+
+Auth: Bearer
+Лимит: 10/(account,device)/мин
+
+Каждый вызов расходует одну OTK из пула целевого устройства.
+
+Ответ 200:
+    {
+      "account_id": "<uuid>",
+      "device_number": 1,
+      "registration_id": 12345,
+      "identity_key_pub": "<hex>",
+      "signed_prekey": { "id": 42, "pub": "<hex>", "sig": "<hex>" },
+      "kyber_last_resort": { "id": 43, "pub": "<hex>", "sig": "<hex>" },
+      "one_time_prekey":       { "id": 100, "pub": "<hex>" } | null,
+      "kyber_one_time_prekey": { "id": 200, "pub": "<hex>" } | null
+    }
+
+Если OTK-пул у цели <= 3 (MIN_OTK_BEFORE_REPLENISH):
+    HTTP 503
+    {
+      "error": "replenish_required",
+      "message": "prekey pool needs replenishing",
+      "details": {
+        "one_time_available": 2,
+        "kyber_one_time_available": 5,
+        "minimum_required": 4
+      }
+    }
+
+Ошибки: 404 — нет такого устройства
+
+
+================================================================================
+9. CONVERSATIONS
+================================================================================
+
+--------------------------------------------------------------------------------
+GET /api/v1/conversations
+--------------------------------------------------------------------------------
+Список конверсаций, отсортированных по последней активности.
+
+Auth: Bearer
+
+Ответ 200:
+    [
+      {
+        "id": "<uuid>",
+        "kind": "direct" | "group" | "channel" | "saved",
+        "title": "Мама" | null,
+        "member_count": 2,
+        "last_envelope_at": 1770000000,
+        "created_at": 1769999000,
+        "updated_at": 1770000000,
+        "archived_at": null,
+        "muted_until": null
+      }
+    ]
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/conversations/direct
+--------------------------------------------------------------------------------
+Создать (или получить существующую) direct-конверсацию с аккаунтом.
+
+Запрос:
+    { "peer_fh_number": "FH9876543" }
+
+Ответ 201:
+    { "id": "<uuid>", "kind": "direct" }
+
+Ошибки:
+    400 — попытка создать с собой
+    404 — нет такого FH
+
+Идемпотентно: повторный вызов с тем же peer вернёт тот же id.
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/conversations/{id}
+--------------------------------------------------------------------------------
+Auth: Bearer
+
+Ответ 200:
+    {
+      "id": "<uuid>",
+      "kind": "group",
+      "title": "Работа",
+      "created_by": "<uuid>",
+      "created_at": 1770000000,
+      "updated_at": 1770000000,
+      "members": ["<uuid>", "<uuid>"]
+    }
+
+Ошибки: 404 — нет или не твоя
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/conversations/{id}/leave
+--------------------------------------------------------------------------------
+Auth: Bearer
+Ответ: 204
+Ошибки: 404
+
+
+--------------------------------------------------------------------------------
+POST   /api/v1/conversations/{id}/archive
+DELETE /api/v1/conversations/{id}/archive
+--------------------------------------------------------------------------------
+Ответ: 204
+Ошибки: 404 — нет или ты не участник
+
+
+--------------------------------------------------------------------------------
+POST   /api/v1/conversations/{id}/mute
+DELETE /api/v1/conversations/{id}/mute
+--------------------------------------------------------------------------------
+POST /mute запрос:
+    { "duration_seconds": 3600 }    // null / отсутствует = навсегда
+                                    // 0 или отрицательное — 400
+
+Ответ: 204
+Ошибки: 400, 404
+
+
+================================================================================
+10. SAVED MESSAGES
+================================================================================
+
+--------------------------------------------------------------------------------
+GET /api/v1/saved
+--------------------------------------------------------------------------------
+Idempotent: создаёт при первом вызове, возвращает id.
+
+Auth: Bearer
+
+Ответ 200:
+    {
+      "conversation_id": "<uuid>",
+      "kind": "saved",
+      "created_at": 1770000000
+    }
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/saved/messages
+--------------------------------------------------------------------------------
+История saved-конверсации для ТЕКУЩЕГО устройства.
+
+Auth: Bearer
+
+Query:
+    before  (i64)  — курсор server_timestamp (см. ответ)
+    limit   (i64)  — 1..500, дефолт 100
+
+Ответ 200:
+    {
+      "envelopes": [
+        {
+          "envelope_id": "<uuid>",
+          "sender_account_id": "<uuid>",
+          "sender_device_number": 1,
+          "recipient_device_number": 2,
+          "envelope_type": 1,
+          "is_prekey_message": false,
+          "ciphertext": "<hex>",
+          "client_timestamp": 1770000000,
+          "server_timestamp": 1770000005
+        }
+      ]
+    }
+
+Порядок — server_timestamp DESC.
+Пагинация: before = server_timestamp последнего элемента страницы.
+
+Ошибки:
+    404 — saved ещё не создан (не вызывали GET /saved)
+
+
+Отправка сообщений в saved
+--------------------------------------------------------------------------------
+Через WebSocket, обычным EnvelopeUpload. См. раздел 23 "Отправка сообщений".
+
+Ключевые моменты:
+  - каждый envelope адресован ОДНОМУ своему устройству
+  - recipient_account_id = свой аккаунт
+  - recipient_device_number = номер целевого устройства
+  - conversation_id = id из GET /saved
+  - на все свои устройства, КРОМЕ текущего
+
+Envelope'ы saved НЕ удаляются TTL-очисткой.
+
+
+================================================================================
+11. ATTACHMENTS
+================================================================================
+
+Флоу:
+  1. POST /attachments/recommend   — узнать оптимальный размер чанка
+  2. POST /attachments/init        — получить presigned PUT URL'ы
+  3. PUT по каждому URL            — залить чанки напрямую в S3
+  4. POST /attachments/{id}/finalize — сервер проверит и сделает "ready"
+  5. Отдать attachment_id в сообщении
+  6. Получатель: POST /attachments/{id}/claim — взять ссылку на blob
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/attachments/recommend
+--------------------------------------------------------------------------------
+Auth: Bearer
+
+Запрос:
+    { "total_size": 15728640 }
+
+Ответ 200:
+    {
+      "chunk_size": 3932160,
+      "chunk_count": 4,
+      "chunk_sizes": [3932160, 3932160, 3932160, 3932160]
+    }
+
+Ошибки:
+    413 — total_size больше ATTACHMENT_MAX_FILE_SIZE_MB
+    400 — слишком много чанков (>500)
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/attachments/init
+--------------------------------------------------------------------------------
+Auth: Bearer
+Лимит: 30/account/мин
+
+Запрос:
+    {
+      "chunk_sizes": [3932160, 3932160, 3932160, 3932160],
+      "conversation_id": "<uuid>",
+      "kind": "attachment"          // "attachment" | "thumbnail", дефолт "attachment"
+    }
+
+Ограничения:
+    - сумма chunk_sizes <= ATTACHMENT_MAX_FILE_SIZE_MB
+    - каждый чанк <= 32 MiB (MAX_CHUNK_BYTES)
+    - chunk_sizes.len() <= 500
+    - ты должен быть участником conversation_id
+
+Ответ 201:
+    {
+      "attachment_id": "<uuid>",
+      "chunk_count": 4,
+      "total_size": 15728640,
+      "uploads": [
+        { "chunk_index": 0, "url": "https://s3.../presigned-put" },
+        { "chunk_index": 1, "url": "https://s3.../presigned-put" },
+        { "chunk_index": 2, "url": "https://s3.../presigned-put" },
+        { "chunk_index": 3, "url": "https://s3.../presigned-put" }
+      ]
+    }
+
+Ошибки:
+    400 — пустые chunk_sizes, неверный kind, чанк слишком большой
+    404 — нет такой конверсации или ты не участник
+    413 — суммарный размер больше лимита
+    429 — rate limit
+
+URL'ы живут 15 минут (PUT_TTL_SECS).
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/attachments/{id}/finalize
+--------------------------------------------------------------------------------
+После загрузки всех чанков — вызвать, чтобы сервер проверил и пометил как
+ready. Сервер делает HEAD каждого объекта, сверяет размер, и (если чанк
+<=32 MiB) читает его целиком.
+
+Auth: Bearer
+
+Ответ: 204
+Ошибки:
+    403 — не твоя аттач
+    400 — размер не совпал, чанк отсутствует, чанк слишком большой
+    409 — уже finalized
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/attachments/{id}/claim
+--------------------------------------------------------------------------------
+Получатель (или форвардер) берёт claim на аттач.
+
+Auth: Bearer
+Доступ: ты должен быть участником conversation_id аттача (или его
+uploader, если conversation_id == NULL для старых аттачей).
+
+Ответ: 204
+Ошибки:
+    400 — аттач не finalized
+    404 — аттач не существует или нет доступа
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/attachments/{id}/release
+--------------------------------------------------------------------------------
+Освобождает свой claim. Если это был последний claim — удаляет blob из S3
+и строку из БД.
+
+Auth: Bearer
+Ответ: 204
+Ошибки: 404
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/attachments/{id}
+--------------------------------------------------------------------------------
+Получить presigned GET-URL'ы для скачивания.
+
+Auth: Bearer
+Доступ: участник конверсации или uploader (для legacy с NULL conversation).
+
+Ответ 200:
+    {
+      "attachment_id": "<uuid>",
+      "total_size": 15728640,
+      "chunk_count": 4,
+      "chunks": [
+        { "chunk_index": 0, "size_bytes": 3932160, "url": "https://s3..." },
+        { "chunk_index": 1, "size_bytes": 3932160, "url": "https://s3..." },
+        { "chunk_index": 2, "size_bytes": 3932160, "url": "https://s3..." },
+        { "chunk_index": 3, "size_bytes": 3932160, "url": "https://s3..." }
+      ]
+    }
+
+Ошибки:
+    400 — аттач не finalized
+    404 — нет или нет доступа
+
+URL'ы живут 15 минут (GET_TTL_SECS).
+
+
+================================================================================
+12. AVATARS
+================================================================================
+
+--------------------------------------------------------------------------------
+POST /api/v1/avatars/me
+--------------------------------------------------------------------------------
+Проксированная загрузка аватара. Тело — WebP до 5 МиБ.
+
+Auth: Bearer
+
+Заголовки:
+    Content-Type: image/webp
+
+Тело: байты WebP-файла.
+
+Ответ 200:
+    {
+      "avatar_url": "/avatars/<account_id>"
+    }
+    Заголовок X-Content-Type-Options: nosniff
+
+Ошибки:
+    400 — не image/webp, не WebP по magic bytes
+    413 — больше 5 МиБ
+
+
+--------------------------------------------------------------------------------
+DELETE /api/v1/avatars/me
+--------------------------------------------------------------------------------
+Auth: Bearer
+Ответ: 204
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/avatars/{account_id}
+--------------------------------------------------------------------------------
+Публичный эндпоинт. Не требует auth.
+
+Ответ 200 (image/webp):
+    Cache-Control: public, max-age=86400
+    X-Content-Type-Options: nosniff
+
+Ошибки: 404 — нет аккаунта или нет аватара
+
+
+================================================================================
+13. GROUPS
+================================================================================
+
+--------------------------------------------------------------------------------
+POST /api/v1/groups
+--------------------------------------------------------------------------------
+Запрос:
+    {
+      "title": "Работа",
+      "member_ids": ["<uuid>", "<uuid>"],
+      "is_public": false,
+      "description": "Рабочий чат"
+    }
+
+Ограничения:
+    title         1..128
+    description   <=512
+
+Ответ 201:
+    {
+      "conversation_id": "<uuid>",
+      "title": "Работа",
+      "is_public": false,
+      "description": "Рабочий чат",
+      "owner_account_id": "<uuid>",
+      "created_at": 1770000000
+    }
+
+Ошибки:
+    400 — title, description
+    500 — несуществующий member_id (FK violation)
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/groups/public
+--------------------------------------------------------------------------------
+Query:
+    limit (i64) — 1..200, дефолт 50
+
+Auth: Bearer (проверяется, но не критично)
+
+Ответ 200:
+    [
+      {
+        "conversation_id": "<uuid>",
+        "title": "Работа",
+        "description": "...",
+        "owner_account_id": "<uuid>",
+        "created_at": 1770000000,
+        "updated_at": 1770000000,
+        "member_count": 42,
+        "handle": "work",
+        "handle_normalized": "work"
+      }
+    ]
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/groups/{id}/join
+--------------------------------------------------------------------------------
+Присоединиться к публичной группе.
+Auth: Bearer
+Ответ: 204 (идемпотентно — если уже участник, тоже 204)
+Ошибки: 403 — группа не публичная
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/groups/by-handle/{handle}
+--------------------------------------------------------------------------------
+Резолвит handle в публичную группу.
+
+Auth: Bearer
+Лимит: 60/account/мин
+
+Ответ 200:
+    {
+      "conversation_id": "<uuid>",
+      "title": "Работа",
+      "description": "...",
+      "member_count": 42,
+      "already_member": false
+    }
+
+Ошибки:
+    400 — handle не на группу
+    403 — группа не публичная
+    404 — нет такого handle
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/groups/{id}/members
+--------------------------------------------------------------------------------
+Auth: Bearer. Должен быть участником.
+
+Ответ 200:
+    [
+      {
+        "account_id": "<uuid>",
+        "role": "owner" | "admin" | "member",
+        "permissions": 63,
+        "muted_until": null,
+        "joined_at": 1770000000
+      }
+    ]
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/groups/{id}/members/role
+--------------------------------------------------------------------------------
+Права:
+  - Owner может менять любого, кроме owner-строки (себя).
+  - Admin с PERM_ADD_ADMINS может повышать других до admin, но только
+    в пределах своих прав (нельзя выдать то, чего у тебя нет).
+
+Запрос:
+    {
+      "target_account_id": "<uuid>",
+      "role": "admin",
+      "permissions": 63
+    }
+
+role: "admin" | "member"
+При role=member — permissions игнорируются, становится 0.
+
+Ответ: 204
+Ошибки: 400, 403, 404
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/groups/{id}/members/mute
+--------------------------------------------------------------------------------
+Запрос:
+    {
+      "target_account_id": "<uuid>",
+      "muted_until": 1770003600    // null = unmute
+    }
+
+Права: PERM_BAN_USERS; владельца мутить нельзя.
+Ответ: 204
+Ошибки: 403, 404
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/groups/{id}/profile
+--------------------------------------------------------------------------------
+Устанавливает handle группы.
+
+Запрос:
+    { "handle": "work" }
+
+Права: owner или PERM_CHANGE_PROFILE.
+Ответ 200:
+    {
+      "handle": "Work",
+      "handle_normalized": "work"
+    }
+Ошибки:
+    400 — невалидный handle (правила в разделе 20)
+    409 — занят
+
+
+================================================================================
+14. CHANNELS
+================================================================================
+
+--------------------------------------------------------------------------------
+POST /api/v1/channels
+--------------------------------------------------------------------------------
+Запрос:
+    {
+      "title": "Новости",
+      "description": "канал",
+      "is_public": false
+    }
+
+Ограничения: title 1..128, description <=512.
+По умолчанию is_public = false.
+
+Ответ 201:
+    {
+      "conversation_id": "<uuid>",
+      "title": "Новости",
+      "description": "канал",
+      "owner_account_id": "<uuid>",
+      "linked_group_conversation_id": null,
+      "is_public": false,
+      "created_at": 1770000000
+    }
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/channels/{id}/members
+--------------------------------------------------------------------------------
+Доступ: любой участник канала.
+
+Ответ 200:
+    [
+      { "actor_type": "account", "actor_id": "<uuid>", "role": "owner",
+        "joined_at": 1770000000 },
+      { "actor_type": "bot", "actor_id": "<uuid>", "role": "admin",
+        "joined_at": 1770000100 }
+    ]
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/channels/{id}/members/role
+--------------------------------------------------------------------------------
+Права: только owner канала.
+
+Запрос:
+    {
+      "actor_type": "account",   // "account" | "bot"
+      "actor_id": "<uuid>",
+      "role": "admin"            // "admin" | "subscriber"
+    }
+
+Ответ: 204
+Ошибки: 400, 403
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/channels/{id}/members/remove
+--------------------------------------------------------------------------------
+Права: только owner.
+
+Запрос:
+    { "actor_type": "account", "actor_id": "<uuid>" }
+
+Ответ: 204
+Ошибки:
+    400 — попытка удалить owner
+    403 — не owner
+    404 — нет такого
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/channels/{id}/linked-group
+--------------------------------------------------------------------------------
+Устанавливает привязанную группу для обсуждений.
+
+Права: owner.
+
+Запрос:
+    { "linked_group_conversation_id": "<uuid>" }   // null для снятия
+
+Ответ: 204
+Ошибки:
+    400 — ты не в этой группе
+    403 — не owner
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/channels/{id}/public
+--------------------------------------------------------------------------------
+Сменить видимость.
+
+Права: owner.
+
+Запрос:
+    { "is_public": true }
+
+Ответ: 204
+Ошибки: 403, 404
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/channels/{id}/profile
+--------------------------------------------------------------------------------
+Установить handle канала.
+
+Права: owner.
+Запрос: { "handle": "news" }
+Ответ 200: { "handle": "News", "handle_normalized": "news" }
+Ошибки: 400, 403, 409
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/channels/{id}/bots
+--------------------------------------------------------------------------------
+Добавить бота в канал как subscriber.
+
+Права: owner канала, бот должен принадлежать тебе.
+
+Запрос:
+    { "bot_id": "<uuid>" }
+
+Ответ: 204
+Ошибки: 403, 404
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/channels/{id}/can-publish
+--------------------------------------------------------------------------------
+Auth: Bearer
+
+Ответ 200:
+    { "can_publish": true }
+
+can_publish = true, если ты owner или admin канала.
+
+
+--------------------------------------------------------------------------------
+POST   /api/v1/channels/{id}/subscribe
+DELETE /api/v1/channels/{id}/subscribe
+--------------------------------------------------------------------------------
+POST — подписаться (идемпотентно).
+DELETE — отписаться. Owner не может отписаться.
+
+Ответ: 204
+Ошибки:
+    403 — приватный канал и ты не участник (для POST)
+    403 — попытка owner отписаться (для DELETE)
+    404 — для DELETE, если не был подписан
+
+
+================================================================================
+15. CHANNEL POSTS
+================================================================================
+
+--------------------------------------------------------------------------------
+GET /api/v1/channels/{id}/posts
+--------------------------------------------------------------------------------
+Auth: Bearer. Только участник канала.
+
+Query:
+    before (i64) — курсор created_at (секунды, DESC)
+    limit  (i64) — 1..100, дефолт 50
+
+Ответ 200:
+    [
+      {
+        "id": "<uuid>",
+        "channel_id": "<uuid>",
+        "author_type": "account" | "bot",
+        "author_id": "<uuid>",
+        "text": "текст",
+        "attachment_ids": ["<uuid>"],
+        "forward_from": null,
+        "reply_to_post_id": null,
+        "created_at": 1770000000,
+        "edited_at": null,
+        "pinned_at": null,
+        "discussion_comment_count": 0
+      }
+    ]
+
+Порядок: created_at DESC.
+
+ВНИМАНИЕ: пагинация по секундам теряет посты, опубликованные в одну
+секунду. Учитывай на клиенте — либо не полагайся на полный обход, либо
+запрашивай маленькими страницами.
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/channels/{id}/posts
+--------------------------------------------------------------------------------
+Auth: Bearer. Права: can_publish.
+
+Запрос:
+    {
+      "text": "Заголовок",
+      "attachment_ids": ["<uuid>"],
+      "reply_to_post_id": "<uuid>",
+      "forward_from": "@someone"
+    }
+
+Ограничения:
+    text              1..4096
+    attachment_ids    <= 10 (ATTACHMENT_MAX_FILES_PER_MESSAGE)
+    forward_from      <=128, только [A-Za-z0-9_\-@.:]
+    reply_to_post_id  должен быть в ТОЙ ЖЕ конверсации
+    attachment_ids    должны быть finalized И принадлежать этой конверсации
+
+Ответ 201: PostItem (как в списке выше)
+
+Побочный эффект:
+  - ты становишься claimer'ом всех attachment_ids
+  - всем subscriber'ам канала летит WS-фрейм ChannelPost
+  - conversations.updated_at обновляется
+
+
+--------------------------------------------------------------------------------
+PATCH /api/v1/channel-posts/{post_id}
+--------------------------------------------------------------------------------
+Редактирование.
+
+Права: только автор-аккаунт (author_type=account И author_id=ты).
+
+Запрос:
+    { "text": "новый текст" }
+
+Ответ: 204
+Ошибки:
+    403 — не автор
+    404 — нет или уже удалён
+
+
+--------------------------------------------------------------------------------
+DELETE /api/v1/channel-posts/{post_id}
+--------------------------------------------------------------------------------
+Soft-delete.
+
+Права: автор-аккаунт ИЛИ owner канала.
+
+Ответ: 204
+Ошибки: 403, 404
+
+
+--------------------------------------------------------------------------------
+POST   /api/v1/channel-posts/{post_id}/pin
+DELETE /api/v1/channel-posts/{post_id}/pin
+--------------------------------------------------------------------------------
+Права (pin):     owner или admin канала
+Права (unpin):   owner, admin или автор
+
+Ответ: 204
+Ошибки:
+    403, 404
+    409 — уже pinned (для POST)
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/channels/{id}/pinned
+--------------------------------------------------------------------------------
+Auth: Bearer. Только участник канала.
+
+Ответ 200: массив PostItem, отсортирован по pinned_at DESC.
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/channel-posts/{post_id}/reactions
+--------------------------------------------------------------------------------
+Auth: Bearer. Только участник канала.
+
+Ответ 200:
+    [
+      { "actor_type": "account", "actor_id": "<uuid>",
+        "emoji": "👍", "created_at": 1770000000 }
+    ]
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/channel-posts/{post_id}/reactions
+--------------------------------------------------------------------------------
+Права: любой участник канала.
+
+Запрос:
+    { "emoji": "👍" }
+
+Ограничения: 1..16 символов.
+Один реактор — одна реакция на пост, повторный POST заменяет emoji.
+
+Ответ: 204
+Ошибки: 400, 403, 404
+
+
+--------------------------------------------------------------------------------
+DELETE /api/v1/channel-posts/{post_id}/reactions
+--------------------------------------------------------------------------------
+Убрать свою реакцию.
+Ответ: 204
+Ошибки: 404 — не было реакции
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/channel-posts/{post_id}/discussion
+--------------------------------------------------------------------------------
+Информация об обсуждении поста.
+
+Auth: Bearer. Только участник канала.
+
+Ответ 200:
+    {
+      "channel_id": "<uuid>",
+      "post_id": "<uuid>",
+      "linked_group_id": "<uuid>" | null,
+      "thread_id": "<post_id>",
+      "comment_count": 0
+    }
+
+Ошибки: 403, 404
+
+
+================================================================================
+16. BOTS (ВЛАДЕЛЕЦ)
+================================================================================
+
+--------------------------------------------------------------------------------
+POST /api/v1/bots
+--------------------------------------------------------------------------------
+Создаёт бота. Лимит: 20 на аккаунт.
+
+Auth: Bearer
+
+Запрос: {}
+
+Ответ 201:
+    {
+      "bot_id": "<uuid>",
+      "token": "fhbot_<random>",
+      "token_prefix": "fhbot_AbCdEfGh"
+    }
+
+ВАЖНО: token показывается один раз. Дальше — только prefix.
+Ошибки: 409 — превышен лимит
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/bots
+--------------------------------------------------------------------------------
+Список ботов, которыми ты владеешь.
+
+Ответ 200:
+    [
+      {
+        "id": "<uuid>",
+        "token_prefix": "fhbot_AbCdEfGh",
+        "created_at": 1770000000,
+        "updated_at": 1770000000,
+        "handle": "mybot"
+      }
+    ]
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/bots/{id}/profile
+--------------------------------------------------------------------------------
+Устанавливает handle бота.
+
+Запрос:
+    { "handle": "mybot" }      // должен заканчиваться на "bot"
+
+Ответ 200:
+    { "handle": "MyBot", "handle_normalized": "mybot" }
+
+Ошибки: 400, 403, 409
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/bots/{id}/rotate-token
+--------------------------------------------------------------------------------
+Меняет токен бота.
+
+Ответ 200:
+    { "token": "fhbot_<new random>" }
+
+Ошибки: 403, 404
+
+
+--------------------------------------------------------------------------------
+DELETE /api/v1/bots/{id}
+--------------------------------------------------------------------------------
+Удаляет бота (вместе с профилем и токеном).
+Ответ: 204
+Ошибки: 403, 404
+
+
+================================================================================
+17. BOTS (ПОЛЬЗОВАТЕЛЬ)
+================================================================================
+
+--------------------------------------------------------------------------------
+GET /api/v1/user/bots
+--------------------------------------------------------------------------------
+Список твоих ботов с флагом has_webhook.
+
+Ответ 200:
+    [
+      {
+        "bot_id": "<uuid>",
+        "handle": "mybot",
+        "token_prefix": "fhbot_AbCdEfGh",
+        "created_at": 1770000000,
+        "has_webhook": true
+      }
+    ]
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/bots/{id}/info
+--------------------------------------------------------------------------------
+Публичная информация о боте.
+
+Ответ 200:
+    {
+      "bot_id": "<uuid>",
+      "owner_account_id": "<uuid>",
+      "handle": "mybot",
+      "created_at": 1770000000
+    }
+Ошибки: 404
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/bots/{id}/messages
+--------------------------------------------------------------------------------
+История переписки пользователя с ботом (для UI чата).
+
+Ответ 200:
+    [
+      {
+        "id": "<uuid>",
+        "bot_id": "<uuid>",
+        "sender_account_id": "<uuid>",
+        "direction": "to_bot" | "from_bot",
+        "text": "...",
+        "reply_to_id": null,
+        "created_at": 1770000000
+      }
+    ]
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/bots/{id}/messages
+--------------------------------------------------------------------------------
+Отправить сообщение боту.
+
+Запрос:
+    {
+      "text": "привет",
+      "reply_to_message_id": "<uuid>"
+    }
+
+Ограничения: text 1..4096.
+Ответ 201: BotMessageItem.
+
+Побочный эффект: сообщение попадает в очередь бота (bot_updates).
+Ошибки:
+    409 — очередь бота переполнена (MAX_PENDING_PER_BOT = 10000)
+
+
+================================================================================
+18. BOT API
+================================================================================
+Базовый URL: /api/bot/v1
+Авторизация: X-Bot-Token: <token>
+
+Ошибки — такие же, как у пользовательского API.
+
+--------------------------------------------------------------------------------
+GET /api/bot/v1/me
+--------------------------------------------------------------------------------
+Ответ 200:
+    {
+      "bot_id": "<uuid>",
+      "owner_account_id": "<uuid>",
+      "token_prefix": "fhbot_AbCdEfGh",
+      "handle": "mybot",
+      "created_at": 1770000000
+    }
+
+
+--------------------------------------------------------------------------------
+GET /api/bot/v1/health
+--------------------------------------------------------------------------------
+Ответ 200:
+    { "ok": true }
+
+
+--------------------------------------------------------------------------------
+GET /api/bot/v1/accounts/{fh_number}
+--------------------------------------------------------------------------------
+Резолвит FH-номер в аккаунт.
+
+Лимит: 60/bot/мин
+
+Ответ 200:
+    {
+      "account_id": "<uuid>",
+      "user_id": 42,
+      "fh_number": "FH1234567",
+      "username": "User_1234567",
+      "avatar_url": "/avatars/<uuid>"
+    }
+Ошибки: 404
+
+
+--------------------------------------------------------------------------------
+GET /api/bot/v1/getUpdates
+--------------------------------------------------------------------------------
+Длинный polling обновлений для бота. Аналог Telegram Bot API.
+
+Лимит: 60/bot/мин
+
+Query:
+    offset  (i64) — вернуть обновления с id > offset (дефолт 0)
+    limit   (i64) — 1..500, дефолт 100
+    timeout (u64) — секунды, максимум 60. 0 или отсутствует — сразу.
+
+Ответ 200:
+    {
+      "updates": [
+        {
+          "update_id": 12345,
+          "update_type": "message",
+          "data": {
+            "message_id": "<uuid>",
+            "bot_id": "<uuid>",
+            "account_id": "<uuid>",
+            "text": "привет",
+            "reply_to_message_id": null,
+            "created_at": 1770000000
+          },
+          "created_at": 1770000000
+        }
+      ]
+    }
+
+updates приходят строго по возрастанию update_id.
+Пустой массив — обновлений нет.
+Клиент должен сохранять последний update_id+1 и передавать в следующий offset.
+
+Пример длинного polling:
+    curl -H 'X-Bot-Token: fhbot_...' \
+      'http://host/api/bot/v1/getUpdates?offset=0&limit=100&timeout=30'
+
+Пример подтверждения прочитанного:
+    curl -H 'X-Bot-Token: fhbot_...' \
+      'http://host/api/bot/v1/getUpdates?offset=12346'
+
+
+--------------------------------------------------------------------------------
+POST /api/bot/v1/setWebhook
+--------------------------------------------------------------------------------
+Устанавливает URL для получения обновлений push'ем.
+
+Запрос:
+    {
+      "url": "https://mybot.example.com/hook",
+      "secret_token": "abcdef1234567890"
+    }
+
+Ограничения:
+    url          — https, порт 443, публичный IP, не loopback/private
+    secret_token — 16..256 символов, опционально (если не задан —
+                   генерируется автоматически)
+
+Ответ: 204
+Ошибки:
+    400 — url не https/не на 443/резолвится в private/loopback
+          или secret_token вне диапазона
+
+Пример:
+    curl -X POST http://host/api/bot/v1/setWebhook \
+      -H 'X-Bot-Token: fhbot_...' \
+      -H 'Content-Type: application/json' \
+      -d '{"url":"https://mybot.example.com/hook"}'
+
+Как это работает при получении:
+    Сервер отправляет POST на url с заголовком
+        X-Bot-Secret: <secret_token>
+    и телом:
+        {
+          "updates": [
+            {
+              "update_id": 12345,
+              "type": "message",
+              "data": { … }
+            }
+          ]
+        }
+    Успех = 2xx. Иначе — retry на следующем тике (раз в 2 секунды).
+
+При удалении webhook все pending-обновления дропаются.
+
+
+--------------------------------------------------------------------------------
+POST /api/bot/v1/deleteWebhook
+--------------------------------------------------------------------------------
+Убирает webhook и дропает неотданные обновления.
+Ответ: 204
+Ошибки: 404 — webhook не был установлен
+
+
+--------------------------------------------------------------------------------
+GET /api/bot/v1/getWebhook
+--------------------------------------------------------------------------------
+Ответ 200 (есть):
+    {
+      "url": "https://mybot.example.com/hook",
+      "active": true,
+      "created_at": 1770000000,
+      "updated_at": 1770000000
+    }
+Ответ 200 (нет):
+    { "url": null, "active": false, "created_at": null, "updated_at": null }
+
+
+--------------------------------------------------------------------------------
+POST /api/bot/v1/sendMessage
+--------------------------------------------------------------------------------
+Бот отправляет сообщение пользователю. Работает только если пользователь
+раньше писал боту (правило: не инициировать).
+
+Запрос:
+    {
+      "account_id": "<uuid>",
+      "text": "привет",
+      "reply_to_message_id": "<uuid>"
+    }
+
+Ограничения: text 1..4096.
+Ответ 201:
+    {
+      "message_id": "<uuid>",
+      "created_at": 1770000000
+    }
+
+Ошибки:
+    403 — пользователь никогда не писал этому боту
+    404 — нет такого аккаунта
+
+Побочный эффект: сообщение летит live на WS всех онлайн-устройств
+пользователя (ServerFrame::BotMessage).
+
+Пример:
+    curl -X POST http://host/api/bot/v1/sendMessage \
+      -H 'X-Bot-Token: fhbot_...' \
+      -H 'Content-Type: application/json' \
+      -d '{"account_id":"...","text":"привет"}'
+
+
+--------------------------------------------------------------------------------
+POST /api/bot/v1/channels/publish
+--------------------------------------------------------------------------------
+Публикация поста в канал. Бот должен быть участником канала с ролью admin
+или owner.
+
+Запрос:
+    {
+      "channel_id": "<uuid>",
+      "text": "Привет, подписчики",
+      "attachment_ids": ["<uuid>"],
+      "reply_to_post_id": "<uuid>"
+    }
+
+Ограничения:
+    text              1..4096
+    attachment_ids    <= 10
+    attachment_ids    должны быть finalized И принадлежать этому каналу
+
+Ответ 201:
+    {
+      "post_id": "<uuid>",
+      "created_at": 1770000000
+    }
+
+Ошибки:
+    400 — bad fields, reply_to не в том канале, attachment не тот
+    403 — бот не может публиковать в этом канале
+    404 — нет канала или нет поста для reply
+
+
+================================================================================
+19. INVITES
+================================================================================
+
+--------------------------------------------------------------------------------
+POST /api/v1/conversations/{id}/invites
+--------------------------------------------------------------------------------
+Создать инвайт.
+
+Auth: Bearer. Требуется role:
+  - group:   PERM_MANAGE_INVITES или owner
+  - channel: owner или admin (can_manage_invites)
+  - direct / saved: 400
+
+Запрос:
+    { "kind": "permanent" }    // "permanent" | "one_time"
+
+Ответ 201:
+    {
+      "id": "<uuid>",
+      "token": "<random url-safe>",
+      "kind": "permanent",
+      "used_count": 0,
+      "max_uses": null,           // 1 для one_time
+      "created_at": 1770000000
+    }
+
+Ошибки:
+    400 — неверный kind, kind=saved или direct
+    403 — нет прав
+    404 — нет конверсации
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/conversations/{id}/invites
+--------------------------------------------------------------------------------
+Список инвайтов.
+
+Auth: Bearer. Те же правила.
+
+Ответ 200: массив InviteResponse.
+
+
+--------------------------------------------------------------------------------
+DELETE /api/v1/invites/{id}
+--------------------------------------------------------------------------------
+Отозвать инвайт.
+
+Права:
+  - group:   автор инвайта, owner или PERM_MANAGE_INVITES
+  - channel: owner или admin
+
+Ответ: 204
+Ошибки: 403, 404
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/invites/join/{token}
+--------------------------------------------------------------------------------
+Присоединиться по инвайту.
+
+Работает ТОЛЬКО для group. Для channel — 400 (channel subscription — через
+/channels/{id}/subscribe).
+
+Auth: Bearer
+
+Ответ 200:
+    { "conversation_id": "<uuid>" }
+
+Ошибки:
+    400 — не group
+    404 — нет такого токена
+    409 — инвайт исчерпан
+
+
+================================================================================
+20. HANDLES
+================================================================================
+
+Правила handle:
+    длина        5..32 символов (USERPROFILE_MIN_LEN/MAX_LEN)
+    первый символ — буква
+    остальные — a-z, A-Z, 0-9, _
+    нормализуется в lowercase
+    bot-handles должны заканчиваться на "bot"
+    group/channel handles НЕ должны заканчиваться на "bot"
+    reserved: admin, support, help, system, botfather
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/handles/{handle}
+--------------------------------------------------------------------------------
+Резолвит handle в сущность.
+
+Лимит: 60/account/мин
+
+Ответ 200:
+    {
+      "entity_type": "group" | "channel" | "bot",
+      "entity_id": "<uuid>",
+      "handle_display": "Work",
+      "handle_normalized": "work"
+    }
+Ошибки: 400 (пусто), 404
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/handles/batch
+--------------------------------------------------------------------------------
+Массовый резолв до 200 handles.
+
+Лимит: 60/account/мин
+
+Запрос:
+    { "handles": ["work", "news", "MyBot"] }
+
+Ответ 200:
+    {
+      "items": [
+        {
+          "handle_input": "work",
+          "normalized": "work",
+          "found": true,
+          "entity_type": "group",
+          "entity_id": "<uuid>",
+          "handle_display": "Work",
+          "handle_normalized": "work"
+        },
+        {
+          "handle_input": "ghost",
+          "normalized": "ghost",
+          "found": false,
+          "entity_type": null,
+          "entity_id": null,
+          "handle_display": null,
+          "handle_normalized": null
+        }
+      ]
+    }
+
+Ошибки: 400 — >200 handles
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/handles/{handle}/available
+--------------------------------------------------------------------------------
+Проверка доступности.
+
+Лимит: 60/account/мин
+
+Ответ 200:
+    {
+      "handle": "mybot",
+      "normalized": "mybot",
+      "available": true,
+      "handle_kind": "bot"           // "bot" | "regular"
+    }
+
+handle_kind показывает, кому он структурно разрешён:
+    "bot"     — подходит только боту (заканчивается на "bot")
+    "regular" — только группе/каналу
+
+
+================================================================================
+21. CALLS
+================================================================================
+
+--------------------------------------------------------------------------------
+POST /api/v1/calls
+--------------------------------------------------------------------------------
+Записать завершённый звонок.
+
+Auth: Bearer
+
+Запрос:
+    {
+      "peer_account_id": "<uuid>",
+      "direction": "incoming" | "outgoing",
+      "status": "completed" | "missed" | "rejected" | "cancelled" | "failed",
+      "started_at": 1770000000,
+      "ended_at": 1770000060
+    }
+
+Ограничения:
+    started_at <= now + 60
+    ended_at >= started_at
+    ended_at <= now + 60
+
+Ответ 201:
+    {
+      "id": "<uuid>",
+      "peer_account_id": "<uuid>",
+      "direction": "outgoing",
+      "status": "completed",
+      "started_at": 1770000000,
+      "ended_at": 1770000060
+    }
+
+Ошибки: 400, 404 (нет peer)
+
+
+--------------------------------------------------------------------------------
+GET /api/v1/calls
+--------------------------------------------------------------------------------
+Query:
+    peer_account_id (optional)
+    limit (i64)  — 1..200, дефолт 50
+
+Ответ 200: массив CallRecordItem, сортировка started_at DESC.
+
+
+--------------------------------------------------------------------------------
+DELETE /api/v1/calls/{id}
+--------------------------------------------------------------------------------
+Удалить одну запись.
+Ответ: 204
+Ошибки: 404
+
+
+--------------------------------------------------------------------------------
+POST /api/v1/calls/clear
+--------------------------------------------------------------------------------
+Удалить всю историю звонков.
+Ответ: 204
+
+
+================================================================================
+22. WEBRTC
+================================================================================
+
+--------------------------------------------------------------------------------
+GET /api/v1/webrtc/ice-servers
+--------------------------------------------------------------------------------
+Auth: Bearer
+
+Ответ 200:
+    {
+      "ice_servers": [
+        { "urls": ["stun:stun.example.com:3478"] },
+        {
+          "urls": ["turn:turn.example.com:3478?transport=udp"],
+          "username": "1770003600:<account_uuid>",
+          "credential": "<base64 HMAC-SHA1>"
+        }
+      ],
+      "ttl_seconds": 3600
+    }
+
+Учётные данные TURN — временные (HMAC от shared_secret), действуют
+ttl_seconds секунд.
+
+
+================================================================================
+23. WEBSOCKET
+================================================================================
+URL: ws://host:8080/ws
+
+Лимиты:
+    max message size:  256 KiB
+    max frame size:    256 KiB
+    max write buffer:  256 KiB
+    hello timeout:     10 секунд
+    флуд:              100 фреймов/сек в течение 5 секунд подряд = disconnect
+
+Формат: бинарные protobuf-фреймы (prost).
+Первый фрейм клиента — ОБЯЗАТЕЛЬНО ClientFrame::Hello.
+
+
+Хендшейк
+--------------------------------------------------------------------------------
+1. Клиент → сервер:
+
+    ClientFrame {
+      kind: Hello {
+        session_token: "<из /login>",
+        device_number: <n>,          // должен совпадать с device_number сессии
+        client_name: "friendshub-web 1.0"
+      }
+    }
+
+2. Сервер → клиент (или Error + close):
+
+    ServerFrame {
+      kind: Hello {
+        session_id: "<uuid>",
+        account_id: <16 bytes>,
+        device_number: <n>,
+        server_timestamp: <unix>,
+        protocol_major: 0, protocol_minor: 1, protocol_patch: 0
+      }
+    }
+
+3. Сервер может сразу отдать backlog неотданных конвертов:
+
+    ServerFrame {
+      kind: Delivery {
+        envelopes: [
+          { envelope_id, sender_account_id, sender_device_number,
+            recipient_account_id, recipient_device_number,
+            envelope_type, is_prekey_message, ciphertext,
+            client_timestamp, conversation_id, sender_is_bot }
+        ]
+      }
+    }
+
+Дальше — обычный поток фреймов.
+
+
+Client → Server
+--------------------------------------------------------------------------------
+ClientFrame::Hello      — только один раз, в самом начале
+ClientFrame::Ping       — { client_timestamp }
+ClientFrame::Upload     — { envelopes: [Envelope] }   // до 128 конвертов
+ClientFrame::Ack        — { envelope_ids: [16 bytes] } // подтверждение доставки
+
+
+Server → Client
+--------------------------------------------------------------------------------
+ServerFrame::Hello      — после handshake
+ServerFrame::Pong       — { client_timestamp, server_timestamp }
+ServerFrame::Receipt    — { envelope_ids: [...] } — сервер принял и сохранил
+ServerFrame::Delivery   — { envelopes: [...] } — пришли новые конверты
+ServerFrame::Presence   — { account_id, is_online, last_seen, custom_status_* }
+ServerFrame::ChannelPost — { post_id, channel_id, author_type, author_id,
+                            text, attachment_ids, reply_to_post_id, created_at }
+ServerFrame::BotMessage — { message_id, bot_id, account_id, text,
+                            reply_to_message_id, created_at }
+ServerFrame::Error      — { code, message, fatal }
+
+
+Отправка сообщений (EnvelopeUpload)
+--------------------------------------------------------------------------------
+Клиент → сервер:
+
+    ClientFrame {
+      kind: Upload {
+        envelopes: [
+          {
+            envelope_id:              <16 bytes>,
+            sender_account_id:        <16 bytes>,   // твой account_id
+            sender_device_number:     <n>,
+            recipient_account_id:     <16 bytes>,
+            recipient_device_number:  <n>,
+            envelope_type:            <1..17>,
+            is_prekey_message:        true | false,
+            ciphertext:               <bytes, <= 64 KiB>,
+            client_timestamp:         <unix>,
+            conversation_id:          <16 bytes>    // пусто = "не в чате"
+          }
+        ]
+      }
+    }
+
+Ограничения сервера:
+    до 128 конвертов в одном Upload
+    ciphertext <= 64 KiB
+    envelope_type в диапазоне 1..=17
+    sender_account_id должен совпадать с твоим account_id
+    recipient_device должен существовать и не быть revoked
+    recipients с блокировкой в любую сторону — дропаются молча
+
+Сервер → клиент (подтверждение):
+    ServerFrame::Receipt {
+      envelope_ids: [<16 bytes>, ...]     // те, что реально сохранились
+    }
+
+Важно: envelope с уже существующим id игнорируется (ON CONFLICT DO NOTHING).
+Повторная отправка того же envelope_id не создаёт дубликат и не рассылает
+live повторно.
+
+
+Получение сообщений
+--------------------------------------------------------------------------------
+1. Онлайн получатель:
+    ServerFrame::Delivery { envelopes: [...] }  летит сразу на device.
+
+2. Офлайн — сервер копит в БД, отдаёт при подключении через backlog
+   (ServerFrame::Delivery в handshake) или до тех пор пока клиент не отправит
+   ServerFrame::Ack с этим id.
+
+3. Подтверждение получения (клиент):
+    ClientFrame {
+      kind: Ack {
+        envelope_ids: [<16 bytes>, ...]
+      }
+    }
+
+После ack сервер помечает envelope как acked и больше не отдаёт его в
+backlog. Envelope'ы в saved-конверсациях не удаляются TTL даже после ack.
+
+
+Отправка в saved
+--------------------------------------------------------------------------------
+См. раздел 10. Отличается только тем, что:
+  - recipient_account_id = твой
+  - conversation_id      = id из GET /saved
+  - нужно N конвертов — по одному на каждое СВОЁ активное устройство,
+    кроме текущего
+
+
+Ping/Pong
+--------------------------------------------------------------------------------
+Клиент отправляет Ping, сервер отвечает Pong:
+
+    ClientFrame  { kind: Ping { client_timestamp } }
+    ServerFrame  { kind: Pong { client_timestamp, server_timestamp } }
+
+Флуд-контроль: 100 фреймов/сек. Пять секунд подряд выше — disconnect.
+
+
+Ошибки
+--------------------------------------------------------------------------------
+ServerFrame::Error {
+  code:    "protocol" | "unauthorized" | "device_mismatch" | "flood" | …
+  message: "…",
+  fatal:   true | false
+}
+
+fatal=true  — сервер закрывает соединение.
+Коды fatal:
+    handshake        — не получили Hello за 10 сек
+    timeout          — то же
+    protocol         — несовпадение major
+    unauthorized     — нет/протух токен
+    device_mismatch  — Hello.device_number != session.device_number
+    session_revoked  — сессия отозвана
+    device_revoked   — девайс отозван
+    replaced         — этот девайс подключился заново
+    flood            — флуд фреймами
+    account_deleted  — аккаунт удалён
+
+
+Переподключение
+--------------------------------------------------------------------------------
+1. Backoff: 1s, 2s, 4s, 8s, … max 30s.
+2. При подключении — Hello с тем же session_token.
+3. Если получил fatal (кроме flood) — не переподключаться, идти в /login.
+
+
+================================================================================
+24. HEALTH
+================================================================================
+
+--------------------------------------------------------------------------------
+GET /health
+--------------------------------------------------------------------------------
+Auth: нет
+
+Ответ 200:
+    {
+      "status": "ok",
+      "version": "0.1.0",
+      "uptime_secs": 12345,
+      "database": "ok",
+      "timestamp": 1770000000
+    }
+
+Ответ 503:
+    { "status": "degraded", "database": "down", "…": "…" }
+
+
+================================================================================
+КОНЕЦ
 ================================================================================
