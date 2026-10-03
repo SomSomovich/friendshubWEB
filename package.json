@@ -14,7 +14,8 @@
     "pwa:assets": "node scripts/generate-pwa-assets.mjs",
     "smoke:wasm": "tsx scripts/wasm-smoke.mjs",
     "smoke:http": "tsx scripts/http-smoke.mjs",
-    "smoke:ws": "tsx scripts/ws-smoke.mjs"
+    "smoke:ws": "tsx scripts/ws-smoke.mjs",
+    "smoke:e2e": "node scripts/full-smoke.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
