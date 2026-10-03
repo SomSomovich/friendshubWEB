@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "fetch-wasm": "node scripts/fetch-wasm.mjs",
     "pwa:assets": "node scripts/generate-pwa-assets.mjs",
-    "smoke:wasm": "tsx scripts/wasm-smoke.mjs"
+    "smoke:wasm": "tsx scripts/wasm-smoke.mjs",
+    "smoke:http": "tsx scripts/http-smoke.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
