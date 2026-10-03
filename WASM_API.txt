@@ -1,0 +1,437 @@
+================================================================================
+FRIENDSHUB WASM — API КРИПТО-МОДУЛЯ
+Версия: 1.0 (libsignal-protocol v0.103.1)
+================================================================================
+
+--------------------------------------------------------------------------------
+0. КРАТКО
+--------------------------------------------------------------------------------
+
+Это WebAssembly-модуль, который делает всю E2E-криптографию. JS/TS-код НЕ
+должен реализовывать Signal Protocol самостоятельно — это уже сделано здесь,
+собрано из официальной библиотеки Signal (libsignal-protocol v0.103.1), той же
+самой, что использует нативный клиент FriendsHub (friendshub-core на Rust).
+
+Модуль собран из https://github.com/SomSomovich/friendshub-wasm
+Пакет: pkg/friendshub_wasm.js + pkg/friendshub_wasm_bg.wasm (собран `wasm-pack
+--target web`). Размер релиза ~1.5–2 МБ, dev ~5 МБ. Качается один раз и
+кэшируется браузером + Service Worker.
+
+--------------------------------------------------------------------------------
+1. МОДЕЛЬ СОСТОЯНИЯ: 5 АККАУНТОВ
+--------------------------------------------------------------------------------
+
+Модуль поддерживает НЕСКОЛЬКО независимых аккаунтов одновременно, до 5 на
+вкладку. Каждый аккаунт идентифицируется произвольной строкой account_id
+(обычно это UUID аккаунта с бэка, поле "id" из /register или /me).
+
+ВСЕ функции принимают account_id первым аргументом. Состояния полностью
+изолированы: identity, prekeys, сессии, sender keys одного аккаунта не видны
+другому. Переключение аккаунта в UI не требует перезагрузки модуля — просто
+передавай другой account_id.
+
+ВАЖНО: модуль — это крипто-движок, а не источник истины о списке аккаунтов.
+Список залогиненных аккаунтов хранит JS (IndexedDB + React state), модуль
+знает только про те account_id, для которых его вызывали.
+
+--------------------------------------------------------------------------------
+2. ЗАГРУЗКА МОДУЛЯ
+--------------------------------------------------------------------------------
+
+import init, * as wasm from './pkg/friendshub_wasm.js';
+
+await init();            // обязательно один раз при старте приложения
+wasm.ping();             // возвращает "pong" — проверка, что модуль загружен
+
+Все функции синхронные, кроме init(). Внутренне они держат busy-loop executor,
+но наружу это не видно — просто вызывай и получай результат.
+
+--------------------------------------------------------------------------------
+3. PERSISTENCE: snapshot / restore
+--------------------------------------------------------------------------------
+
+Состояние (identity keypair, prekeys, сессии, sender keys) живёт В ПАМЯТИ
+модуля. Оно НЕ сохраняется автоматически. JS-сторона обязана периодически
+делать snapshot и складывать его в IndexedDB.
+
+    const blob = wasm.snapshot(account_id);          // JSON-строка
+    await idb.put(`crypto_state_${account_id}`, blob);
+
+    // При старте приложения или переключении аккаунта:
+    const blob = await idb.get(`crypto_state_${account_id}`);
+    if (blob) wasm.restore(account_id, blob);
+    else {
+        // Первый вход: генерируем identity и prekeys
+        const idHex = wasm.generate_identity(account_id, registration_id);
+        const prekeys = wasm.generate_prekeys(account_id, 100);
+        // Отправляем prekeys на бэк (см. /devices/me/prekeys в API_FRONTEND.txt)
+    }
+
+РЕКОМЕНДАЦИИ:
+  - Снапшот после КАЖДОГО encrypt/decrypt/group_encrypt/group_decrypt.
+    Это дёшево (state маленький) и гарантирует консистентность при крэше.
+  - Снапшот при visibilitychange (вкладка уходит в фон).
+  - Снапшот при logout.
+  - Использовать Web Locks API при снапшоте, чтобы 5 аккаунтов не писали
+    одновременно в один и тот же IndexedDB-store (или разные key'и на
+    каждый account_id — тогда лок не нужен).
+
+reset(account_id) полностью очищает состояние одного аккаунта в модуле.
+Вызывать при logout аккаунта.
+
+--------------------------------------------------------------------------------
+4. ПУБЛИЧНЫЙ API
+--------------------------------------------------------------------------------
+
+Все функции синхронные, кидают исключение (JS exception) при ошибке.
+В TS-обёртке обернуть в try/catch и возвращать Result<T, Error>.
+
+--- 4.1 LIFECYCLE ------------------------------------------------------------
+
+ping() -> string
+    Smoke test. Всегда "pong".
+
+generate_identity(account_id: string, registration_id: number) -> string
+    Генерирует свежий identity keypair (X25519+Ed25519, 65 байт), сохраняет
+    в state. registration_id — 14-битный, брать random 0..16383.
+    Возвращает hex 65-байтного keypair (33 публичный + 32 приватный).
+    Публичный ключ (первые 33 байта) отправляется на бэк в POST /devices.
+
+load_identity(account_id: string, blob_hex: string, registration_id: number)
+    Загрузить ранее сгенерированный identity (например, восстановленный
+    из IndexedDB). Используется вместо generate_identity при повторном входе.
+
+local_identity_public(account_id: string) -> string
+    Hex 33-байтного публичного identity-ключа текущего аккаунта.
+    Отправляется на бэк при регистрации устройства.
+
+snapshot(account_id: string) -> string
+    Сериализовать всё состояние аккаунта в JSON. См. раздел 3.
+
+restore(account_id: string, blob_json: string) -> void
+    Восстановить состояние из snapshot.
+
+reset(account_id: string) -> void
+    Полностью очистить состояние аккаунта. При logout.
+
+--- 4.2 PREKEYS --------------------------------------------------------------
+
+generate_prekeys(account_id: string, count: number) -> string
+    Генерирует `count` one-time prekeys на X25519 и Kyber, плюс свежий signed
+    prekey и Kyber last-resort. Сохраняет приватные половины в state.
+    Возвращает JSON для отправки в POST /devices/me/prekeys:
+
+    {
+      "signed_prekey":         { "id": N, "pub": "hex", "sig": "hex" },
+      "kyber_last_resort":     { "id": N, "pub": "hex", "sig": "hex" },
+      "one_time_prekeys":      [ { "id": N, "pub": "hex" }, ... ],
+      "kyber_one_time_prekeys":[ { "id": N, "pub": "hex" }, ... ]
+    }
+
+    Начальный вызов — count=100. Дальше добивать при просадке (см. ниже).
+
+prekey_counts(account_id: string) -> string
+    Возвращает JSON:
+    {
+      "one_time_available": N,
+      "kyber_one_time_available": N,
+      "has_signed_prekey": bool,
+      "has_kyber_last_resort": bool
+    }
+
+    Стратегия: если one_time_available < 10, вызвать generate_prekeys(100),
+    отправить ответ в POST /devices/me/prekeys. Проверять при каждом старте
+    и периодически (например, раз в час).
+
+--- 4.3 SESSIONS (PAIRWISE, 1-НА-1) ------------------------------------------
+
+establish_session(
+    account_id: string,
+    peer_account_id: string,
+    peer_device_number: number,
+    local_device_number: number,
+    bundle_json: string
+) -> void
+    Устанавливает исходящую сессию с ОДНИМ устройством собеседника.
+    bundle_json — ответ GET /accounts/{id}/devices/{n}/bundle целиком
+    (см. API_FRONTEND.txt раздел 9.3). Парсить не надо, передавать как есть
+    через JSON.stringify.
+
+    Вызывать для каждого устройства собеседника ПЕРЕД первым encrypt.
+    Проверять существование сессии не надо — модуль сам знает через
+    has_session внутри encrypt.
+
+encrypt(
+    account_id: string,
+    peer_account_id: string,
+    peer_device_number: number,
+    local_device_number: number,
+    plaintext_hex: string
+) -> string
+    Шифрует plaintext для одного устройства собеседника.
+    plaintext_hex — hex от UTF-8 байтов сообщения.
+
+    ВАЖНО: для ENVELOPE_TYPE_MESSAGE (type=1) plaintext — это СЫРОЙ UTF-8
+    текст, никаких JSON-обёрток. Кодирование: new TextEncoder().encode(text)
+    -> Uint8Array -> hex.
+
+    Возвращает JSON:
+    {
+      "ciphertext_hex": "...",        // байты для поля Envelope.ciphertext
+      "is_prekey_message": bool       // положить в Envelope.is_prekey_message
+    }
+
+    Если сессии нет — сначала вызвать establish_session с bundle.
+    Функция сама скажет об ошибке, если сессии нет.
+
+decrypt(
+    account_id: string,
+    sender_account_id: string,
+    sender_device_number: number,
+    local_device_number: number,
+    ciphertext_hex: string,
+    is_prekey_message: bool
+) -> string
+    Расшифровывает входящий envelope типа ENVELOPE_TYPE_MESSAGE.
+    Параметры — поля из WS-кадра Delivery.Envelope.
+    Возвращает hex расшифрованного plaintext.
+    Для type=1 — декодировать как UTF-8: new TextDecoder().decode(bytes).
+
+--- 4.4 GROUPS (SENDER KEYS) -------------------------------------------------
+
+create_sender_key_distribution(
+    account_id: string,
+    local_device_number: number,
+    conversation_id: string
+) -> string
+    Создаёт (или возвращает существующий) sender key distribution для группы.
+    Возвращает hex SenderKeyDistributionMessage.
+    Отправить всем участникам группы отдельными envelope'ами с типом
+    ENVELOPE_TYPE_SENDER_KEY (type=3). После этого можно group_encrypt.
+
+    Вызывать один раз на conversation_id. Если нужно ротировать ключ (например,
+    участник вышел из группы) — придумать как сбрасывать distribution_id
+    (в текущей версии модуля не реализовано, обсудить отдельно).
+
+process_sender_key_distribution(
+    account_id: string,
+    sender_account_id: string,
+    sender_device_number: number,
+    skdm_hex: string
+) -> void
+    Обрабатывает входящий ENVELOPE_TYPE_SENDER_KEY от участника группы.
+    Сохраняет его sender key. После этого можно group_decrypt сообщения
+    от этого участника.
+
+group_encrypt(
+    account_id: string,
+    local_device_number: number,
+    conversation_id: string,
+    plaintext_hex: string
+) -> string
+    Шифрует plaintext ОДИН РАЗ для всей группы. Возвращает hex
+    SenderKeyMessage. Отправить всем участникам группы отдельными
+    envelope'ами с типом ENVELOPE_TYPE_MESSAGE (type=1).
+    Получатель поймёт, что это group-сообщение, по первому байту = 0x03.
+
+    Требует предварительного create_sender_key_distribution для этого
+    conversation_id и что ключ уже был разослан.
+
+group_decrypt(
+    account_id: string,
+    sender_account_id: string,
+    sender_device_number: number,
+    skm_hex: string
+) -> string
+    Расшифровывает group-сообщение от участника группы.
+    Вызывать, когда envelope_type=1 и ciphertext начинается на 0x03.
+
+--- 4.5 IDENTITY CHANGES (TOFU WARNING) -------------------------------------
+
+identity_changes(account_id: string) -> string
+    Возвращает JSON-массив записей о смене identity-ключей собеседников:
+    [
+      {
+        "account_id": "...",
+        "device_number": N,
+        "old_key_hex": "...",
+        "new_key_hex": "...",
+        "changed_at": 1799999000
+      }
+    ]
+    Пустой массив = всё ок.
+    Непустой = показать пользователю предупреждение («identity key
+    пользователя X изменился, это может быть попытка атаки или
+    переустановка устройства»).
+
+    ПРАВИЛО: проверять после каждого decrypt. Если changes непустые —
+    показать alert и вызвать clear_identity_changes, когда пользователь
+    подтвердил, что видел.
+
+clear_identity_changes(account_id: string) -> void
+    Очистить журнал изменений. Вызывать после показа пользователю.
+
+--- 4.6 ATTACHMENTS (CHUNKED CHACHA20-POLY1305) ------------------------------
+
+generate_attachment_key() -> string
+    Генерирует свежий симметричный ключ (32 байта) и base nonce (4 байта)
+    для ОДНОГО вложения. Возвращает JSON:
+    {
+      "key_hex": "...",
+      "base_nonce_hex": "..."
+    }
+    Ключ надо передать получателю через отдельный envelope типа
+    ENVELOPE_TYPE_ATTACHMENT_KEY (type=9). См. нативный
+    friendshub-core/src/api/attachments.rs::send_key.
+
+seal_chunk(
+    key_hex: string,
+    base_nonce_hex: string,
+    chunk_index: number,   // u64
+    plaintext: Uint8Array
+) -> Uint8Array
+    Шифрует ОДИН чанк файла. Возвращает зашифрованные байты (plaintext + 16
+    байт Poly1305 tag). ААД = chunk_index в big-endian.
+
+open_chunk(
+    key_hex: string,
+    base_nonce_hex: string,
+    chunk_index: number,
+    sealed: Uint8Array
+) -> Uint8Array
+    Расшифровывает один чанк. Возвращает plaintext-байты.
+    Кидает исключение, если аутентификация не прошла.
+
+    Сценарий загрузки файла:
+      1. const { key_hex, base_nonce_hex } = generate_attachment_key();
+      2. POST /attachments/recommend { total_size: file.size } -> chunk_size
+      3. Нарезать файл на чанки (размер = chunk_size - 16)
+      4. Для каждого чанка: sealed = seal_chunk(key_hex, base_nonce_hex, i, chunk)
+      5. POST /attachments/init { chunk_sizes: [...], conversation_id, kind }
+      6. PUT каждый sealed чанк на пресайн URL из ответа init
+      7. POST /attachments/{id}/finalize
+      8. Отправить (key_hex, base_nonce_hex, attachment_id) получателю через
+         ENVELOPE_TYPE_ATTACHMENT_KEY
+
+    Сценарий скачивания:
+      1. Получили ENVELOPE_TYPE_ATTACHMENT_KEY -> key, nonce, attachment_id
+      2. GET /attachments/{id} -> пресайн URL-ы
+      3. GET каждый чанк -> sealed байты
+      4. Открыть каждый: plain = open_chunk(key, nonce, i, sealed)
+      5. Склеить -> файл
+
+--------------------------------------------------------------------------------
+5. СЦЕНАРИЙ: ОТПРАВКА ТЕКСТОВОГО СООБЩЕНИЯ
+--------------------------------------------------------------------------------
+
+Для DIRECT-чата (1-на-1):
+
+  1. Получить список устройств собеседника:
+     GET /accounts/{peer_id}/devices -> [{device_number, ...}, ...]
+
+  2. Для каждого устройства:
+     a. GET /accounts/{peer_id}/devices/{n}/bundle -> bundle_json
+     b. wasm.establish_session(account_id, peer_id, n, my_device, bundle_json)
+     c. const { ciphertext_hex, is_prekey_message } = JSON.parse(
+          wasm.encrypt(account_id, peer_id, n, my_device, text_hex)
+        );
+     d. Собрать Envelope {
+          envelope_id: uuid_v7(),
+          sender_account_id: my_id,
+          sender_device_number: my_device,
+          recipient_account_id: peer_id,
+          recipient_device_number: n,
+          envelope_type: 1,   // ENVELOPE_TYPE_MESSAGE
+          is_prekey_message,
+          ciphertext: ciphertext_hex,
+          client_timestamp: Math.floor(Date.now() / 1000),
+          conversation_id: conv_id,
+          sender_is_bot: false
+        }
+     e. Отправить через WS ClientFrame.Upload
+
+  3. Sync на свои другие устройства (ENVELOPE_TYPE_SYNC, type=2):
+     Для каждого своего устройства кроме текущего:
+     - establish_session(account_id, my_id, other_device, my_device, bundle)
+     - encrypt(account_id, my_id, other_device, my_device, sync_payload_hex)
+     - Отправить Envelope с envelope_type=2
+
+     sync_payload — JSON, а не сырой текст:
+     {
+       "kind": "sync_sent",
+       "to_account": peer_id,
+       "to_devices": [1, 2],
+       "conversation_id": conv_id,
+       "plaintext_hex": original_text_hex,
+       "envelope_ids": [...]
+     }
+
+Для GROUP-чата:
+  См. 4.4. Один group_encrypt, разослать один и тот же ciphertext всем
+  участникам (кроме себя). Плюс sync на свои устройства.
+
+--------------------------------------------------------------------------------
+6. СЦЕНАРИЙ: ПРИЁМ СООБЩЕНИЯ
+--------------------------------------------------------------------------------
+
+Приходит WS ServerFrame.Delivery.Envelope. Смотрим envelope_type:
+
+  type=1 (MESSAGE), ciphertext[0] == 0x03:
+    -> group_decrypt(account_id, sender, sender_dev, ciphertext_hex)
+    -> результат hex -> TextDecoder -> text
+
+  type=1 (MESSAGE), иначе:
+    -> decrypt(account_id, sender, sender_dev, my_device, ciphertext_hex,
+               is_prekey_message)
+    -> hex -> TextDecoder -> text
+
+  type=2 (SYNC): расшифровать как обычный MESSAGE, а внутри JSON payload.
+    Применить к локальному состоянию (не показывать пользователю как новое
+    сообщение — оно уже было отправлено с другого устройства).
+
+  type=3 (SENDER_KEY):
+    -> process_sender_key_distribution(account_id, sender, sender_dev,
+                                        ciphertext_hex)
+
+  type=4 (EDIT): расшифровать, payload JSON {kind:"edit", target_envelope_id,
+    new_plaintext_hex}. Применить правку к сообщению в UI.
+
+  type=5 (DELETE): аналогично.
+
+  type=6 (REACTION): аналогично.
+
+  type=9 (ATTACHMENT_KEY): расшифровать, payload JSON {kind:"attachment_key",
+    attachment_id, key_hex, base_nonce_hex, conversation_id}.
+    Запомнить для последующего скачивания вложения.
+
+  type=10..14 (CALL_*): WebRTC-сигналинг. Payload JSON {call_id, kind, sdp,
+    candidate, reason}. Передать в WebRTC-слой.
+
+--------------------------------------------------------------------------------
+7. ЧТО МОДУЛЬ НЕ ДЕЛАЕТ
+--------------------------------------------------------------------------------
+
+- Не делает HTTP-запросы. Всё через fetch на JS-стороне.
+- Не держит WebSocket. Это делает JS-слой.
+- Не знает про device_list, conversation_members, блокировки и т.д.
+  Всё это в JS.
+- Не шифрует вложения целиком — только чанки (seal_chunk / open_chunk).
+  Нарезка файла и upload на S3 — задача JS.
+- Не хранит историю сообщений. Это IndexedDB на JS-стороне.
+- Не решает конфликты между вкладками. Если открыто две вкладки с одним
+  аккаунтом — состояние разойдётся. Решать через Web Locks API на JS.
+
+--------------------------------------------------------------------------------
+8. ССЫЛКИ
+--------------------------------------------------------------------------------
+
+Исходник модуля:   https://github.com/SomSomovich/friendshub-wasm
+Нативный эталон:   https://github.com/SomSomovich/friendshub-core
+                   (файлы src/crypto/manager.rs, src/crypto/groups.rs,
+                    src/crypto/init.rs, src/crypto/attachments.rs —
+                    это ровно то, что обёрнуто в WASM)
+Спецификация API:  см. API_FRONTEND.txt в корне проекта
+
+================================================================================
+КОНЕЦ
+================================================================================
