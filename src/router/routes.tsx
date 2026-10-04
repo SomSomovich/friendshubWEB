@@ -1,5 +1,8 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { ChatIndexScreen } from '../screens/ChatIndexScreen'
+import { ConnectScreen } from '../screens/ConnectScreen'
+import { TwoFactorScreen } from '../screens/TwoFactorScreen'
+import { TwoFactorSetupScreen } from '../screens/TwoFactorSetupScreen'
 import { ChatScreen } from '../screens/ChatScreen'
 import { CreateChannelScreen } from '../screens/CreateChannelScreen'
 import { CreateGroupScreen } from '../screens/CreateGroupScreen'
@@ -25,19 +28,19 @@ export const router = createBrowserRouter([
     children: [
       { path: ROUTES.login, element: <LoginScreen /> },
       { path: ROUTES.register, element: <RegisterScreen /> },
-      // 2FA is part of logging in, so it sits behind the same guard; the screen
-      // itself is added in 4.3.
-      { path: ROUTES.twoFactor, element: <LoginScreen /> },
+      { path: ROUTES.twoFactor, element: <TwoFactorScreen /> },
     ],
   },
   {
     element: <RequireAuth />,
     children: [
+      { path: ROUTES.connect, element: <ConnectScreen /> },
       {
         path: ROUTES.app,
         element: <AppLayout />,
         children: [
           { index: true, element: <ChatIndexScreen /> },
+          { path: '2fa', element: <TwoFactorSetupScreen /> },
           { path: CHAT_ROUTE_PATTERN, element: <ChatScreen /> },
           { path: 'settings', element: <SettingsScreen /> },
           { path: 'create-group', element: <CreateGroupScreen /> },

@@ -16,6 +16,9 @@ import { applyTheme, isTheme, persistTheme } from '../src/theme/theme'
 
 const params = new URLSearchParams(location.hash.replace(/^#/, ''))
 
+/** Which phase the flow was in, for the error report. */
+let step = 'start'
+
 async function report(payload: Record<string, unknown>): Promise<void> {
   // Also into the page, so a `--dump-dom` run shows why seeding failed instead of
   // leaving the harness waiting for a message that is never sent.
@@ -28,11 +31,18 @@ async function report(payload: Record<string, unknown>): Promise<void> {
   if (resultUrl === null) {
     return
   }
-  await fetch(resultUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(payload),
-  })
+
+  try {
+    await fetch(resultUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload),
+    })
+  } catch (error) {
+    // Reporting is a convenience for whoever is watching; a failure to report
+    // must not abort the flow it is reporting on.
+    console.warn('[seed] could not deliver the report', error)
+  }
 }
 
 async function main(): Promise<void> {
@@ -56,13 +66,16 @@ async function main(): Promise<void> {
     return
   }
 
+  step = 'login'
   const session = await login(fhNumber, password, deviceNumber)
   if (session.kind !== 'session') {
     await report({ ok: false, error: 'login asked for a TOTP code' })
     return
   }
 
+  step = 'me'
   const me = await getMe({ sessionToken: session.sessionToken, deviceNumber })
+  step = 'save'
   await saveAccount({
     id: me.id,
     userId: me.userId,
@@ -75,6 +88,7 @@ async function main(): Promise<void> {
     expiresAt: session.expiresAt,
   })
 
+  step = 'done'
   await report({ ok: true, accountId: me.id, username: me.username, fhNumber: me.fhNumber })
 
   // One Edge launch per capture: the browser navigates on to the app itself, so
@@ -96,6 +110,7 @@ function describeError(error: unknown): Record<string, unknown> {
     return {
       name: error.name,
       message: error.message,
+      stack: error.stack?.split('\n').slice(0, 4).join(' | ') ?? null,
       cause: error.cause === undefined ? null : describeError(error.cause),
     }
   }
@@ -103,5 +118,5 @@ function describeError(error: unknown): Record<string, unknown> {
 }
 
 void main().catch((error: unknown) => {
-  void report({ ok: false, base: API_BASE_URL, error: describeError(error) })
+  void report({ ok: false, base: API_BASE_URL, step, error: describeError(error) })
 })

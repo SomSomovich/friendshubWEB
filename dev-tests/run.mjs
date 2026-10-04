@@ -377,7 +377,7 @@ async function runUi(browser) {
       lang: 'ru',
       size: '1280,800',
       ready: `document.body.innerText.includes('Вход') && ${STYLE_READY}`,
-      expect: ['Экран «Вход»', '<html lang="ru" data-theme="dark"'],
+      expect: ['Вход', 'FH-номер', '<html lang="ru" data-theme="dark"'],
     },
     {
       label: 'login-light-en',
@@ -386,7 +386,7 @@ async function runUi(browser) {
       lang: 'en',
       size: '375,720',
       ready: `document.body.innerText.includes('Sign in') && ${STYLE_READY}`,
-      expect: ['The “Sign in” screen', '<html lang="en" data-theme="light"'],
+      expect: ['Sign in', 'FH number', '<html lang="en" data-theme="light"'],
     },
     {
       label: 'landing-dark-ru',
@@ -411,6 +411,49 @@ async function runUi(browser) {
       ],
     },
     {
+      label: 'register-dark-ru',
+      route: '/register',
+      theme: 'dark',
+      lang: 'ru',
+      size: '1280,800',
+      ready: `document.body.innerText.includes('Регистрация') && ${STYLE_READY}`,
+      expect: ['Регистрация', 'Минимум 8 символов'],
+    },
+    {
+      label: 'twofactor-light-en',
+      route: '/2fa',
+      theme: 'light',
+      lang: 'en',
+      size: '390,844',
+      // The screen redirects without a challenge, so one is seeded first; nothing
+      // is sent anywhere until the form is submitted.
+      prepare:
+        "sessionStorage.setItem('fh.totpChallenge', JSON.stringify({ fhNumber: 'FH0000000', challengeToken: 'harness-challenge' }))",
+      ready: `document.body.innerText.includes('Two-factor') && ${STYLE_READY}`,
+      expect: ['Two-factor authentication', 'Enter the six-digit code'],
+    },
+    {
+      // Signed out, the prepare screen has to hand the visitor to the login form.
+      label: 'connect-redirect-dark-ru',
+      route: '/connect',
+      theme: 'dark',
+      lang: 'ru',
+      size: '1280,800',
+      ready: `document.body.innerText.includes('Вход') && ${STYLE_READY}`,
+      expect: ['FH-номер'],
+    },
+    {
+      // The signed-in shell: the seed page logs in with the existing smoke
+      // account and navigates on to /app, all inside one launch.
+      label: 'app-shell-dark-ru',
+      route: null,
+      theme: 'dark',
+      lang: 'ru',
+      size: '1280,800',
+      ready: `document.querySelector('input[type="search"]') !== null && ${STYLE_READY}`,
+      expect: ['Чатов пока нет', 'Поиск', 'Меню'],
+    },
+    {
       // With no account in a fresh profile, the guard has to send this to login.
       label: 'guard-redirect-dark-ru',
       route: '/app',
@@ -418,7 +461,7 @@ async function runUi(browser) {
       lang: 'ru',
       size: '1280,800',
       ready: "document.body.innerText.includes('Вход')",
-      expect: ['Экран «Вход»'],
+      expect: ['FH-номер'],
     },
     {
       label: 'notfound-light-en',
@@ -430,6 +473,12 @@ async function runUi(browser) {
       expect: ['Page not found'],
     },
   ]
+
+  const accountFile = resolve(projectRoot, 'scripts/.smoke-account.json')
+  if (!existsSync(accountFile)) {
+    throw new Error('[harness] scripts/.smoke-account.json is missing; run npm run smoke:ws first')
+  }
+  const smokeAccount = JSON.parse(readFileSync(accountFile, 'utf8'))
 
   await mkdir(join(here, '.tmp'), { recursive: true })
 
@@ -461,20 +510,42 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
 
     for (const capture of captures) {
       const screenshotPath = join(here, '.tmp', `${capture.label}.png`)
+      // A null route means the signed-in shell: the seed page logs in with the
+      // existing smoke account and navigates on to /app itself.
+      const seedParams = new URLSearchParams({
+        result: `http://127.0.0.1:${E2E_RESULT_PORT}/result`,
+        fh: smokeAccount.fhNumber,
+        password: smokeAccount.password,
+        device: String(smokeAccount.deviceNumber ?? 1),
+        theme: capture.theme,
+        lang: capture.lang,
+        next: `${origin}/app`,
+      })
+      const targetUrl =
+        capture.route === null
+          ? `${origin}/dev-tests/seed.html#${seedParams.toString()}`
+          : `${origin}${capture.route}`
+
       const result = await capturePage({
         browser,
-        url: `${origin}${capture.route}`,
+        url: targetUrl,
         profileDir: join(here, '.tmp', `profile-${capture.label}`),
         windowSize: capture.size,
         readyExpression: capture.ready,
         screenshotPath,
-        prepare: `localStorage.setItem('fh.theme', '${capture.theme}');localStorage.setItem('fh.lang', '${capture.lang}')`,
+        prepare: [
+          `localStorage.setItem('fh.theme', '${capture.theme}')`,
+          `localStorage.setItem('fh.lang', '${capture.lang}')`,
+          capture.prepare,
+        ]
+          .filter((part) => part !== undefined)
+          .join(';'),
       })
 
       await writeFile(screenshotPath, Buffer.from(result.screenshot ?? '', 'base64'))
       await writeFile(join(here, '.tmp', `${capture.label}.html`), result.dom)
 
-      console.log(`--- ${capture.label} ---`)
+      console.log(`--- ${capture.label} ---${result.ready ? '' : ' (screen never became ready)'}`)
       for (const expected of capture.expect) {
         const passed = result.dom.includes(expected)
         console.log(`  ${passed ? 'PASS' : 'FAIL'} contains "${expected}"`)

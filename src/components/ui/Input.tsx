@@ -1,10 +1,12 @@
 import { Eye, EyeOff } from 'lucide-react'
-import { useId, useState, type InputHTMLAttributes } from 'react'
+import { useId, useState, type InputHTMLAttributes, type Ref } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../utils/cn'
 
 export type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> & {
   label: string
+  /** React 19 passes this through as an ordinary prop, which `rest` forwards. */
+  ref?: Ref<HTMLInputElement>
   /** Shown under the field and marked as invalid; `null` clears it. */
   error?: string | null
   /** Shown under the field when there is no error. */

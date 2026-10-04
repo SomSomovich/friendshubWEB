@@ -112,23 +112,22 @@ export async function capturePage(options) {
       // Preferences live in localStorage, which is per origin, so the page has
       // to be on the origin before they can be set and the target loaded.
       if (prepare !== undefined) {
-        await session.send('Page.navigate', { url: `${new URL(url).origin}/favicon.svg` })
+        await session.send('Page.navigate', { url: `${new URL(url).origin}/index.html` })
         await session.send('Runtime.evaluate', { expression: prepare })
       }
 
       await session.send('Page.navigate', { url })
 
+      let ready = false
       const deadline = Date.now() + WAIT_TIMEOUT_MS
-      for (;;) {
+      while (!ready) {
         const result = await session.send('Runtime.evaluate', {
           expression: readyExpression,
           returnByValue: true,
         })
-        if (result.result?.value === true) {
+        ready = result.result?.value === true
+        if (ready || Date.now() >= deadline) {
           break
-        }
-        if (Date.now() >= deadline) {
-          throw new Error(`[driver] "${readyExpression}" never became true for ${url}`)
         }
         await sleep(250)
       }
@@ -144,7 +143,7 @@ export async function capturePage(options) {
         screenshot = shot.data
       }
 
-      return { dom: dom.result?.value ?? '', screenshot }
+      return { dom: dom.result?.value ?? '', screenshot, ready }
     } finally {
       // Closes the browser itself, not just the launcher process Node spawned.
       await session.send('Browser.close').catch(() => undefined)

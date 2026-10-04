@@ -9,7 +9,10 @@ export const ROUTES = {
   register: '/register',
   twoFactor: '/2fa',
   app: '/app',
+  /** Where a fresh sign-in lands while the device is prepared. */
+  connect: '/connect',
   settings: '/app/settings',
+  twoFactorSetup: '/app/2fa',
   createGroup: '/app/create-group',
   createChannel: '/app/create-channel',
 } as const

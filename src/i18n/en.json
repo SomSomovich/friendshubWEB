@@ -97,8 +97,36 @@
   },
   "auth": {
     "loginTitle": "Sign in",
-    "registerTitle": "Sign up",
-    "pending": "The “{{screen}}” screen is not implemented yet."
+    "registerTitle": "Create account",
+    "fhNumber": "FH number",
+    "password": "Password",
+    "code": "Code",
+    "backupCode": "Backup code",
+    "submitLogin": "Sign in",
+    "submitRegister": "Create account",
+    "submitCode": "Confirm",
+    "toRegister": "Create an account",
+    "toLogin": "Back to sign in",
+    "addAccountHint": "Signing in to another account: the current one stays active until you switch.",
+    "registerHint": "An FH1234567-style number is issued as soon as the account exists.",
+    "passwordRules": "At least {{count}} characters.",
+    "registered": "Account created: {{fhNumber}}",
+    "twoFactorTitle": "Two-factor authentication",
+    "twoFactorHint": "Enter the six-digit code from your authenticator app.",
+    "twoFactorBackupHint": "Enter one of your backup codes. Each works once.",
+    "useBackupCode": "Use a backup code",
+    "useTotp": "Use an app code",
+    "errors": {
+      "emptyFields": "Fill in both the FH number and the password.",
+      "invalidCredentials": "Wrong FH number, password or device.",
+      "rateLimited": "Too many attempts. Try again later.",
+      "network": "The server is unreachable. Check your connection.",
+      "passwordTooShort": "The password is shorter than {{count}} characters.",
+      "unexpectedChallenge": "The server asked for a 2FA code on a brand-new account — please report this.",
+      "badTotpCode": "The code is six digits.",
+      "badBackupCode": "That does not look like a backup code.",
+      "badCode": "That code was rejected."
+    }
   },
   "app": {
     "chatIndexEmpty": "Pick a chat to start messaging",
@@ -155,5 +183,35 @@
     "title": "Page not found",
     "description": "There is nothing at this address.",
     "home": "Go home"
+  },
+  "connect": {
+    "title": "Preparing this device",
+    "subtitle": "Connecting the account {{username}} to this browser.",
+    "stepKeys": "Device keys",
+    "stepSocket": "Connection",
+    "pleaseWait": "On a first sign-in this can take up to a minute.",
+    "failed": "The device could not be prepared.",
+    "retry": "Try again",
+    "continueOffline": "Continue without a connection",
+    "offlineHint": "The app opens without a connection; messages leave when it returns."
+  },
+  "twoFactorSetup": {
+    "title": "Two-factor authentication",
+    "offTitle": "2FA is off",
+    "offHint": "An extra code from your authenticator app when signing in.",
+    "start": "Turn on 2FA",
+    "addHint": "Add the key to your authenticator app, then confirm with a code.",
+    "secret": "Key for manual entry",
+    "copyUri": "Copy the otpauth link",
+    "copied": "Copied",
+    "copyFailed": "Could not copy",
+    "backupWarning": "Save the backup codes: they are shown once and replace the app code.",
+    "copyAll": "Copy all codes",
+    "confirmHint": "The code from your app after adding the key.",
+    "confirm": "Confirm and enable",
+    "enabled": "2FA is on",
+    "enabledHint": "Turning it off needs your password and a current code.",
+    "disable": "Turn off 2FA",
+    "disabled": "2FA is off"
   }
 }
