@@ -88,6 +88,9 @@ export default defineConfig({
         // the app shell, so a navigation fallback must not answer for them.
         navigateFallbackDenylist: [/^\/(?:api|ws|health)(?:\/|$)/, /^\/avatars\//],
         cleanupOutdatedCaches: true,
+        // Pulls in the notification-click handler, which has no place in this
+        // plugin's own configuration. See `public/push-sw.js`.
+        importScripts: ['/push-sw.js'],
         // A newly activated worker takes over open tabs immediately, which is
         // what `registerType: 'autoUpdate'` promises.
         clientsClaim: true,

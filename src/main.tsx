@@ -4,7 +4,7 @@ import { App } from './App'
 // Side-effect import: configures i18next before the first render.
 import './i18n/index'
 import './index.css'
-import { registerServiceWorker } from './utils/registerServiceWorker'
+import { registerServiceWorker } from './pwa/register'
 
 const container = document.getElementById('root')
 

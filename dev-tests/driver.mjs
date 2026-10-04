@@ -104,7 +104,8 @@ async function connect(webSocketUrl) {
  */
 export async function capturePage(options) {
   const debugPort = DEBUG_PORT_BASE + Math.floor(Math.random() * 400)
-  const { browser, url, profileDir, windowSize, readyExpression, screenshotPath, prepare } = options
+  const { browser, url, profileDir, windowSize, readyExpression, screenshotPath, prepare, preload } =
+    options
 
   const child = spawn(
     browser,
@@ -126,6 +127,15 @@ export async function capturePage(options) {
     const session = await connect(await waitForDebugTarget(debugPort))
     try {
       await session.send('Page.enable')
+
+      // `preload` runs in every new document before any of its own scripts, which
+      // is the only way to change something the app reads the moment it boots —
+      // `navigator.onLine`, say, or an event the app has to be listening for.
+      // `prepare` cannot do that: it runs in the outgoing document, and a
+      // navigation throws that realm away.
+      if (preload !== undefined) {
+        await session.send('Page.addScriptToEvaluateOnNewDocument', { source: preload })
+      }
 
       // Preferences live in localStorage, which is per origin, so the page has
       // to be on the origin before they can be set and the target loaded.

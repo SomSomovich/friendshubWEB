@@ -1,4 +1,4 @@
-import { Check, CheckCheck, MessageSquareDashed } from 'lucide-react'
+import { Check, CheckCheck, Clock, MessageSquareDashed } from 'lucide-react'
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLongPress } from '../../hooks/useLongPress'
@@ -142,6 +142,16 @@ function StatusIcon({ status, label }: { status: MessageStatus; label: string })
     return (
       <span role="img" aria-label={label} className="text-danger">
         <MessageSquareDashed className="size-3.5" aria-hidden />
+      </span>
+    )
+  }
+
+  // Waiting to leave: a clock, not a tick. A tick here would claim the server
+  // has the message when the connection is exactly what is missing.
+  if (status === 'sending') {
+    return (
+      <span role="img" aria-label={label} title={label} className="text-fg-muted">
+        <Clock className="size-3.5" aria-hidden />
       </span>
     )
   }

@@ -21,10 +21,11 @@ import {
 } from '../storage/messages'
 import type { Account, Envelope } from '../types'
 import { nowSeconds } from '../utils/time'
-import { requireActiveClient } from '../ws/activeClient'
+import { getActiveClientOrNull, requireActiveClient } from '../ws/activeClient'
 import { clearIdentityChanges, type IdentityChange } from '../wasm'
 import type { PresenceEvent } from '../ws/events'
 import { applyReceivedEnvelope, mergeById } from './applyEnvelope'
+import { enqueue, listOutbox, removeFromOutbox } from './outbox'
 import { useUiStore } from './uiStore'
 
 /**
@@ -83,6 +84,8 @@ export type AccountActions = {
   loadOlderMessages: () => Promise<void>
   sendText: (plaintext: string) => Promise<void>
   sendToSaved: (plaintext: string) => Promise<void>
+  /** Sends whatever was queued while the connection was down. */
+  flushOutbox: () => Promise<void>
   applyEnvelope: (envelope: Envelope) => Promise<void>
   /** Records that the server stored these envelopes (`'sent'` → `'delivered'`). */
   applyReceipt: (envelopeIds: string[]) => Promise<void>
@@ -227,6 +230,29 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
           throw new Error('[state] no conversation is open')
         }
 
+        // No socket to send over: the message is written locally and queued, so
+        // what the reader typed is never lost to a tunnel. The envelope ids it
+        // would have carried are absent, which is the same state a message is in
+        // for the moment between writing it and the server storing it.
+        if (getActiveClientOrNull()?.isConnected !== true) {
+          const placeholder: MessageRecord = {
+            ...buildLocalMessageRecord(account, activeConversationId, plaintext),
+            status: 'sending',
+          }
+          await saveMessage(placeholder)
+          await enqueue(account.id, {
+            id: placeholder.envelopeId,
+            conversationId: activeConversationId,
+            plaintext,
+          })
+          set({
+            messages: mergeById([placeholder], get().messages),
+            sending: false,
+            messagesVersion: get().messagesVersion + 1,
+          })
+          return
+        }
+
         set({ sending: true, error: null })
         try {
           const record = await sendToOpenConversation(account, activeConversationId, plaintext, get())
@@ -240,6 +266,46 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
           set({ sending: false, error: describe(error) })
           throw error
         }
+      },
+
+      /**
+       * Sends whatever was written while the connection was down.
+       *
+       * Stops at the first failure rather than trying the rest: the failures here
+       * are almost always "still not connected", and hammering a socket that is
+       * not there would only bury the one useful error. Whatever is left stays
+       * queued for the next attempt.
+       */
+      async flushOutbox() {
+        const queue = await listOutbox(account.id)
+        if (queue.length === 0) {
+          return
+        }
+
+        for (const item of queue) {
+          try {
+            const record = await sendToOpenConversation(account, item.conversationId, item.plaintext, get())
+            // The placeholder goes first: the real record has its own envelope
+            // id, and both at once would be the message twice.
+            await deleteMessage(account.id, item.id)
+            await saveMessage(record)
+            await removeFromOutbox(account.id, item.id)
+
+            if (get().activeConversationId === item.conversationId) {
+              set({
+                messages: mergeById(
+                  get().messages.filter((message) => message.envelopeId !== item.id),
+                  [record],
+                ),
+              })
+            }
+          } catch (error) {
+            console.warn('[outbox] a queued message could not be sent yet', error)
+            break
+          }
+        }
+
+        set({ messagesVersion: get().messagesVersion + 1 })
       },
 
       async sendToSaved(plaintext) {

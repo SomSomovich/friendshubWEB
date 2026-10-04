@@ -1,6 +1,9 @@
 import type { StoreApi } from 'zustand/vanilla'
-import type { Account } from '../types'
+import { announceIncoming } from '../pwa/notify'
+import { getMessage } from '../storage/messages'
+import type { Account, Envelope } from '../types'
 import type { WsClient } from '../ws/client'
+import { ENVELOPE_TYPE_MESSAGE } from '../ws/envelopeTypes'
 import { requireAccountStore } from './accountRegistry'
 import type { AccountStore } from './accountStore'
 
@@ -28,6 +31,7 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
         .then(async () => {
           await store.getState().actions.applyEnvelope(envelope)
           requestConversationIfUnknown(store, account.id, envelope.conversationId)
+          await announceMessage(store, account, envelope)
         })
         .catch((error: unknown) => {
           console.error('[state] an envelope could not be applied', error)
@@ -48,11 +52,62 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     store.getState().actions.setPresence(event)
   })
 
+  // A connection is the moment the queue from the last disconnection can go out.
+  const detachConnected = client.on('connected', () => {
+    void store
+      .getState()
+      .actions.flushOutbox()
+      .catch((error: unknown) => {
+        console.error('[state] the outbox could not be flushed', error)
+      })
+  })
+
   return () => {
     detachDelivery()
     detachReceipt()
     detachPresence()
+    detachConnected()
   }
+}
+
+/**
+ * Announces a message from somebody else that is not already on screen.
+ *
+ * Skipped for the open conversation: the reader is looking at it, and a system
+ * banner for a message already visible is noise. Sync copies are skipped too —
+ * they are this account's own messages coming back from another device.
+ */
+async function announceMessage(
+  store: StoreApi<AccountStore>,
+  account: Account,
+  envelope: Envelope,
+): Promise<void> {
+  if (
+    envelope.envelopeType !== ENVELOPE_TYPE_MESSAGE ||
+    envelope.senderAccountId === account.id ||
+    envelope.conversationId === null ||
+    store.getState().activeConversationId === envelope.conversationId
+  ) {
+    return
+  }
+
+  const conversation = store
+    .getState()
+    .conversations.find((entry) => entry.id === envelope.conversationId)
+  if (conversation === undefined) {
+    return
+  }
+
+  // Read back from storage rather than from the open window: the window holds
+  // one conversation, and the whole point here is the ones that are not open.
+  const message = await getMessage(account.id, envelope.envelopeId)
+
+  await announceIncoming({
+    accountId: account.id,
+    title: conversation.title ?? account.username,
+    body: message?.plaintext ?? '',
+    muted: conversation.mutedUntil !== null,
+  })
 }
 
 /**
