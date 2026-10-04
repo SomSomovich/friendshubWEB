@@ -6,10 +6,24 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
+    <!--
+      The Russian defaults: what a crawler that never runs JavaScript sees. The
+      landing page rewrites them for the visitor's own language (see
+      `useDocumentMeta`), and turns `og:image` into an absolute URL.
+    -->
     <meta
       name="description"
-      content="FriendsHub — приватный мессенджер со сквозным шифрованием"
+      content="FriendsHub — приватный мессенджер со сквозным шифрованием. Переписка шифруется на ваших устройствах, сервер хранит только зашифрованные конверты."
     />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="FriendsHub" />
+    <meta property="og:title" content="FriendsHub — приватный мессенджер" />
+    <meta
+      property="og:description"
+      content="Сквозное шифрование по Signal Protocol, несколько аккаунтов и устройств, работа офлайн."
+    />
+    <meta property="og:image" content="/icons/icon-512.png" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link
       rel="icon"

@@ -12,7 +12,88 @@
   "landing": {
     "login": "Sign in",
     "register": "Create account",
-    "phaseNote": "Theming, localization, routing and PWA are wired up. Sign-in, chats and calls arrive in later phases."
+    "openApp": "Open the app",
+    "navLabel": "Page sections",
+    "nav": {
+      "features": "Features",
+      "how": "How it works",
+      "why": "Why FriendsHub"
+    },
+    "hero": {
+      "title": "Private end-to-end encrypted messenger",
+      "subtitle": "Messages are encrypted on your devices. The server only ever holds encrypted envelopes — it cannot read them, and neither can anyone else.",
+      "ctaPrimary": "Create account",
+      "ctaSecondary": "Sign in",
+      "mockLabel": "Diagram: messages turn into ciphertext"
+    },
+    "features": {
+      "title": "Features",
+      "subtitle": "Everything a private conversation needs.",
+      "encryption": {
+        "title": "End-to-end encryption",
+        "text": "The Signal Protocol: separate sessions and keys for every device."
+      },
+      "accounts": {
+        "title": "Up to five accounts",
+        "text": "Several accounts in one tab, fully isolated from each other."
+      },
+      "devices": {
+        "title": "Several devices",
+        "text": "Conversations sync across your devices and stay encrypted."
+      },
+      "offline": {
+        "title": "Works offline",
+        "text": "Installs to your phone and opens your history without a connection."
+      },
+      "groups": {
+        "title": "Groups and channels",
+        "text": "Group chats on sender keys, public channels with discussions."
+      },
+      "noTracking": {
+        "title": "No tracking",
+        "text": "No analytics, no advertising identifiers: the client sends no telemetry."
+      }
+    },
+    "how": {
+      "title": "How it works",
+      "subtitle": "Three steps to an encrypted conversation.",
+      "step1": {
+        "title": "Create an account",
+        "text": "A password is all it takes. An FH1234567 number is issued right away."
+      },
+      "step2": {
+        "title": "Share your number",
+        "text": "The other person adds you by FH number or through an invite link."
+      },
+      "step3": {
+        "title": "Start talking",
+        "text": "Keys are derived on the devices; the server only sees ciphertext."
+      }
+    },
+    "why": {
+      "title": "Why FriendsHub",
+      "privacy": {
+        "title": "Private by default",
+        "text": "Only the owner of a device can decrypt the conversation."
+      },
+      "control": {
+        "title": "Your data stays yours",
+        "text": "Message history lives in your browser, not in a provider's cloud."
+      },
+      "open": {
+        "title": "Open source",
+        "text": "The client and the crypto module are released under AGPL-3.0."
+      },
+      "fast": {
+        "title": "Fast, nothing to install",
+        "text": "A PWA that opens in the browser and installs to the home screen."
+      }
+    },
+    "footer": {
+      "rights": "All rights reserved.",
+      "repository": "Repository",
+      "license": "AGPL-3.0 licence"
+    }
   },
   "auth": {
     "loginTitle": "Sign in",

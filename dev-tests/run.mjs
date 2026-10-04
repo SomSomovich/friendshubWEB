@@ -398,6 +398,19 @@ async function runUi(browser) {
       expect: ['Приватный мессенджер'],
     },
     {
+      label: 'landing-light-en',
+      route: '/',
+      theme: 'light',
+      lang: 'en',
+      size: '390,844',
+      ready: `document.body.innerText.includes('Private end-to-end') && ${STYLE_READY}`,
+      expect: [
+        'Private end-to-end encrypted messenger',
+        '<html lang="en" data-theme="light"',
+        'End-to-end encryption',
+      ],
+    },
+    {
       // With no account in a fresh profile, the guard has to send this to login.
       label: 'guard-redirect-dark-ru',
       route: '/app',
