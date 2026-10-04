@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useStore } from 'zustand'
-import { getConversation } from '../api/conversations'
 import { listContacts } from '../api/contacts'
-import { avatarImageUrl } from '../api/avatars'
 import { getOrCreateSavedConversation } from '../crypto/saved'
 import { requireAccountStore } from '../state/accountRegistry'
+import {
+  resolveConversationIdentity,
+  type ContactName,
+} from '../state/conversationIdentity'
 import type { ConversationRecord } from '../storage/db'
 import { countMessagesAfter, getMessages } from '../storage/messages'
 import { listPinned } from '../storage/pinned'
-import { loadPeerCache, loadReadState, rememberPeer } from '../storage/read_state'
+import { loadHiddenConversations, loadPeerCache, loadReadState } from '../storage/read_state'
 import type { Account } from '../types'
 
 /**
@@ -47,9 +49,9 @@ export function useChatList(account: Account): ChatListState {
   const { t } = useTranslation()
   const store = requireAccountStore(account.id)
   const conversations = useStore(store, (state) => state.conversations)
-  // Bumped by the receive path, so a message arriving in a background
+  // Bumped by the send and receive paths, so a message written to a background
   // conversation refreshes this list without a polling loop.
-  const incomingCounter = useStore(store, (state) => state.incomingCounter)
+  const messagesVersion = useStore(store, (state) => state.messagesVersion)
 
   // The conversation list comes from the server; nothing else loads it, and a
   // failure is the store's to report, so it is not awaited here.
@@ -70,12 +72,13 @@ export function useChatList(account: Account): ChatListState {
         if (!cancelled) {
           setLoading(true)
         }
-        const [saved, readState, peers, contacts] = await Promise.all([
+        const [saved, readState, peers, contacts, hidden] = await Promise.all([
           // Ensures the Saved conversation exists, so it is always in the list.
           getOrCreateSavedConversation(account),
           loadReadState(account.id),
           loadPeerCache(account.id),
           listContacts(account).catch(() => []),
+          loadHiddenConversations(account.id),
         ])
 
         const byAccountId = new Map(contacts.map((contact) => [contact.targetAccountId, contact]))
@@ -96,7 +99,7 @@ export function useChatList(account: Account): ChatListState {
         )
 
         if (!cancelled) {
-          setRows(assembled)
+          setRows(assembled.filter((row) => !isHidden(row, hidden)))
           setError(null)
         }
       } catch (cause) {
@@ -114,7 +117,7 @@ export function useChatList(account: Account): ChatListState {
     return () => {
       cancelled = true
     }
-  }, [account, conversations, incomingCounter, reloadToken, t])
+  }, [account, conversations, messagesVersion, reloadToken, t])
 
   const reload = useCallback(() => {
     setReloadToken((value) => value + 1)
@@ -123,10 +126,26 @@ export function useChatList(account: Account): ChatListState {
   return { rows: sortRows(rows), loading, error, reload }
 }
 
+/**
+ * A removed conversation stays gone until something happens in it afterwards.
+ *
+ * That is what makes a local delete stick: the server has no endpoint for it and
+ * would hand the row straight back on the next sync, so the removal is recorded
+ * as a moment in time and compared against the last activity — and the chat
+ * reappears the way it should, when the other side writes again.
+ */
+function isHidden(row: ChatListRowData, hidden: Record<string, number>): boolean {
+  const hiddenAt = hidden[row.conversation.id]
+  if (hiddenAt === undefined) {
+    return false
+  }
+  return (row.at ?? row.conversation.updatedAt) <= hiddenAt
+}
+
 type AssembleContext = {
   readState: Record<string, number>
   peers: Record<string, string>
-  contacts: Map<string, { username: string; localUsername: string | null; avatarUrl: string | null }>
+  contacts: Map<string, ContactName>
   savedTitle: string
   unknownTitle: string
 }
@@ -143,7 +162,10 @@ async function assembleRow(
   ])
 
   const last = lastPage.at(0)
-  const identity = await resolveIdentity(account, conversation, context)
+  const identity = await resolveConversationIdentity(account, conversation, context.contacts, context.peers, {
+    saved: context.savedTitle,
+    unknown: context.unknownTitle,
+  })
 
   return {
     conversation,
@@ -154,64 +176,6 @@ async function assembleRow(
     unread,
     muted: conversation.mutedUntil !== null,
     hasPinned: pinned.length > 0,
-  }
-}
-
-/** The display name and avatar for a row, per conversation kind. */
-async function resolveIdentity(
-  account: Account,
-  conversation: ConversationRecord,
-  context: AssembleContext,
-): Promise<{ title: string; avatarUrl: string | null }> {
-  if (conversation.kind === 'saved') {
-    return { title: context.savedTitle, avatarUrl: null }
-  }
-
-  if (conversation.kind === 'direct') {
-    const peerId = await resolvePeerAccountId(account, conversation, context.peers)
-    if (peerId === null) {
-      return { title: context.unknownTitle, avatarUrl: null }
-    }
-    const contact = context.contacts.get(peerId)
-    return {
-      title: contact?.localUsername ?? contact?.username ?? context.unknownTitle,
-      avatarUrl: avatarImageUrl(peerId),
-    }
-  }
-
-  return {
-    title: conversation.title ?? context.unknownTitle,
-    avatarUrl: avatarImageUrl(conversation.id),
-  }
-}
-
-/**
- * Which account a direct conversation is with.
- *
- * The list endpoint does not say, so the detail is fetched once and remembered;
- * a failure returns `null` rather than throwing, because one unknown row must
- * not empty the whole list.
- */
-async function resolvePeerAccountId(
-  account: Account,
-  conversation: ConversationRecord,
-  known: Record<string, string>,
-): Promise<string | null> {
-  const cached = known[conversation.id]
-  if (cached !== undefined) {
-    return cached
-  }
-
-  try {
-    const detail = await getConversation(account, conversation.id)
-    const peerId = detail.members.find((member) => member !== account.id) ?? null
-    if (peerId !== null) {
-      await rememberPeer(account.id, conversation.id, peerId)
-    }
-    return peerId
-  } catch (error) {
-    console.warn(`[chat list] could not resolve the peer of ${conversation.id}`, error)
-    return null
   }
 }
 

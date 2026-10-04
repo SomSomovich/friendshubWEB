@@ -8,6 +8,7 @@ import {
   saveMessage,
   updateMessage,
 } from '../storage/messages'
+import { unpinMessage } from '../storage/pinned'
 import type { Account, Envelope, Reaction } from '../types'
 import { hexToUtf8 } from '../utils/hex'
 import { nowSeconds } from '../utils/time'
@@ -71,7 +72,7 @@ export async function applyReceivedEnvelope(
         break
       }
       case 'delete': {
-        await applyDelete(received.payload, context)
+        await applyDelete(received.payload, envelope.conversationId, context)
         break
       }
       case 'reaction': {
@@ -149,17 +150,30 @@ async function applyEdit(payload: unknown, context: EnvelopeApplyContext): Promi
   }
 
   const plaintext = hexToUtf8(newHex)
-  await updateMessage(context.account.id, targetId, { plaintext })
-  context.updateMessages((messages) => patchById(messages, targetId, (message) => ({ ...message, plaintext })))
+  const editedAt = nowSeconds()
+  await updateMessage(context.account.id, targetId, { plaintext, editedAt })
+  context.updateMessages((messages) =>
+    patchById(messages, targetId, (message) => ({ ...message, plaintext, editedAt })),
+  )
 }
 
-async function applyDelete(payload: unknown, context: EnvelopeApplyContext): Promise<void> {
+async function applyDelete(
+  payload: unknown,
+  conversationId: string | null,
+  context: EnvelopeApplyContext,
+): Promise<void> {
   if (!isRecordWithKind(payload, 'delete')) {
     return
   }
   const targetId = payload['target_envelope_id']
   if (typeof targetId !== 'string') {
     return
+  }
+
+  // The pin row points at the message, so it has to go first: a banner cycling
+  // through deleted messages would be worse than no banner at all.
+  if (conversationId !== null) {
+    await unpinMessage(context.account.id, conversationId, targetId)
   }
 
   await deleteMessage(context.account.id, targetId)

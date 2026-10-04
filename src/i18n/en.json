@@ -4,6 +4,7 @@
     "tagline": "Private end-to-end encrypted messenger",
     "back": "Back",
     "close": "Close",
+    "cancel": "Cancel",
     "loading": "Loading…",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
@@ -130,14 +131,105 @@
   },
   "app": {
     "chatIndexEmpty": "Pick a chat to start messaging",
-    "chatIndexHint": "The conversation list arrives in the next section."
+    "chatIndexHint": "Or start a new conversation from the menu on the left."
   },
   "chat": {
     "title": "Chat",
     "back": "Back to the conversation list",
-    "pending": "The conversation view is not implemented yet",
-    "pendingHint": "Messages, attachments and reactions will appear here.",
-    "pendingStatus": "Not implemented yet"
+    "notFound": "Conversation not found",
+    "notFoundHint": "It may have been deleted, or the link may be out of date.",
+    "empty": "No messages yet",
+    "emptyHint": "Say hello!",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "you": "You",
+    "edited": "edited",
+    "copy": "Copy",
+    "copied": "Copied",
+    "undecryptable": "This message could not be decrypted",
+    "messageNotLoaded": "That message is not loaded — scroll further up to reach it.",
+    "actionFailed": "The action could not be completed.",
+    "more": "More",
+    "scrollToBottom": "Jump to the newest messages",
+    "composerPlaceholder": "Message",
+    "send": "Send",
+    "memberCount_one": "{{count}} member",
+    "memberCount_other": "{{count}} members",
+    "presence": {
+      "online": "online",
+      "lastSeen": "last seen {{time}} ago"
+    },
+    "status": {
+      "sending": "Sending",
+      "sent": "Sent",
+      "delivered": "Delivered",
+      "read": "Read",
+      "failed": "Not sent"
+    },
+    "menu": {
+      "edit": "Edit",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "copy": "Copy text",
+      "deleteMessage": "Delete message",
+      "deleteMessageHint": "The message disappears for everyone in the conversation. This cannot be undone.",
+      "clearHistory": "Clear history",
+      "clearHistoryHint": "The messages stay with everyone else but disappear from this browser. This cannot be undone.",
+      "cleared": "History cleared",
+      "delete": "Delete chat",
+      "deleteHint": "The chat disappears from the list on this device and comes back when something new arrives in it."
+    },
+    "pinned": {
+      "added": "Message pinned",
+      "removed": "Message unpinned",
+      "previous": "Previous pinned message",
+      "next": "Next pinned message",
+      "hide": "Hide pinned messages"
+    },
+    "reactions": {
+      "reactWith": "React with {{emoji}}",
+      "toggle": "{{emoji}}, {{n}} reactions"
+    },
+    "call": {
+      "audio": "Audio call",
+      "video": "Video call",
+      "notYet": "Calls arrive in a later update."
+    },
+    "contact": {
+      "add": "Add to friends",
+      "remove": "Remove from friends",
+      "added": "Added to friends",
+      "removed": "Removed from friends",
+      "unavailable": "The other person's profile has not loaded yet."
+    },
+    "search": {
+      "title": "Search in this chat",
+      "placeholder": "Search in this chat",
+      "hint": "Type a word — the search covers the decrypted messages of this chat.",
+      "empty": "Nothing found",
+      "position": "{{position}} of {{total}}",
+      "previous": "Previous match",
+      "next": "Next match"
+    },
+    "attach": {
+      "label": "Attach a file",
+      "photo": "Photo",
+      "video": "Video",
+      "file": "File",
+      "name": "File name",
+      "size": "Size",
+      "notYet": "Sending attachments arrives in the next update. For now the file is only shown."
+    },
+    "voice": {
+      "record": "Record a voice message",
+      "recording": "Recording…",
+      "unavailable": "Voice messages arrive in the next update."
+    },
+    "edit": {
+      "banner": "Editing a message",
+      "cancel": "Cancel editing",
+      "save": "Save"
+    }
   },
   "chatList": {
     "searchPlaceholder": "Search",

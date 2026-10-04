@@ -347,10 +347,12 @@ export function buildLocalMessageRecord(
   conversationId: string,
   plaintext: string,
   envelopeId?: string,
+  envelopeIdsByDevice?: Record<string, string>,
 ): MessageRecord {
   const timestamp = nowSeconds()
   return {
     envelopeId: envelopeId ?? crypto.randomUUID(),
+    envelopeIdsByDevice,
     accountId: account.id,
     conversationId,
     senderAccountId: account.id,
@@ -364,6 +366,7 @@ export function buildLocalMessageRecord(
     serverTimestamp: timestamp,
     attachments: [],
     replyToEnvelopeId: null,
+    editedAt: null,
     isPinned: false,
     reactions: [],
     status: 'sent',

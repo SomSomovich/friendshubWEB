@@ -101,6 +101,20 @@ html[data-theme='light'] {
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+  /*
+   * The app shell is exactly one viewport tall, so its own panels scroll rather
+   * than the page. Without a definite height the inner `flex-1` panels have
+   * nothing to shrink against: a long conversation grows the document instead,
+   * and the composer ends up below the fold.
+   *
+   * The insets are subtracted because `#root` already pads by them — a shell at
+   * a full `100dvh` would hang past the bottom of a notched device. The landing
+   * page is unaffected: it is not a shell and keeps scrolling the document.
+   */
+  .app-viewport {
+    height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
 }
 
 @layer base {

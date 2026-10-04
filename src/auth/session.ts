@@ -6,21 +6,20 @@ import {
   type LoginResult,
   type SessionResult,
 } from '../api/auth'
-import { loadOrInitializeAccount } from '../crypto/account'
 import { getAccountStore } from '../state/accountRegistry'
 import { useUiStore } from '../state/uiStore'
 import { saveAccount } from '../storage/accounts'
 import { getSetting, setSetting } from '../storage/settings'
 import type { Account } from '../types'
-import { setActiveClient } from '../ws/activeClient'
-import { WsClient } from '../ws/client'
 
 /**
  * Signing in, and everything that has to happen before the app is usable: the
  * account row, the crypto state, and the socket.
  *
  * Lives outside the screens so the flow can be reasoned about in one place — and
- * so 4.6 can reuse it when it adds another account.
+ * so 4.6 can reuse it when it adds another account. The socket itself belongs to
+ * `src/state/connection.ts`, which owns it for the whole session rather than for
+ * as long as one screen happens to be mounted.
  */
 
 /**
@@ -30,12 +29,6 @@ import { WsClient } from '../ws/client'
  * and it should not outlive the tab.
  */
 export const TOTP_CHALLENGE_KEY = 'fh.totpChallenge'
-
-const DEVICE_LABEL = 'FriendsHub Web'
-/** Retry delays for the first socket connection; the client owns reconnects after that. */
-const SOCKET_RETRY_DELAYS_MS = [2_000, 5_000, 10_000, 30_000]
-
-export type ConnectStep = 'keys' | 'socket'
 
 export type PendingChallenge = {
   fhNumber: string
@@ -150,36 +143,9 @@ export async function persistSession(fhNumber: string, session: SessionResult): 
  *
  * The state is restored from IndexedDB when this browser has used the device
  * before, and created (identity, device registration, prekey pool) when it has
- * not — the slow path, which is why the caller shows progress.
- *
- * A socket that cannot be reached is not treated as a failed sign-in: the app
- * works offline, and the connection is retried in the background.
+ * not — the slow path, which is why the caller shows progress. A socket that
+ * cannot be reached is not a failed sign-in: the app works offline, and the
+ * connection is retried in the background.
  */
-export async function connectAccount(
-  account: Account,
-  onStep?: (step: ConnectStep) => void,
-): Promise<void> {
-  onStep?.('keys')
-  await loadOrInitializeAccount(account, DEVICE_LABEL)
-
-  onStep?.('socket')
-  const client = new WsClient()
-  setActiveClient(client)
-
-  await connectWithRetry(client, account, 0)
-}
-
-async function connectWithRetry(client: WsClient, account: Account, attempt: number): Promise<void> {
-  try {
-    await client.connect({
-      sessionToken: account.sessionToken,
-      deviceNumber: account.deviceNumber,
-    })
-  } catch (error) {
-    const delay = SOCKET_RETRY_DELAYS_MS[Math.min(attempt, SOCKET_RETRY_DELAYS_MS.length - 1)] ?? 30_000
-    console.warn(`[auth] the socket could not connect; retrying in ${delay} ms`, error)
-    setTimeout(() => {
-      void connectWithRetry(client, account, attempt + 1)
-    }, delay)
-  }
-}
+export { ensureConnected as connectAccount } from '../state/connection'
+export type { ConnectStep } from '../state/connection'

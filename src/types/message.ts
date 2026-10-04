@@ -36,6 +36,12 @@ export type Message = {
   attachments: string[]
   /** Local only: reply/forward are deferred past the MVP. */
   replyToEnvelopeId: string | null
+  /**
+   * Unix seconds of the last edit, or `null`/absent when the message was never
+   * edited. Optional because rows written before this field existed only have
+   * the other one to go on.
+   */
+  editedAt?: number | null
   /** Local only — pinning is never sent to the server. */
   isPinned: boolean
   reactions: Reaction[]

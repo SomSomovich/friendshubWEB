@@ -196,7 +196,8 @@ async function startResultServer(port, collector) {
 /** Launches the browser on `url` and waits for the page to report. */
 async function launchAndCollect(browser, url, label, collector) {
   clearProfileLocks()
-  const logHandle = openSync(join(here, `edge-${label}.log`), 'w')
+  const logPath = join(here, `edge-${label}.log`)
+  const logHandle = openSync(logPath, 'w')
   const child = spawn(
     browser,
     [...EDGE_FLAGS, EDGE_KEEP_ALIVE_FLAG, `--user-data-dir=${PROFILE_DIR}`, url],
@@ -204,7 +205,23 @@ async function launchAndCollect(browser, url, label, collector) {
   )
 
   try {
-    return await collector.awaitResult()
+    const body = await collector.awaitResult()
+
+    // Edge prints its DevTools banner to stderr the moment it starts, so an
+    // empty log means it never got that far — which in practice is a headless
+    // instance from an interrupted run still holding the shared profile
+    // directory. Without this the failure reads as "the page said nothing",
+    // which sends the reader looking at the page instead of at the browser.
+    if (body === null && readFileSync(logPath, 'utf8').trim().length === 0) {
+      console.error(
+        `[harness] the browser never started. A headless instance may still be ` +
+          `holding ${PROFILE_DIR}:\n` +
+          `      close any msedge processes using it, or delete that directory, ` +
+          `then run again.`,
+      )
+    }
+
+    return body
   } finally {
     closeSync(logHandle)
     killTree(child)
@@ -366,6 +383,47 @@ function captureEdge(browser, url, label, extraArgs = [], profileDir = PROFILE_D
   return readFileSync(logPath, 'utf8')
 }
 
+/**
+ * A conversation for the chat captures to open.
+ *
+ * Resolved over the same proxy the page uses, with the smoke account's own
+ * credentials, so the harness never has to know an id that changes between
+ * environments. `null` means the chat captures are skipped rather than reported
+ * as failures — nothing about the account guarantees it has a chat.
+ */
+async function findConversationId(origin, account) {
+  const deviceNumber = account.deviceNumber ?? 1
+
+  try {
+    const login = await fetch(`${origin}/api/v1/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fh_number: account.fhNumber,
+        password: account.password,
+        device_number: deviceNumber,
+      }),
+    })
+    const session = await login.json()
+    if (typeof session.session_token !== 'string') {
+      console.warn('[harness] the account could not be signed in for the chat captures')
+      return null
+    }
+
+    const conversations = await fetch(`${origin}/api/v1/conversations`, {
+      headers: {
+        Authorization: `Bearer ${session.session_token}`,
+        'X-Device-Number': String(deviceNumber),
+      },
+    }).then((response) => response.json())
+
+    return conversations.find((entry) => entry.kind !== 'saved')?.id ?? null
+  } catch (error) {
+    console.warn('[harness] could not pick a conversation to open', error)
+    return null
+  }
+}
+
 async function runUi(browser) {
   // The screen is ready when its own content is on screen — a fixed delay would
   // race the app's IndexedDB bootstrap.
@@ -509,6 +567,48 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
     const origin = `http://127.0.0.1:${UI_PORT}`
     await waitForHttp(origin)
 
+    const chatId = await findConversationId(origin, smokeAccount)
+    // Signed in, with a couple of days of local history already stored, so the
+    // transcript, its separators and the pinned banner have something to render.
+    if (chatId !== null) {
+      captures.push(
+        {
+          label: 'chat-dark-ru',
+          route: null,
+          next: `/app/chat/${chatId}`,
+          seedChat: chatId,
+          theme: 'dark',
+          lang: 'ru',
+          size: '1280,800',
+          ready: `document.querySelector('textarea') !== null && ${STYLE_READY}`,
+          expect: [
+            // The identity block, taken from the contact list.
+            'Тестовый собеседник',
+            // The composer, the two day separators, an edit marker, a link, a
+            // reaction chip, and the header's overflow menu.
+            'Сообщение',
+            'Сегодня',
+            'Вчера',
+            'изменено',
+            'https://example.com/docs',
+            '👍',
+            'Ещё',
+          ],
+        },
+        {
+          label: 'chat-mobile-light-en',
+          route: null,
+          next: `/app/chat/${chatId}`,
+          seedChat: chatId,
+          theme: 'light',
+          lang: 'en',
+          size: '375,720',
+          ready: `document.querySelector('textarea') !== null && ${STYLE_READY}`,
+          expect: ['Тестовый собеседник', 'Message', 'Today', 'Yesterday', 'edited', 'More'],
+        },
+      )
+    }
+
     const only = process.argv[3]
     const selected = captures.filter((capture) => only === undefined || capture.label.includes(only))
 
@@ -523,8 +623,11 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
         device: String(smokeAccount.deviceNumber ?? 1),
         theme: capture.theme,
         lang: capture.lang,
-        next: `${origin}/app`,
+        next: `${origin}${capture.next ?? '/app'}`,
       })
+      if (capture.seedChat !== undefined) {
+        seedParams.set('seedChat', capture.seedChat)
+      }
       const targetUrl =
         capture.route === null
           ? `${origin}/dev-tests/seed.html#${seedParams.toString()}`

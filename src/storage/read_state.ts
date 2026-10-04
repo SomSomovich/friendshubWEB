@@ -106,3 +106,125 @@ export async function rememberPeer(accountId: string, conversationId: string, pe
   cache[conversationId] = peerAccountId
   await setSetting(peerCacheKey(accountId), JSON.stringify(cache))
 }
+
+/**
+ * Conversations this device removed.
+ *
+ * The server has no endpoint that deletes one (a group can be left, a direct
+ * chat cannot), and every sync would hand it straight back. So "delete" is
+ * recorded as a moment in time instead: the conversation stays hidden until
+ * something happens in it afterwards, which is also what a messenger's delete is
+ * supposed to mean — the chat comes back when the other side writes again.
+ */
+function hiddenKey(accountId: string): string {
+  return `conversation_hidden:${accountId}`
+}
+
+export async function loadHiddenConversations(accountId: string): Promise<Record<string, number>> {
+  return loadNumberMap(hiddenKey(accountId), 'hidden conversations')
+}
+
+export async function hideConversation(
+  accountId: string,
+  conversationId: string,
+  at: number = nowSeconds(),
+): Promise<void> {
+  await putNumberMapEntry(hiddenKey(accountId), 'hidden conversations', conversationId, at)
+}
+
+/**
+ * How far back the local history of a conversation was cleared.
+ *
+ * Saved Messages are replayed from the server when the local window is empty,
+ * so without this a cleared history would come straight back on the next visit.
+ * The value is the newest `serverTimestamp` that was deleted, which is exactly
+ * the cursor that history endpoint pages by.
+ */
+function historyCursorKey(accountId: string): string {
+  return `history_cleared:${accountId}`
+}
+
+export async function loadHistoryCursors(accountId: string): Promise<Record<string, number>> {
+  return loadNumberMap(historyCursorKey(accountId), 'history cursors')
+}
+
+export async function setHistoryCursor(
+  accountId: string,
+  conversationId: string,
+  serverTimestamp: number,
+): Promise<void> {
+  await putNumberMapEntry(historyCursorKey(accountId), 'history cursors', conversationId, serverTimestamp)
+}
+
+/**
+ * Conversations whose pinned banner the user closed.
+ *
+ * A local preference, and a per-conversation one: closing the banner in one chat
+ * says nothing about the next one, and the banner is the only place a pin is
+ * visible, so it returns when a message is pinned again in that chat.
+ */
+function pinnedBannerKey(accountId: string): string {
+  return `pinned_banner_hidden:${accountId}`
+}
+
+export async function loadPinnedBannerHidden(accountId: string): Promise<Record<string, number>> {
+  return loadNumberMap(pinnedBannerKey(accountId), 'pinned banner preferences')
+}
+
+export async function setPinnedBannerHidden(
+  accountId: string,
+  conversationId: string,
+  hidden: boolean,
+): Promise<void> {
+  const key = pinnedBannerKey(accountId)
+  if (hidden) {
+    await putNumberMapEntry(key, 'pinned banner preferences', conversationId, nowSeconds())
+    return
+  }
+  await deleteNumberMapEntry(key, 'pinned banner preferences', conversationId)
+}
+
+async function loadNumberMap(key: string, label: string): Promise<Record<string, number>> {
+  const raw = await getSetting(key)
+  if (raw === null) {
+    return {}
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return {}
+    }
+    const map: Record<string, number> = {}
+    for (const [entryKey, value] of Object.entries(parsed)) {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        map[entryKey] = value
+      }
+    }
+    return map
+  } catch (error) {
+    console.warn(`[storage] the stored ${label} are unreadable`, error)
+    return {}
+  }
+}
+
+async function putNumberMapEntry(
+  key: string,
+  label: string,
+  entryKey: string,
+  value: number,
+): Promise<void> {
+  const map = await loadNumberMap(key, label)
+  map[entryKey] = value
+  await setSetting(key, JSON.stringify(map))
+}
+
+async function deleteNumberMapEntry(
+  key: string,
+  label: string,
+  entryKey: string,
+): Promise<void> {
+  const map = await loadNumberMap(key, label)
+  delete map[entryKey]
+  await setSetting(key, JSON.stringify(map))
+}

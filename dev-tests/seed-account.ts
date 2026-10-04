@@ -12,6 +12,9 @@ import { getMe, login } from '../src/api/auth'
 import { API_BASE_URL } from '../src/api/client'
 import { applyDocumentLanguage, isLanguage, persistLanguage } from '../src/i18n/language'
 import { saveAccount } from '../src/storage/accounts'
+import type { MessageRecord } from '../src/storage/db'
+import { saveMessages } from '../src/storage/messages'
+import { pinMessage } from '../src/storage/pinned'
 import { applyTheme, isTheme, persistTheme } from '../src/theme/theme'
 
 const params = new URLSearchParams(location.hash.replace(/^#/, ''))
@@ -88,6 +91,12 @@ async function main(): Promise<void> {
     expiresAt: session.expiresAt,
   })
 
+  step = 'messages'
+  const seedChat = params.get('seedChat')
+  if (seedChat !== null) {
+    await seedConversation(me.id, seedChat)
+  }
+
   step = 'done'
   await report({ ok: true, accountId: me.id, username: me.username, fhNumber: me.fhNumber })
 
@@ -98,6 +107,76 @@ async function main(): Promise<void> {
   if (next !== null) {
     location.replace(next)
   }
+}
+
+/**
+ * Writes a small conversation straight into IndexedDB.
+ *
+ * The chat view reads stored records, so rendering it needs some — and going
+ * through the real crypto path would mean a second account, envelopes and a
+ * socket, none of which the screenshot is about. What this proves is that the
+ * transcript, the day separators, the status icons, the reactions and the pinned
+ * banner render from the shape the receive path actually writes.
+ */
+async function seedConversation(accountId: string, conversationId: string): Promise<void> {
+  const minute = 60
+  const hour = 3_600
+  const day = 24 * hour
+  const now = Math.floor(Date.now() / 1000)
+  const startOfToday = Math.floor(new Date(new Date().setHours(0, 0, 0, 0)).getTime() / 1000)
+  // Clamped to the current day: without it, seeding just after midnight would
+  // put every "today" message in yesterday's group and the separator under test
+  // would never appear.
+  const todayAt = (minutesAgo: number): number =>
+    Math.max(now - minutesAgo * minute, startOfToday + 1)
+  // Any id that is not this account's: the transcript decides which side a
+  // bubble sits on by comparing the sender with the reader.
+  const peerId = '00000000-0000-7000-8000-000000000001'
+
+  const build = (
+    suffix: string,
+    at: number,
+    senderAccountId: string,
+    plaintext: string,
+    extra: Partial<MessageRecord> = {},
+  ): MessageRecord => ({
+    envelopeId: `seed-${suffix}`,
+    accountId,
+    conversationId,
+    senderAccountId,
+    senderDeviceNumber: 1,
+    recipientAccountId: accountId,
+    recipientDeviceNumber: 1,
+    envelopeType: 1,
+    plaintext,
+    decryptedAt: at,
+    clientTimestamp: at,
+    serverTimestamp: at,
+    attachments: [],
+    replyToEnvelopeId: null,
+    editedAt: null,
+    isPinned: false,
+    reactions: [],
+    status: senderAccountId === accountId ? 'delivered' : 'sent',
+    ...extra,
+  })
+
+  const messages: MessageRecord[] = [
+    build('1', startOfToday - day + 12 * hour, peerId, 'Привет! Как дела?'),
+    build('2', startOfToday - day + 13 * hour, accountId, 'Всё хорошо, спасибо 🙂'),
+    build('3', startOfToday - day + 14 * hour, peerId, 'Ссылка, которую обещал: https://example.com/docs'),
+    build('4', todayAt(30), accountId, 'Проверил, всё работает.', { status: 'read' }),
+    build('5', todayAt(20), peerId, 'Отлично!', {
+      reactions: [{ actorId: accountId, emoji: '👍', createdAt: todayAt(19) }],
+    }),
+    build('6', todayAt(10), accountId, 'Завтра обсудим детали.', {
+      status: 'sent',
+      editedAt: todayAt(9),
+    }),
+  ]
+
+  await saveMessages(messages)
+  await pinMessage(accountId, conversationId, 'seed-3')
 }
 
 /**

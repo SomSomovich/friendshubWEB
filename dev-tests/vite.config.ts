@@ -4,6 +4,15 @@ import { defineConfig } from 'vite'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
+/**
+ * The port `dev-tests/ui.vite.config.ts` serves its proxy on.
+ *
+ * These entries talk to IndexedDB and nothing else, so the value only has to be
+ * there — `src/utils/env.ts` reads `import.meta.env` as one object, and leaving
+ * the key out would be a different kind of wrong.
+ */
+const HARNESS_PORT = 4297
+
 
 /**
  * Bundles the storage smoke entry in production mode.
@@ -28,7 +37,7 @@ export default defineConfig({
   define: {
     'import.meta.env': JSON.stringify({
       VITE_API_BASE: '/api/v1',
-      VITE_WS_URL: `ws://127.0.0.1:${E2E_PREVIEW_PORT}/ws`,
+      VITE_WS_URL: `ws://127.0.0.1:${HARNESS_PORT}/ws`,
     }),
   },
   build: {

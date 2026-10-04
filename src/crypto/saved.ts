@@ -15,8 +15,13 @@ import { buildMessageRecord, handleEnvelope } from './receive'
  * sender-key and attachment-key handling, the same snapshot persistence.
  */
 
-/** History page size; the server caps it at 500. */
-const SAVED_PAGE_SIZE = 100
+/**
+ * History page size; the server caps it at 500.
+ *
+ * Exported because the caller that pages further has to know what a full page
+ * looks like — anything shorter is the end of the history.
+ */
+export const SAVED_PAGE_SIZE = 100
 
 /** Remembers which conversation is this account's saved one. */
 function savedConversationSettingKey(accountId: string): string {

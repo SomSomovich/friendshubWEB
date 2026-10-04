@@ -109,6 +109,7 @@ export function buildMessageRecord(
     // UTF-8); they are correlated through the attachment-key payload instead.
     attachments: [],
     replyToEnvelopeId: null,
+    editedAt: null,
     isPinned: false,
     reactions: [],
     status,

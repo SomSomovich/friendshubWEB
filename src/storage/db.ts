@@ -17,7 +17,17 @@ export const DATABASE_VERSION = 1
 
 /** The account record is keyed by its own id, so it needs no prefix. */
 export type ConversationRecord = Conversation & { accountId: string }
-export type MessageRecord = Message & { accountId: string }
+export type MessageRecord = Message & {
+  accountId: string
+  /**
+   * For a message this device sent: the id of the envelope each recipient device
+   * received, keyed by `${accountId}:${deviceNumber}`.
+   *
+   * An edit, a reaction or a delete carries the id of the message *as that device
+   * knows it*, so the mapping has to be kept from the moment the envelopes go out.
+   */
+  envelopeIdsByDevice?: Record<string, string>
+}
 export type AttachmentRecord = Attachment & { accountId: string }
 export type CryptoStateRecord = { accountId: string; json: string; updatedAt: number }
 export type PinnedRecord = {

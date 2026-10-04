@@ -14,7 +14,7 @@ import { useToast } from '../../hooks/useToast'
 import { ROUTES, chatPath } from '../../router/paths'
 import { requireAccountStore } from '../../state/accountRegistry'
 import { deleteConversationLocally } from '../../storage/conversations'
-import { markConversationRead } from '../../storage/read_state'
+import { hideConversation, markConversationRead } from '../../storage/read_state'
 import type { Account } from '../../types'
 import { cn } from '../../utils/cn'
 import { ContextMenu } from '../ui/ContextMenu'
@@ -127,7 +127,11 @@ export function ChatList({ account, query }: ChatListProps) {
         icon: X,
         danger: true,
         onSelect: () => {
+          // Both halves are needed: the local history is wiped, and the
+          // conversation is marked as removed so the next sync cannot bring the
+          // row back. See `isHidden` in `useChatList`.
           void deleteConversationLocally(account.id, row.conversation.id)
+            .then(() => hideConversation(account.id, row.conversation.id))
             .then(() => {
               refreshConversations()
               if (row.conversation.id === activeId) {
