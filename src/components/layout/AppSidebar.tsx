@@ -1,20 +1,19 @@
-import { MessageSquare, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { avatarImageUrl } from '../../api/avatars'
 import { useActiveAccount } from '../../hooks/useActiveAccount'
 import { Avatar } from '../ui/Avatar'
-import { EmptyState } from '../ui/EmptyState'
 import { LanguageSwitcher } from '../LanguageSwitcher'
 import { ThemeSwitcher } from '../ThemeSwitcher'
+import { ChatList } from './ChatList'
 import { HamburgerMenu } from './HamburgerMenu'
 
 /**
  * The account header, the search field and the conversation list.
  *
- * The list itself arrives in 4.4; until then the area is honest about being
- * empty, and the search field is a real control whose (empty) result state is
- * shown rather than hidden.
+ * The search query is owned here and handed down: the field sits above the list
+ * and filters it in place.
  */
 export function AppSidebar() {
   const { t } = useTranslation()
@@ -54,20 +53,8 @@ export function AppSidebar() {
         />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {query.length > 0 ? (
-          <EmptyState
-            icon={Search}
-            title={t('chatList.noResults')}
-            description={t('chatList.noResultsHint', { query })}
-          />
-        ) : (
-          <EmptyState
-            icon={MessageSquare}
-            title={t('chatList.empty')}
-            description={t('chatList.emptyHint')}
-          />
-        )}
+      <div className="flex min-h-0 flex-1 flex-col">
+        {account === null ? null : <ChatList account={account} query={query} />}
       </div>
 
       {/* Kept here as well as in Settings: the theme must be reachable before

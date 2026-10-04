@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { cn } from '../../utils/cn'
 import { initialsOf } from '../../utils/initials'
 
@@ -13,7 +14,7 @@ const SIZE_CLASSES: Record<AvatarSize, string> = {
 export type AvatarProps = {
   /** Used for the initials and, when `label` is given, for the accessible name. */
   name: string
-  /** Image URL; falls back to initials when absent. */
+  /** Image URL; falls back to initials when absent or when it fails to load. */
   src?: string | null
   size?: AvatarSize
   /**
@@ -25,8 +26,16 @@ export type AvatarProps = {
 }
 
 export function Avatar({ name, src, size = 'md', label, className }: AvatarProps) {
-  const image = src !== null && src !== undefined && src.length > 0
-  const accessible = label === undefined ? { 'aria-hidden': true } : { role: 'img', 'aria-label': label }
+  // Which URL failed, rather than a flag: a new `src` then clears the fallback on
+  // its own, with no effect to synchronise.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+
+  // A missing avatar is a 404, not a missing URL: most accounts have none, so
+  // the initials are the normal case rather than an error path.
+  const showImage =
+    src !== undefined && src !== null && src.length > 0 && src !== failedSrc
+  const accessible =
+    label === undefined ? { 'aria-hidden': true } : { role: 'img', 'aria-label': label }
 
   return (
     <span
@@ -37,8 +46,15 @@ export function Avatar({ name, src, size = 'md', label, className }: AvatarProps
         className,
       )}
     >
-      {image ? (
-        <img src={src} alt="" className="size-full object-cover" />
+      {showImage ? (
+        <img
+          src={src}
+          alt=""
+          className="size-full object-cover"
+          onError={() => {
+            setFailedSrc(src ?? null)
+          }}
+        />
       ) : (
         <span aria-hidden>{initialsOf(name)}</span>
       )}

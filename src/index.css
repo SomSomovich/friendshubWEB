@@ -89,6 +89,18 @@ html[data-theme='light'] {
       animation: none;
     }
   }
+
+  /*
+   * Horizontal strips (the chat filter tabs) stay scrollable on narrow screens
+   * without showing a scrollbar they have no room for.
+   */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @layer base {

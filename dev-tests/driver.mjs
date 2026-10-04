@@ -11,7 +11,8 @@
  */
 import { spawn, spawnSync } from 'node:child_process'
 
-const DEBUG_PORT = 9222
+/** Base for the debugging port; each capture takes its own to avoid a stale browser. */
+const DEBUG_PORT_BASE = 9300
 const CONNECT_TIMEOUT_MS = 30_000
 const WAIT_TIMEOUT_MS = 30_000
 
@@ -19,11 +20,11 @@ function sleep(ms) {
   return new Promise((ready) => setTimeout(ready, ms))
 }
 
-async function waitForDebugTarget() {
+async function waitForDebugTarget(debugPort) {
   const deadline = Date.now() + CONNECT_TIMEOUT_MS
   for (;;) {
     try {
-      const response = await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/list`)
+      const response = await fetch(`http://127.0.0.1:${debugPort}/json/list`)
       const targets = await response.json()
       const page = targets.find((target) => target.type === 'page' && target.webSocketDebuggerUrl)
       if (page !== undefined) {
@@ -60,10 +61,26 @@ async function connect(webSocketUrl) {
   })
 
   await new Promise((ready, fail) => {
-    socket.addEventListener('open', ready, { once: true })
-    socket.addEventListener('error', () => fail(new Error('[driver] could not connect to the browser')), {
-      once: true,
-    })
+    // Without a timeout a browser that never answers hangs the whole harness.
+    const timer = setTimeout(() => {
+      fail(new Error('[driver] the browser never accepted the debugging connection'))
+    }, CONNECT_TIMEOUT_MS)
+    socket.addEventListener(
+      'open',
+      () => {
+        clearTimeout(timer)
+        ready()
+      },
+      { once: true },
+    )
+    socket.addEventListener(
+      'error',
+      () => {
+        clearTimeout(timer)
+        fail(new Error('[driver] could not connect to the browser'))
+      },
+      { once: true },
+    )
   })
 
   function send(method, params = {}) {
@@ -86,6 +103,7 @@ async function connect(webSocketUrl) {
  * it is built from exists, which is a far more honest signal than a fixed delay.
  */
 export async function capturePage(options) {
+  const debugPort = DEBUG_PORT_BASE + Math.floor(Math.random() * 400)
   const { browser, url, profileDir, windowSize, readyExpression, screenshotPath, prepare } = options
 
   const child = spawn(
@@ -96,7 +114,7 @@ export async function capturePage(options) {
       '--no-sandbox',
       '--no-first-run',
       '--no-default-browser-check',
-      `--remote-debugging-port=${DEBUG_PORT}`,
+      `--remote-debugging-port=${debugPort}`,
       `--user-data-dir=${profileDir}`,
       `--window-size=${windowSize}`,
       'about:blank',
@@ -105,7 +123,7 @@ export async function capturePage(options) {
   )
 
   try {
-    const session = await connect(await waitForDebugTarget())
+    const session = await connect(await waitForDebugTarget(debugPort))
     try {
       await session.send('Page.enable')
 

@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 import { cn } from '../../utils/cn'
 
 export type BadgeProps = {
-  children: ReactNode
+  /** Shown when no `count` is given. */
+  children?: ReactNode
   /** Caps the counter at "99+". */
   count?: number
   className?: string

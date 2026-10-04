@@ -28,6 +28,8 @@ export type EnvelopeApplyContext = {
   updateMessages: (update: (messages: MessageRecord[]) => MessageRecord[]) => void
   setIdentityChanges: (changes: IdentityChange[]) => void
   setError: (message: string) => void
+  /** Called once a message row has been written. */
+  onMessageStored: () => void
   /** Acknowledges the envelope; called after the message is stored. */
   ack: (envelopeId: string) => Promise<void>
 }
@@ -128,6 +130,8 @@ async function storeIncoming(
   )
 
   await saveMessage(record)
+
+  context.onMessageStored()
 
   if (context.isConversationOpen(conversationId)) {
     context.updateMessages((messages) => mergeById([record], messages))

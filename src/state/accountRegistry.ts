@@ -24,6 +24,20 @@ export function getAccountStore(account: Account): StoreApi<AccountStore> {
   return store
 }
 
+/**
+ * The store for an account, when the caller knows one must exist — the bootstrap
+ * creates one for every stored account, so a screen with an active account
+ * always has it. Throwing here beats making every hook handle a missing store
+ * with a conditional subscription.
+ */
+export function requireAccountStore(accountId: string): StoreApi<AccountStore> {
+  const store = stores.get(accountId)
+  if (store === undefined) {
+    throw new Error(`[state] no store for account ${accountId}`)
+  }
+  return store
+}
+
 /** The store for an account, without creating one. */
 export function getExistingAccountStore(accountId: string): StoreApi<AccountStore> | undefined {
   return stores.get(accountId)

@@ -450,8 +450,9 @@ async function runUi(browser) {
       theme: 'dark',
       lang: 'ru',
       size: '1280,800',
-      ready: `document.querySelector('input[type="search"]') !== null && ${STYLE_READY}`,
-      expect: ['Чатов пока нет', 'Поиск', 'Меню'],
+      // The rows arrive with a server round trip, so the list itself is the signal.
+      ready: `document.querySelector('ul') !== null && ${STYLE_READY}`,
+      expect: ['Поиск', 'Меню', 'Все', 'Личные', 'Избранное', 'Тестовый собеседник'],
     },
     {
       // With no account in a fresh profile, the guard has to send this to login.
@@ -508,7 +509,10 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
     const origin = `http://127.0.0.1:${UI_PORT}`
     await waitForHttp(origin)
 
-    for (const capture of captures) {
+    const only = process.argv[3]
+    const selected = captures.filter((capture) => only === undefined || capture.label.includes(only))
+
+    for (const capture of selected) {
       const screenshotPath = join(here, '.tmp', `${capture.label}.png`)
       // A null route means the signed-in shell: the seed page logs in with the
       // existing smoke account and navigates on to /app itself.

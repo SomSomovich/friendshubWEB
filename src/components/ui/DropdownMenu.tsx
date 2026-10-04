@@ -1,12 +1,12 @@
-import type { LucideIcon } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { cn } from '../../utils/cn'
+import { MenuItems } from './MenuItems'
 
 export type DropdownItem = {
   id: string
   label: string
-  icon?: LucideIcon
-  /** Destructive entries get the danger colour and are separated. */
+  icon?: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>
+  /** Destructive entries get the danger colour. */
   danger?: boolean
   disabled?: boolean
   onSelect: () => void
@@ -23,12 +23,11 @@ export type DropdownMenuProps = {
 }
 
 /**
- * A menu button with the keyboard behaviour a menu is expected to have: the
- * first item takes focus when it opens, arrows move, Escape closes, and focus
- * returns to the trigger afterwards.
+ * A menu button. The list itself — and its keyboard behaviour — comes from
+ * `MenuItems`, so it cannot drift from the context menu's.
  *
  * The trigger is a real `button` rendered here, so callers pass its content
- * rather than their own button element — nesting buttons is invalid HTML and
+ * rather than their own button element: nesting buttons is invalid HTML and
  * breaks the keyboard handling of both.
  */
 export function DropdownMenu({
@@ -42,7 +41,6 @@ export function DropdownMenu({
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
 
   useEffect(() => {
     if (!open) {
@@ -50,40 +48,16 @@ export function DropdownMenu({
     }
 
     function handlePointerDown(event: PointerEvent): void {
-      if (containerRef.current !== null && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false)
-      }
-    }
-
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key === 'Escape') {
-        event.stopPropagation()
-        setOpen(false)
-        triggerRef.current?.focus()
+      const target = event.target
+      if (target instanceof Node && containerRef.current?.contains(target) === true) {
         return
       }
-      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
-        return
-      }
-
-      event.preventDefault()
-      const enabled = itemRefs.current.filter((item): item is HTMLButtonElement => item !== null && !item.disabled)
-      if (enabled.length === 0) {
-        return
-      }
-      const currentIndex = enabled.findIndex((item) => item === document.activeElement)
-      const step = event.key === 'ArrowDown' ? 1 : -1
-      const nextIndex = (currentIndex + step + enabled.length) % enabled.length
-      enabled[nextIndex]?.focus()
+      setOpen(false)
     }
 
     document.addEventListener('pointerdown', handlePointerDown)
-    document.addEventListener('keydown', handleKeyDown)
-    itemRefs.current.find((item) => item !== null && !item.disabled)?.focus()
-
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown)
-      document.removeEventListener('keydown', handleKeyDown)
     }
   }, [open])
 
@@ -107,61 +81,17 @@ export function DropdownMenu({
       {open ? (
         <div
           id={menuId}
-          role="menu"
-          className={cn(
-            'animate-fh-pop absolute top-full z-50 mt-1 min-w-48 overflow-hidden rounded-xl border border-border bg-bg-elevated py-1 shadow-lg',
-            align === 'end' ? 'right-0' : 'left-0',
-          )}
+          className={cn('absolute top-full z-50 mt-1', align === 'end' ? 'right-0' : 'left-0')}
         >
-          {items.map((item, index) => (
-            <MenuEntry
-              key={item.id}
-              item={item}
-              setRef={(element) => {
-                itemRefs.current[index] = element
-              }}
-              onSelected={() => {
-                setOpen(false)
-                triggerRef.current?.focus()
-              }}
-            />
-          ))}
+          <MenuItems
+            items={items}
+            onDone={() => {
+              setOpen(false)
+              triggerRef.current?.focus()
+            }}
+          />
         </div>
       ) : null}
     </div>
-  )
-}
-
-function MenuEntry({
-  item,
-  setRef,
-  onSelected,
-}: {
-  item: DropdownItem
-  setRef: (element: HTMLButtonElement | null) => void
-  onSelected: () => void
-}) {
-  const Icon = item.icon
-
-  return (
-    <button
-      ref={setRef}
-      type="button"
-      role="menuitem"
-      disabled={item.disabled === true}
-      onClick={() => {
-        onSelected()
-        item.onSelect()
-      }}
-      className={cn(
-        'flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors duration-150',
-        'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
-        'disabled:cursor-not-allowed disabled:opacity-50',
-        item.danger === true ? 'text-danger hover:bg-danger/10' : 'text-fg hover:bg-bg-hover',
-      )}
-    >
-      {Icon === undefined ? null : <Icon className="size-4 shrink-0" aria-hidden />}
-      {item.label}
-    </button>
   )
 }

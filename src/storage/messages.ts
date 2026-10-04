@@ -154,6 +154,28 @@ export async function removeReaction(
   })
 }
 
+/**
+ * How many messages arrived after `afterSeconds` (exclusive).
+ *
+ * Counted from the index rather than by reading rows: the chat list asks this
+ * once per conversation, and `count` stays cheap as history grows.
+ */
+export async function countMessagesAfter(
+  accountId: string,
+  conversationId: string,
+  afterSeconds: number,
+): Promise<number> {
+  const database = await openDatabase()
+  const index = database.transaction('messages').store.index('byConversation')
+  const lower: [string, string, number] = [accountId, conversationId, afterSeconds]
+  const upper: [string, string, number] = [
+    accountId,
+    conversationId,
+    Number.MAX_SAFE_INTEGER,
+  ]
+  return index.count(IDBKeyRange.bound(lower, upper, true))
+}
+
 export async function deleteMessage(accountId: string, envelopeId: string): Promise<void> {
   await mutateMessage(accountId, envelopeId, () => null)
 }

@@ -49,6 +49,11 @@ export type AccountStoreState = {
   typing: Record<string, number>
   /** Unacknowledged peer identity changes; cleared by `acknowledgeIdentityChanges`. */
   identityChanges: IdentityChange[]
+  /**
+   * Bumped whenever a message is stored, including for conversations that are
+   * not open: the chat list watches it to refresh rows and their order.
+   */
+  incomingCounter: number
   loadingConversations: boolean
   loadingMessages: boolean
   sending: boolean
@@ -85,6 +90,7 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
     presence: {},
     typing: {},
     identityChanges: [],
+    incomingCounter: 0,
     loadingConversations: false,
     loadingMessages: false,
     sending: false,
@@ -200,6 +206,9 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
           },
           setError: (message) => {
             set({ error: message })
+          },
+          onMessageStored: () => {
+            set({ incomingCounter: get().incomingCounter + 1 })
           },
           ack: async (envelopeId) => {
             // Acknowledged only after the message is stored: a crash in between

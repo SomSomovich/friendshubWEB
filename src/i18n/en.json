@@ -144,7 +144,28 @@
     "empty": "No chats yet",
     "emptyHint": "Start by searching for someone, or create a group.",
     "noResults": "Nothing found",
-    "noResultsHint": "Nothing matches “{{query}}”."
+    "noResultsHint": "Nothing matches “{{query}}”.",
+    "saved": "Saved Messages",
+    "unknownPeer": "Unknown contact",
+    "noMessages": "No messages",
+    "yesterday": "yesterday",
+    "filtersLabel": "Chat filter",
+    "filters": {
+      "all": "All",
+      "direct": "Personal",
+      "group": "Groups",
+      "channel": "Channels",
+      "saved": "Saved"
+    },
+    "menu": {
+      "markRead": "Mark as read",
+      "mute": "Mute notifications",
+      "unmute": "Unmute notifications",
+      "archive": "Archive",
+      "unarchive": "Unarchive",
+      "delete": "Delete chat"
+    },
+    "actionFailed": "The action could not be completed."
   },
   "menu": {
     "label": "Menu",
@@ -213,5 +234,14 @@
     "enabledHint": "Turning it off needs your password and a current code.",
     "disable": "Turn off 2FA",
     "disabled": "2FA is off"
+  },
+  "mute": {
+    "title": "Notifications: {{title}}",
+    "unmute": "Unmute",
+    "hour": "For an hour",
+    "eightHours": "For 8 hours",
+    "day": "For a day",
+    "week": "For a week",
+    "forever": "Forever"
   }
 }
