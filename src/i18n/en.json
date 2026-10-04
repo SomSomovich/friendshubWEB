@@ -432,13 +432,67 @@
     "write": "Message",
     "blockedHint": "This account is blocked: messages between you are not delivered."
   },
+  "create": {
+    "next": "Next",
+    "none": "None",
+    "title": "Title",
+    "description": "Description",
+    "descriptionHint": "Optional, up to 512 characters.",
+    "handle": "Handle",
+    "handleHint": "Optional: 5–32 characters, starting with a letter — letters, digits and “_”.",
+    "visibility": "Visibility",
+    "private": "Private",
+    "privateHint": "People get in by invitation only.",
+    "public": "Public",
+    "publicHint": "Findable by its handle, and anyone may join.",
+    "noHandle": "Not set",
+    "noMembers": "No members",
+    "searchPlaceholder": "Search your contacts",
+    "noContacts": "No contacts yet. The API has no way to look people up, so only existing contacts can be added here — everyone else is invited later.",
+    "noContactMatches": "Nobody matches “{{query}}”.",
+    "handleNotSet": "Created, but the handle was not set: it may already be taken.",
+    "handleError": {
+      "tooShort": "At least 5 characters.",
+      "tooLong": "At most 32 characters.",
+      "badFirst": "It has to start with a letter.",
+      "badChars": "Latin letters, digits and “_” only.",
+      "reserved": "The server keeps this name for itself.",
+      "botSuffix": "A group or channel handle cannot end in “bot”.",
+      "checking": "Checking…",
+      "available": "Available",
+      "taken": "Taken",
+      "unknown": "Could not check — it will be tried at creation."
+    },
+    "steps": {
+      "info": "Details",
+      "members": "Members",
+      "discussion": "Discussion",
+      "confirm": "Review"
+    }
+  },
   "createGroup": {
-    "pending": "Creating a group is not implemented yet",
-    "pendingHint": "Member selection and group settings will live here."
+    "title": "New group",
+    "info": "About the group",
+    "members": "Members",
+    "membersHint": "Optional: a group can start empty and take people later.",
+    "confirm": "Review",
+    "submit": "Create group",
+    "memberCount_one": "{{count}} member",
+    "memberCount_other": "{{count}} members"
   },
   "createChannel": {
-    "pending": "Creating a channel is not implemented yet",
-    "pendingHint": "Channel settings and the linked discussion group will live here."
+    "title": "New channel",
+    "info": "About the channel",
+    "discussion": "Discussion group",
+    "discussionHint": "Optional: a group where readers can comment.",
+    "discussionHandleHint": "The handle for the discussion group.",
+    "noDiscussion": "No discussion",
+    "linkExisting": "Link an existing one",
+    "createDiscussion": "Create a new one",
+    "noGroups": "You have no groups that could be linked yet.",
+    "linkFailed": "The channel was created, but the discussion group could not be linked. Try again from the channel's profile.",
+    "confirm": "Review",
+    "submit": "Create channel"
   },
   "notFound": {
     "title": "Page not found",
@@ -487,5 +541,28 @@
     "day": "For a day",
     "week": "For a week",
     "forever": "Forever"
+  },
+  "pwa": {
+    "install": {
+      "title": "Install FriendsHub as an app",
+      "hint": "Opens in its own window and works offline.",
+      "ios": "Tap Share → “Add to Home Screen”.",
+      "action": "Install",
+      "dismiss": "Don't ask again"
+    },
+    "update": {
+      "ready": "A new version is available.",
+      "action": "Reload"
+    },
+    "offline": "You are offline. Messages will leave when the connection returns.",
+    "push": {
+      "title": "Message notifications",
+      "body": "Let the browser show notifications while the tab is in the background?",
+      "allow": "Allow",
+      "later": "Not now",
+      "noKey": "The permission was granted, but this build has no VAPID key: a Web Push subscription is not available. Notifications will arrive while the tab is open.",
+      "denied": "The browser refused the request. You can change it in the site's settings.",
+      "failed": "The permission could not be requested."
+    }
   }
 }

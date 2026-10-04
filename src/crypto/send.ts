@@ -194,16 +194,7 @@ export async function sendGroupMessage(
   options: SendOptions = {},
 ): Promise<SendResult> {
   const memberAccountIds = await resolveGroupMemberAccounts(account, conversationId)
-
-  if (!distributedConversations.has(conversationId)) {
-    const distribution = await createSenderKeyDistribution(
-      account.id,
-      account.deviceNumber,
-      conversationId,
-    )
-    await distributeSenderKey(account, memberAccountIds, conversationId, distribution)
-    distributedConversations.add(conversationId)
-  }
+  await ensureSenderKeyDistributed(account, conversationId, memberAccountIds)
 
   const ciphertextHex = await groupEncrypt(
     account.id,
@@ -257,6 +248,36 @@ export async function sendGroupMessage(
 
 /** Conversations whose sender key this session has already distributed. */
 const distributedConversations = new Set<string>()
+
+/**
+ * Makes sure every member holds this device's sender key for a conversation.
+ *
+ * Called before the first group message, and again by the group-creation flow:
+ * distributing it at creation means the members can read the first message the
+ * moment it arrives, and the guard means the second call costs nothing.
+ *
+ * @param memberAccountIds the members, when the caller has already resolved
+ *                         them — the send path has, and asking again would be a
+ *                         second round trip for the same answer.
+ */
+export async function ensureSenderKeyDistributed(
+  account: Account,
+  conversationId: string,
+  memberAccountIds?: string[],
+): Promise<void> {
+  if (distributedConversations.has(conversationId)) {
+    return
+  }
+
+  const members = memberAccountIds ?? (await resolveGroupMemberAccounts(account, conversationId))
+  const distribution = await createSenderKeyDistribution(
+    account.id,
+    account.deviceNumber,
+    conversationId,
+  )
+  await distributeSenderKey(account, members, conversationId, distribution)
+  distributedConversations.add(conversationId)
+}
 
 async function distributeSenderKey(
   account: Account,

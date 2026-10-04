@@ -21,7 +21,9 @@ export function Textarea({
   const describedBy = error !== null && error !== undefined ? `${id}-error` : helper ? `${id}-helper` : undefined
 
   return (
-    <div className="flex flex-col gap-1.5">
+    // `w-full` so the wrapper fills a flex row; without it the field sizes to
+    // its placeholder and looks broken in a card.
+    <div className="flex w-full flex-col gap-1.5">
       <label htmlFor={id} className={cn('text-xs font-medium text-fg-muted', hideLabel && 'sr-only')}>
         {label}
       </label>

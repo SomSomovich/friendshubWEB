@@ -628,7 +628,110 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
           ready: 'Изменить', expect: ['Профиль', 'FH-номер', 'Изменить', 'Скопировать FH-номер'] },
         { label: '2fa-light-en', path: '/app/settings/security/2fa', theme: 'light', lang: 'en', size: '390,844',
           ready: '2FA is off', expect: ['Two-factor authentication', '2FA is off', 'Turn on 2FA'] },
+        { label: 'create-group-dark-ru', path: '/app/create-group', theme: 'dark', lang: 'ru', size: '1280,800',
+          ready: 'Название', expect: ['Новая группа', 'Название', 'Описание', 'Ссылка-имя', 'Доступ', 'Приватный'] },
+        { label: 'create-channel-light-en', path: '/app/create-channel', theme: 'light', lang: 'en', size: '390,844',
+          ready: 'Handle', expect: ['New channel', 'Title', 'Handle', 'Visibility', 'Private'] },
       ]
+
+    /**
+     * Drives a wizard one step forward.
+     *
+     * A screenshot of step one would only prove the wizard opens, so these fill
+     * the title (through the native setter React listens to, since assigning
+     * `.value` alone updates nothing) and press Next, then wait for text that
+     * only the second step shows. That text is what `doneText` carries.
+     */
+    const stepForward = (doneText, settleExpression) => `(function () {
+      if (document.body.innerText.includes(${JSON.stringify(doneText)})) {
+        // The next step is up; give whatever it loads from the server time to
+        // arrive, or the capture shows a list that is still on its way.
+        return ${settleExpression ?? 'true'}
+      }
+      const title = document.querySelector('input[maxlength="128"]')
+      if (title !== null && title.value === '') {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+        setter.call(title, 'Harness wizard step')
+        title.dispatchEvent(new Event('input', { bubbles: true }))
+        return false
+      }
+      const next = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Next' || b.textContent.trim() === 'Далее')
+      if (next !== undefined && !next.disabled) next.click()
+      return false
+    })()`
+
+    /**
+     * The notices the shell owns.
+     *
+     * Both need something the page cannot do by itself: the offline strip reads
+     * `navigator.onLine` before the app boots, and the install banner waits for
+     * an event only a browser that can install will ever fire. `preload` is what
+     * makes either true in the captured document.
+     */
+    captures.push(
+      {
+        label: 'offline-banner-dark-ru',
+        route: null,
+        next: '/app',
+        theme: 'dark',
+        lang: 'ru',
+        size: '1280,800',
+        preload: `Object.defineProperty(Navigator.prototype, 'onLine', { get: () => false })`,
+        ready: `document.body.innerText.includes('Вы офлайн') && ${STYLE_READY}`,
+        expect: ['Вы офлайн', 'Сообщения отправятся'],
+      },
+      {
+        label: 'install-banner-light-en',
+        route: null,
+        next: '/app',
+        theme: 'light',
+        lang: 'en',
+        size: '390,844',
+        preload: `window.addEventListener('load', () => {
+          setTimeout(() => { window.dispatchEvent(new Event('beforeinstallprompt')) }, 300)
+        })`,
+        ready: `document.body.innerText.includes('Install FriendsHub') && ${STYLE_READY}`,
+        expect: ['Install FriendsHub as an app', 'Install', 'Opens in its own window'],
+      },
+      {
+        label: 'push-prompt-dark-ru',
+        route: null,
+        next: '/app',
+        theme: 'dark',
+        lang: 'ru',
+        size: '1280,800',
+        // The one capture that wants the one-time prompt.
+        prepare: `window.localStorage.removeItem('fh.pushPromptShown')`,
+        ready: `document.body.innerText.includes('Уведомления о сообщениях') && ${STYLE_READY}`,
+        expect: ['Уведомления о сообщениях', 'Разрешить', 'Не сейчас'],
+      },
+      {
+        label: 'create-group-members-dark-ru',
+        route: null,
+        next: '/app/create-group',
+        theme: 'dark',
+        lang: 'ru',
+        size: '1280,800',
+        ready: stepForward(
+          'Необязательно: группу можно создать пустой',
+          // A row of the picker, or the message that says there is none.
+          "document.querySelector('main [aria-pressed]') !== null || document.body.innerText.includes('Контактов пока нет')",
+        ),
+        expect: ['Участники', 'Поиск по контактам', 'Тестовый собеседник', 'Необязательно'],
+      },
+      {
+        label: 'create-channel-discussion-dark-ru',
+        route: null,
+        next: '/app/create-channel',
+        theme: 'dark',
+        lang: 'ru',
+        size: '1280,800',
+        ready: stepForward('Необязательно: группа, где читатели смогут комментировать.'),
+        // "Link an existing one" only appears once the account has a group; the
+        // smoke account has none, so it is not expected here.
+        expect: ['Группа для обсуждений', 'Без обсуждений', 'Создать новую'],
+      },
+    )
 
     /**
      * The enrollment QR, as far as it can be checked without a decoder.
@@ -730,10 +833,15 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
         prepare: [
           `localStorage.setItem('fh.theme', '${capture.theme}')`,
           `localStorage.setItem('fh.lang', '${capture.lang}')`,
+          // The notification prompt is a one-time modal, and a modal over every
+          // screenshot would hide the screen the capture is about. The capture
+          // that tests it asks for it back by name.
+          `localStorage.setItem('fh.pushPromptShown', '1')`,
           capture.prepare,
         ]
           .filter((part) => part !== undefined)
           .join(';'),
+        preload: capture.preload,
       })
 
       await writeFile(screenshotPath, Buffer.from(result.screenshot ?? '', 'base64'))
