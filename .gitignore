@@ -17,9 +17,6 @@ dist-ssr
 # Its binary is never committed; rebuild it from the source repo instead.
 src/wasm/pkg/*.wasm
 
-# Local browser harnesses that need IndexedDB and Web Locks, which Node lacks.
-dev-tests/
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -33,3 +30,16 @@ dev-tests/
 
 # Throwaway credentials created by scripts/*-smoke.mjs
 scripts/.smoke-account.json
+
+# Browser harness: the harness itself is committed, its artifacts are not.
+dev-tests/*.log
+dev-tests/.profile/
+dev-tests/.tmp/
+dev-tests/dist/
+dev-tests/e2e-dist/
+dev-tests/.env.e2e
+# Build-time environment for the browser harness (written by dev-tests/run.mjs).
+.env.harness
+
+dev-tests/.env.harness
+dev-tests/ui-dist/

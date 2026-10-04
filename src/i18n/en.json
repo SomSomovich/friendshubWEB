@@ -3,7 +3,11 @@
     "appName": "FriendsHub",
     "tagline": "Private end-to-end encrypted messenger",
     "back": "Back",
-    "phaseBadge": "Phase 1 — skeleton"
+    "close": "Close",
+    "loading": "Loading…",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "pendingBadge": "Not implemented yet"
   },
   "landing": {
     "login": "Sign in",
@@ -17,16 +21,54 @@
   },
   "app": {
     "chatIndexEmpty": "Pick a chat to start messaging",
-    "chatTitle": "Chat",
-    "pending": "The chat list and message history arrive in later phases."
+    "chatIndexHint": "The conversation list arrives in the next section."
+  },
+  "chat": {
+    "title": "Chat",
+    "back": "Back to the conversation list",
+    "pending": "The conversation view is not implemented yet",
+    "pendingHint": "Messages, attachments and reactions will appear here.",
+    "pendingStatus": "Not implemented yet"
+  },
+  "chatList": {
+    "searchPlaceholder": "Search",
+    "empty": "No chats yet",
+    "emptyHint": "Start by searching for someone, or create a group.",
+    "noResults": "Nothing found",
+    "noResultsHint": "Nothing matches “{{query}}”."
+  },
+  "menu": {
+    "label": "Menu",
+    "settings": "Settings",
+    "createGroup": "Create group",
+    "createChannel": "Create channel",
+    "switchAccount": "Switch account"
+  },
+  "accounts": {
+    "title": "Accounts",
+    "add": "Add account",
+    "empty": "No accounts yet.",
+    "loadFailed": "Could not read the account list.",
+    "switched": "Now using {{name}}"
   },
   "settings": {
+    "title": "Settings",
+    "pending": "Settings are not implemented yet",
+    "pendingHint": "Profile, privacy, security, notifications and accounts will live here.",
     "theme": "Theme",
     "themeDark": "Dark",
     "themeLight": "Light",
     "language": "Language",
     "languageRu": "Русский",
     "languageEn": "English"
+  },
+  "createGroup": {
+    "pending": "Creating a group is not implemented yet",
+    "pendingHint": "Member selection and group settings will live here."
+  },
+  "createChannel": {
+    "pending": "Creating a channel is not implemented yet",
+    "pendingHint": "Channel settings and the linked discussion group will live here."
   },
   "notFound": {
     "title": "Page not found",

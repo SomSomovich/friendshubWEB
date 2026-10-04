@@ -1,26 +1,32 @@
-import { useTranslation } from 'react-i18next'
-import { Outlet } from 'react-router-dom'
-import { LanguageSwitcher } from '../components/LanguageSwitcher'
-import { ThemeSwitcher } from '../components/ThemeSwitcher'
+import { Outlet, useMatch } from 'react-router-dom'
+import { AppSidebar } from '../components/layout/AppSidebar'
+import { ROUTES } from '../router/paths'
+import { cn } from '../utils/cn'
 
 /**
- * Authenticated shell. The sidebar/chat split and the account switcher arrive in
- * a later phase; for now the routed screen owns the whole content area.
+ * The shell: a conversation list beside the open conversation.
+ *
+ * The two panels are switched with CSS rather than a layout state, so both
+ * survive a resize. Below `md` only one is visible: the list on `/app` itself,
+ * and the routed screen everywhere else (a conversation, settings, a creation
+ * flow) — each of which offers its own way back. From `md` up both are shown and
+ * the routed screen owns the remaining width.
  */
 export function AppLayout() {
-  const { t } = useTranslation()
+  const onIndex = useMatch({ path: ROUTES.app, end: true }) !== null
 
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-        <span className="text-sm font-semibold">{t('common.appName')}</span>
-        <div className="flex items-center gap-2">
-          <LanguageSwitcher />
-          <ThemeSwitcher />
-        </div>
-      </header>
+    <div className="flex min-h-0 flex-1 bg-bg text-fg">
+      <div
+        className={cn(
+          'w-full min-w-0 flex-col md:flex md:w-80 md:shrink-0',
+          onIndex ? 'flex' : 'hidden',
+        )}
+      >
+        <AppSidebar />
+      </div>
 
-      <main className="flex min-h-0 flex-1 flex-col">
+      <main className={cn('min-w-0 flex-1 flex-col md:flex', onIndex ? 'hidden' : 'flex')}>
         <Outlet />
       </main>
     </div>

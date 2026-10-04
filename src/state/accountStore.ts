@@ -33,6 +33,12 @@ const TYPING_TTL_SECONDS = 5
 
 export type AccountStoreState = {
   accountId: string
+  /**
+   * The full record, token included: screens need the avatar, the FH number and
+   * the session for API calls, and reaching for IndexedDB on every render would
+   * be worse than keeping it here.
+   */
+  account: Account
   conversations: ConversationRecord[]
   /** The open conversation's window, newest first. */
   messages: MessageRecord[]
@@ -72,6 +78,7 @@ export function typingIsActive(untilSeconds: number, now: number = nowSeconds())
 export function createAccountStore(account: Account): StoreApi<AccountStore> {
   const initialState: AccountStoreState = {
     accountId: account.id,
+    account,
     conversations: [],
     messages: [],
     activeConversationId: null,

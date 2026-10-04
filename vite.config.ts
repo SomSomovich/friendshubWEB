@@ -11,7 +11,27 @@ import { VitePWA } from 'vite-plugin-pwa'
  */
 const WASM_CACHE_NAME = 'friendshub-wasm'
 
+/**
+ * Local development talks to the deployed API through a proxy.
+ *
+ * The server sends no `Access-Control-Allow-Origin` for a localhost origin, so a
+ * browser cannot call it directly; proxying keeps the page same-origin for both
+ * HTTP and the WebSocket upgrade. Production builds talk to the real origin
+ * (whatever `VITE_API_BASE` says), so this only affects `vite dev`/`preview`.
+ */
+const DEV_API_TARGET = 'https://api-fh.somuch-system.ru'
+
+const devProxy = {
+  '/api/v1': { target: DEV_API_TARGET, changeOrigin: true },
+  '/ws': { target: DEV_API_TARGET, changeOrigin: true, ws: true },
+}
+
 export default defineConfig({
+  // Explicit IPv4: the default host is `localhost`, which on Windows resolves to
+  // `[::1]`, while the harness (and anything else driving the server) uses
+  // 127.0.0.1 — the two never meet.
+  server: { host: '127.0.0.1', proxy: devProxy },
+  preview: { host: '127.0.0.1', proxy: devProxy },
   plugins: [
     react(),
     tailwindcss(),

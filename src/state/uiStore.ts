@@ -1,7 +1,19 @@
 import { create } from 'zustand'
 import { i18n } from '../i18n/index'
-import { normalizeLanguage, persistLanguage, applyDocumentLanguage, type Language } from '../i18n/language'
+import {
+  applyDocumentLanguage,
+  normalizeLanguage,
+  persistLanguage,
+  type Language,
+} from '../i18n/language'
 import { applyTheme, isTheme, persistTheme, readActiveTheme, type Theme } from '../theme/theme'
+import { writePreference } from '../utils/browserStorage'
+import {
+  ACTIVE_ACCOUNT_PREFERENCE_KEY,
+  LANGUAGE_PREFERENCE_KEY,
+  THEME_PREFERENCE_KEY,
+  mirrorPreference,
+} from './preferences'
 
 /**
  * App-wide state: the things that are not per account.
@@ -9,6 +21,10 @@ import { applyTheme, isTheme, persistTheme, readActiveTheme, type Theme } from '
  * Theme and language live here rather than in React context (Phase 1 put them
  * there) because there must be exactly one source for them — a store plus a
  * context holding copies of the same values is how the two drift apart.
+ *
+ * Each preference is written to `localStorage` (the bootstrap script reads it
+ * before the first paint) and mirrored into IndexedDB, which is the durable
+ * record. See `preferences.ts` for why both.
  */
 
 export type CallStatus = 'idle' | 'ringing' | 'active' | 'ended'
@@ -25,6 +41,8 @@ export type UiState = {
   theme: Theme
   language: Language
   activeAccountId: string | null
+  /** False until the stored accounts have been read; guards wait for it. */
+  sessionReady: boolean
   /** Mobile sidebar; on desktop the list is always visible. */
   sidebarOpen: boolean
   callState: CallState
@@ -33,6 +51,7 @@ export type UiState = {
   toggleTheme: () => void
   setLanguage: (language: Language) => void
   setActiveAccount: (accountId: string | null) => void
+  setSessionReady: (ready: boolean) => void
   setSidebarOpen: (open: boolean) => void
   setCallState: (state: CallState) => void
   clearCall: () => void
@@ -59,14 +78,16 @@ export const useUiStore = create<UiState>((set, get) => ({
   theme: initialTheme(),
   language: initialLanguage(),
   activeAccountId: null,
+  sessionReady: false,
   sidebarOpen: false,
   callState: IDLE_CALL,
 
   setTheme: (theme) => {
-    // Applied and persisted here so every caller — the switcher, a future
-    // settings screen, the cross-tab storage listener — goes through one path.
+    // Applied and persisted here so every caller — the switcher, a settings
+    // screen, the cross-tab listener — goes through one path.
     applyTheme(theme)
     persistTheme(theme)
+    mirrorPreference(THEME_PREFERENCE_KEY, theme)
     set({ theme })
   },
 
@@ -77,12 +98,19 @@ export const useUiStore = create<UiState>((set, get) => ({
   setLanguage: (language) => {
     applyDocumentLanguage(language)
     persistLanguage(language)
+    mirrorPreference(LANGUAGE_PREFERENCE_KEY, language)
     void i18n.changeLanguage(language)
     set({ language })
   },
 
   setActiveAccount: (accountId) => {
+    writePreference(ACTIVE_ACCOUNT_PREFERENCE_KEY, accountId ?? '')
+    mirrorPreference(ACTIVE_ACCOUNT_PREFERENCE_KEY, accountId)
     set({ activeAccountId: accountId })
+  },
+
+  setSessionReady: (ready) => {
+    set({ sessionReady: ready })
   },
 
   setSidebarOpen: (open) => {
@@ -106,7 +134,7 @@ export const useUiStore = create<UiState>((set, get) => ({
  * component that happens to mount late.
  */
 window.addEventListener('storage', (event) => {
-  if (event.key !== 'fh.theme' || !isTheme(event.newValue)) {
+  if (event.key !== THEME_PREFERENCE_KEY || !isTheme(event.newValue)) {
     return
   }
   // Another tab already wrote the value; applying it here must not write again.

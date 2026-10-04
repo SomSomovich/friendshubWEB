@@ -1,11 +1,7 @@
 import { Languages } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import {
-  DEFAULT_LANGUAGE,
-  SUPPORTED_LANGUAGES,
-  normalizeLanguage,
-  type Language,
-} from '../i18n/language'
+import { SUPPORTED_LANGUAGES, type Language } from '../i18n/language'
+import { useUiStore } from '../state/uiStore'
 import { cn } from '../utils/cn'
 
 const LANGUAGE_LABELS = {
@@ -13,9 +9,15 @@ const LANGUAGE_LABELS = {
   en: 'settings.languageEn',
 } as const satisfies Record<Language, string>
 
+/**
+ * Language is owned by the UI store — it persists the choice, updates
+ * `<html lang>` and switches i18next — so this component only reads the active
+ * value and asks the store to change it.
+ */
 export function LanguageSwitcher() {
-  const { t, i18n } = useTranslation()
-  const active = normalizeLanguage(i18n.language) ?? DEFAULT_LANGUAGE
+  const { t } = useTranslation()
+  const language = useUiStore((state) => state.language)
+  const setLanguage = useUiStore((state) => state.setLanguage)
 
   return (
     <div
@@ -25,16 +27,14 @@ export function LanguageSwitcher() {
     >
       <Languages className="mx-1 size-4 text-fg-muted" aria-hidden />
       {SUPPORTED_LANGUAGES.map((value) => {
-        const isActive = value === active
+        const isActive = value === language
 
         return (
           <button
             key={value}
             type="button"
-            // i18next persists the choice and updates <html lang> via its
-            // `languageChanged` listener (see src/i18n/index.ts).
             onClick={() => {
-              void i18n.changeLanguage(value)
+              setLanguage(value)
             }}
             aria-pressed={isActive}
             title={t(LANGUAGE_LABELS[value])}
