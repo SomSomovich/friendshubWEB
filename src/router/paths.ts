@@ -15,7 +15,29 @@ export const ROUTES = {
   twoFactorSetup: '/app/2fa',
   createGroup: '/app/create-group',
   createChannel: '/app/create-channel',
+  profile: '/app/profile',
 } as const
+
+/**
+ * One route per settings section rather than a single screen with tabs: below
+ * `md` there is no room for a sidebar of sections, and a push navigation is what
+ * a phone expects. The list on `/app/settings` is the index of these.
+ */
+export const SETTINGS_SECTIONS = [
+  'account',
+  'appearance',
+  'privacy',
+  'security',
+  'notifications',
+  'accounts',
+  'about',
+] as const
+
+export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]
+
+export function settingsPath(section: SettingsSection): string {
+  return `${ROUTES.settings}/${section}`
+}
 
 /** Path pattern for a single conversation, for use in the route tree. */
 export const CHAT_ROUTE_PATTERN = 'chat/:id'

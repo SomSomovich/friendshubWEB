@@ -54,6 +54,7 @@ import {
   setHistoryCursor,
   setPinnedBannerHidden,
 } from '../storage/read_state'
+import { useUiStore } from '../state/uiStore'
 import type { Account } from '../types'
 
 /**
@@ -82,6 +83,7 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const toast = useToast()
+  const openProfile = useUiStore((state) => state.openProfile)
   const store = requireAccountStore(account.id)
 
   const conversationView = useConversation(account, conversationId)
@@ -449,6 +451,13 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
         title={title}
         subtitle={subtitle}
         avatarUrl={avatarUrl}
+        onOpenProfile={
+          peerAccountId === null
+            ? undefined
+            : () => {
+                openProfile(peerAccountId)
+              }
+        }
         onBack={() => {
           void navigate(ROUTES.app)
         }}

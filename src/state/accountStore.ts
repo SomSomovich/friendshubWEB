@@ -8,6 +8,7 @@ import {
   sendToSaved as sendSavedMessage,
 } from '../crypto/send'
 import { SAVED_PAGE_SIZE, loadSavedHistory } from '../crypto/saved'
+import { saveAccount } from '../storage/accounts'
 import { listConversations as readConversations, saveConversations } from '../storage/conversations'
 import type { ConversationRecord, MessageRecord } from '../storage/db'
 import { loadHistoryCursors } from '../storage/read_state'
@@ -24,6 +25,7 @@ import { requireActiveClient } from '../ws/activeClient'
 import { clearIdentityChanges, type IdentityChange } from '../wasm'
 import type { PresenceEvent } from '../ws/events'
 import { applyReceivedEnvelope, mergeById } from './applyEnvelope'
+import { useUiStore } from './uiStore'
 
 /**
  * Everything one account knows: its conversation list, the open message window,
@@ -92,6 +94,8 @@ export type AccountActions = {
   removeMessage: (envelopeId: string) => Promise<void>
   /** Empties the open window for a conversation whose local history was wiped. */
   dropConversationMessages: (conversationId: string) => void
+  /** Persists a change to the account's own record, e.g. a new username. */
+  updateAccount: (patch: Partial<Account>) => Promise<void>
   acknowledgeIdentityChanges: () => Promise<void>
   reset: () => void
 }
@@ -326,6 +330,16 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
           return
         }
         set({ messages: [], messagesVersion: get().messagesVersion + 1 })
+      },
+
+      async updateAccount(patch) {
+        const next = { ...get().account, ...patch }
+        await saveAccount(next)
+        set({ account: next })
+        // The account is read with `getState()` rather than subscribed to, so
+        // every screen that shows it — the sidebar, the chat list rows, the
+        // profile — has to be told. The UI store owns that signal.
+        useUiStore.getState().bumpAccountRevision()
       },
 
       async acknowledgeIdentityChanges() {

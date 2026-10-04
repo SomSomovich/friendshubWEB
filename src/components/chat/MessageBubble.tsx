@@ -2,6 +2,7 @@ import { Check, CheckCheck, MessageSquareDashed } from 'lucide-react'
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLongPress } from '../../hooks/useLongPress'
+import { useUiStore } from '../../state/uiStore'
 import type { MessageRecord } from '../../storage/db'
 import type { MessageStatus } from '../../types'
 import { formatFullTimestamp, formatMessageTime } from '../../utils/chatTime'
@@ -38,6 +39,7 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const { t } = useTranslation()
   const longPress = useLongPress(onContextMenu)
+  const openProfile = useUiStore((state) => state.openProfile)
 
   // Stable per message: a new closure on every render would make React detach
   // and reattach the ref for every bubble in the list.
@@ -70,7 +72,15 @@ export function MessageBubble({
           )}
         >
           {senderName === null ? null : (
-            <p className="mb-0.5 text-xs font-semibold text-accent">{senderName}</p>
+            <button
+              type="button"
+              onClick={() => {
+                openProfile(message.senderAccountId)
+              }}
+              className="mb-0.5 cursor-pointer rounded text-xs font-semibold text-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+            >
+              {senderName}
+            </button>
           )}
 
           {message.plaintext === null ? (

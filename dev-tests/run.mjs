@@ -609,6 +609,93 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
       )
     }
 
+    // Settings and the profile: signed in like the chat captures, but on screens
+    // whose panels each read something from the server.
+    const sections = [
+        { label: 'settings-dark-ru', path: '/app/settings', theme: 'dark', lang: 'ru', size: '1280,800',
+          ready: 'Настройки', expect: ['Аккаунт', 'Оформление', 'Приватность', 'Безопасность', 'Уведомления', 'Аккаунты', 'О приложении'] },
+        { label: 'settings-account-light-en', path: '/app/settings/account', theme: 'light', lang: 'en', size: '390,844',
+          ready: 'Change avatar', expect: ['Profile', 'Change avatar', 'FH number', 'Status', 'Save status', 'Name'] },
+        { label: 'settings-security-dark-ru', path: '/app/settings/security', theme: 'dark', lang: 'ru', size: '1280,800',
+          ready: 'Активные сессии', expect: ['Двухфакторная аутентификация', 'Активные сессии', 'Устройства', 'Завершить все сессии'] },
+        { label: 'settings-privacy-dark-ru', path: '/app/settings/privacy', theme: 'dark', lang: 'ru', size: '1280,800',
+          ready: 'Заблокированные', expect: ['Невидимка', 'Исключения для присутствия', 'Заблокированные'] },
+        { label: 'settings-about-light-en', path: '/app/settings/about', theme: 'light', lang: 'en', size: '390,844',
+          ready: 'AGPL-3.0', expect: ['Version', '0.1.6', 'AGPL-3.0', 'Sign out', 'GitHub'] },
+        { label: 'settings-notifications-dark-ru', path: '/app/settings/notifications', theme: 'dark', lang: 'ru', size: '1280,800',
+          ready: 'Звук сообщений', expect: ['Звук сообщений', 'Системные уведомления', 'Разрешение'] },
+        { label: 'profile-dark-ru', path: '/app/profile', theme: 'dark', lang: 'ru', size: '1280,800',
+          ready: 'Изменить', expect: ['Профиль', 'FH-номер', 'Изменить', 'Скопировать FH-номер'] },
+        { label: '2fa-light-en', path: '/app/settings/security/2fa', theme: 'light', lang: 'en', size: '390,844',
+          ready: '2FA is off', expect: ['Two-factor authentication', '2FA is off', 'Turn on 2FA'] },
+      ]
+
+    /**
+     * The enrollment QR, as far as it can be checked without a decoder.
+     *
+     * The ready expression starts the enrollment (which creates a pending secret
+     * and enables nothing) and then inspects the canvas the screen drew: the
+     * size, that the corner is light — a quiet zone, so the code is dark on
+     * white and not inverted — and that a plausible share of pixels are dark.
+     * That catches a blank or inverted canvas and a wrong element size.
+     *
+     * It does not check that the pattern *decodes*. This browser exposes no
+     * `BarcodeDetector`, and the only other decoder available would be the
+     * library that drew it, which proves nothing. The content is trusted to
+     * `qrcode`, which is exactly why a mature library was chosen over a
+     * hand-rolled encoder here.
+     */
+    const QR_PROBE = `(function () {
+      const canvas = document.querySelector('canvas')
+      if (canvas === null) {
+        const start = [...document.querySelectorAll('button')].find((b) => b.textContent.includes('Turn on 2FA'))
+        if (start) start.click()
+        return false
+      }
+      const context = canvas.getContext('2d')
+      const { data } = context.getImageData(0, 0, canvas.width, canvas.height)
+      const pixels = data.length / 4
+      let dark = 0
+      let opaque = true
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] < 128) opaque = false
+        if (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114 < 128) dark += 1
+      }
+      const corner = data[0]
+      const fraction = dark / pixels
+      const sane = canvas.width === 200 && canvas.height === 200 && opaque && corner > 200 && fraction > 0.2 && fraction < 0.7
+      document.title = (sane ? 'QR SANE' : 'QR BAD') + ' ' + canvas.width + 'x' + canvas.height + ' corner=' + corner + ' dark=' + fraction.toFixed(3)
+      return true
+    })()`
+
+    captures.push({
+        label: '2fa-qr-light-en',
+        route: null,
+        next: '/app/settings/security/2fa',
+        theme: 'light',
+        lang: 'en',
+        size: '390,844',
+        ready: QR_PROBE,
+        expect: ['QR SANE', 'Key for manual entry'],
+      })
+
+    for (const section of sections) {
+      captures.push({
+        label: section.label,
+        route: null,
+        next: section.path,
+        theme: section.theme,
+        lang: section.lang,
+        size: section.size,
+        ready:
+          `document.body.innerText.includes(${JSON.stringify(section.ready)})` +
+          // Every panel that reads from the server is done: a screenshot taken
+          // while one of them is still spinning proves nothing about it.
+          ` && document.querySelector('[role="status"]') === null && ${STYLE_READY}`,
+        expect: section.expect,
+      })
+    }
+
     const only = process.argv[3]
     const selected = captures.filter((capture) => only === undefined || capture.label.includes(only))
 

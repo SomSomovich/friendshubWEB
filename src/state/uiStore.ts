@@ -46,6 +46,24 @@ export type UiState = {
   /** Mobile sidebar; on desktop the list is always visible. */
   sidebarOpen: boolean
   callState: CallState
+  /**
+   * Whose profile the modal is showing.
+   *
+   * App-wide rather than local to a screen: an avatar is a way into a profile
+   * from the chat list, a message and a header alike, and one modal at the top
+   * of the shell serves all three.
+   */
+  profileAccountId: string | null
+  /**
+   * Bumped whenever the signed-in account's own record changes — its avatar, its
+   * username, its status.
+   *
+   * The account lives on a vanilla store that screens read with `getState()`, so
+   * nothing re-renders when it is written. Everything that draws it subscribes
+   * to this instead; an avatar upload in particular has to, because the browser
+   * caches the 404 of an account that had no picture.
+   */
+  accountRevision: number
 
   setTheme: (theme: Theme) => void
   toggleTheme: () => void
@@ -55,6 +73,9 @@ export type UiState = {
   setSidebarOpen: (open: boolean) => void
   setCallState: (state: CallState) => void
   clearCall: () => void
+  openProfile: (accountId: string) => void
+  closeProfile: () => void
+  bumpAccountRevision: () => void
 }
 
 const IDLE_CALL: CallState = {
@@ -81,6 +102,8 @@ export const useUiStore = create<UiState>((set, get) => ({
   sessionReady: false,
   sidebarOpen: false,
   callState: IDLE_CALL,
+  profileAccountId: null,
+  accountRevision: 0,
 
   setTheme: (theme) => {
     // Applied and persisted here so every caller — the switcher, a settings
@@ -123,6 +146,18 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   clearCall: () => {
     set({ callState: IDLE_CALL })
+  },
+
+  openProfile: (accountId) => {
+    set({ profileAccountId: accountId })
+  },
+
+  closeProfile: () => {
+    set({ profileAccountId: null })
+  },
+
+  bumpAccountRevision: () => {
+    set({ accountRevision: get().accountRevision + 1 })
   },
 }))
 

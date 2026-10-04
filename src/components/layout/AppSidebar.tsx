@@ -1,8 +1,10 @@
 import { Search } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { avatarImageUrl } from '../../api/avatars'
 import { useActiveAccount } from '../../hooks/useActiveAccount'
+import { ROUTES } from '../../router/paths'
 import { Avatar } from '../ui/Avatar'
 import { LanguageSwitcher } from '../LanguageSwitcher'
 import { ThemeSwitcher } from '../ThemeSwitcher'
@@ -26,13 +28,16 @@ export function AppSidebar() {
         <HamburgerMenu />
 
         {account === null ? null : (
-          <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Link
+            to={ROUTES.profile}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg p-1 transition-colors duration-150 hover:bg-bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
             <Avatar name={account.username} src={avatarImageUrl(account.id)} size="sm" />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-fg">{account.username}</p>
-              <p className="truncate text-xs text-fg-muted">{account.fhNumber}</p>
-            </div>
-          </div>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-medium text-fg">{account.username}</span>
+              <span className="block truncate text-xs text-fg-muted">{account.fhNumber}</span>
+            </span>
+          </Link>
         )}
       </header>
 

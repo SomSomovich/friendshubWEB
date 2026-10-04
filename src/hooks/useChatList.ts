@@ -28,6 +28,8 @@ export type ChatListRowData = {
   /** Ready to display: a translated label, a contact name, or a fallback. */
   title: string
   avatarUrl: string | null
+  /** The peer of a direct conversation; `null` for every other kind. */
+  peerAccountId: string | null
   preview: string | null
   /** Seconds of the last activity, for sorting and for the row's timestamp. */
   at: number | null
@@ -171,6 +173,7 @@ async function assembleRow(
     conversation,
     title: identity.title,
     avatarUrl: identity.avatarUrl,
+    peerAccountId: identity.peerAccountId,
     preview: last?.plaintext ?? null,
     at: last?.clientTimestamp ?? conversation.lastEnvelopeAt,
     unread,

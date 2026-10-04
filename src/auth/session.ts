@@ -1,16 +1,19 @@
 import {
   getMe,
   login as loginRequest,
+  logout as logoutRequest,
   loginWithTotp,
   register as registerRequest,
   type LoginResult,
   type SessionResult,
 } from '../api/auth'
-import { getAccountStore } from '../state/accountRegistry'
+import { destroyAccountStore, getAccountStore } from '../state/accountRegistry'
+import { connectedAccountId, disconnectConnection } from '../state/connection'
 import { useUiStore } from '../state/uiStore'
-import { saveAccount } from '../storage/accounts'
+import { listAccounts, purgeAccount, saveAccount } from '../storage/accounts'
 import { getSetting, setSetting } from '../storage/settings'
 import type { Account } from '../types'
+import { reset as resetCryptoState } from '../wasm'
 
 /**
  * Signing in, and everything that has to happen before the app is usable: the
@@ -149,3 +152,49 @@ export async function persistSession(fhNumber: string, session: SessionResult): 
  */
 export { ensureConnected as connectAccount } from '../state/connection'
 export type { ConnectStep } from '../state/connection'
+
+/**
+ * Signs an account out of this browser and forgets it.
+ *
+ * The order matters: the session is revoked while the token is still readable,
+ * and only then is the local copy destroyed. A revocation that fails — a dead
+ * network, an already-expired session — must not leave the account behind, which
+ * is why the failure is only logged.
+ */
+export async function signOutAccount(account: Account): Promise<void> {
+  try {
+    await logoutRequest({ sessionToken: account.sessionToken, deviceNumber: account.deviceNumber })
+  } catch (error) {
+    console.warn('[auth] the session could not be revoked on the server', error)
+  }
+
+  await forgetAccount(account)
+}
+
+/**
+ * Drops every local trace of an account, without telling the server.
+ *
+ * Separate from `signOutAccount` because revoking every session already ends the
+ * server-side session, and the follow-up `POST /logout` would only earn a 401.
+ */
+export async function forgetAccount(account: Account): Promise<void> {
+  if (connectedAccountId() === account.id) {
+    await disconnectConnection()
+  }
+
+  destroyAccountStore(account.id)
+  await purgeAccount(account.id)
+
+  try {
+    await resetCryptoState(account.id)
+  } catch (error) {
+    // The state is gone from storage either way; a module that refuses to forget
+    // it is a bug, but not one worth blocking the sign-out over.
+    console.warn('[auth] the crypto state could not be cleared', error)
+  }
+
+  if (useUiStore.getState().activeAccountId === account.id) {
+    const remaining = await listAccounts()
+    useUiStore.getState().setActiveAccount(remaining.at(0)?.id ?? null)
+  }
+}

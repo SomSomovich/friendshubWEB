@@ -8,9 +8,17 @@ import { CreateChannelScreen } from '../screens/CreateChannelScreen'
 import { CreateGroupScreen } from '../screens/CreateGroupScreen'
 import { LoginScreen } from '../screens/LoginScreen'
 import { NotFoundScreen } from '../screens/NotFoundScreen'
+import { ProfileScreen } from '../screens/ProfileScreen'
 import { PublicLandingScreen } from '../screens/PublicLandingScreen'
 import { RegisterScreen } from '../screens/RegisterScreen'
 import { SettingsScreen } from '../screens/SettingsScreen'
+import { AboutSettingsScreen } from '../screens/settings/AboutSettingsScreen'
+import { AccountSettingsScreen } from '../screens/settings/AccountSettingsScreen'
+import { AccountsSettingsScreen } from '../screens/settings/AccountsSettingsScreen'
+import { AppearanceSettingsScreen } from '../screens/settings/AppearanceSettingsScreen'
+import { NotificationsSettingsScreen } from '../screens/settings/NotificationsSettingsScreen'
+import { PrivacySettingsScreen } from '../screens/settings/PrivacySettingsScreen'
+import { SecuritySettingsScreen } from '../screens/settings/SecuritySettingsScreen'
 import { AppLayout } from '../screens/AppLayout'
 import { RequireAuth, RequireGuest } from './guards'
 import { CHAT_ROUTE_PATTERN, ROUTES } from './paths'
@@ -43,6 +51,15 @@ export const router = createBrowserRouter([
           { path: '2fa', element: <TwoFactorSetupScreen /> },
           { path: CHAT_ROUTE_PATTERN, element: <ChatScreen /> },
           { path: 'settings', element: <SettingsScreen /> },
+          { path: 'settings/account', element: <AccountSettingsScreen /> },
+          { path: 'settings/appearance', element: <AppearanceSettingsScreen /> },
+          { path: 'settings/privacy', element: <PrivacySettingsScreen /> },
+          { path: 'settings/security', element: <SecuritySettingsScreen /> },
+          { path: 'settings/security/2fa', element: <TwoFactorSetupScreen /> },
+          { path: 'settings/notifications', element: <NotificationsSettingsScreen /> },
+          { path: 'settings/accounts', element: <AccountsSettingsScreen /> },
+          { path: 'settings/about', element: <AboutSettingsScreen /> },
+          { path: 'profile', element: <ProfileScreen /> },
           { path: 'create-group', element: <CreateGroupScreen /> },
           { path: 'create-channel', element: <CreateChannelScreen /> },
         ],

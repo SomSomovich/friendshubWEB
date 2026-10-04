@@ -1,5 +1,6 @@
+import QRCode from 'qrcode'
 import { Copy, ShieldCheck } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
@@ -14,9 +15,8 @@ import { Input } from '../components/ui/Input'
 import { useActiveAccount } from '../hooks/useActiveAccount'
 import type { Account } from '../types'
 import { useToast } from '../hooks/useToast'
-import { ROUTES } from '../router/paths'
-import { getExistingAccountStore } from '../state/accountRegistry'
-import { saveAccount } from '../storage/accounts'
+import { settingsPath } from '../router/paths'
+import { requireAccountStore } from '../state/accountRegistry'
 
 type Enrollment = {
   secretBase32: string
@@ -26,10 +26,9 @@ type Enrollment = {
 /**
  * Turning two-factor authentication on or off.
  *
- * The QR code is missing on purpose: drawing one needs a library, and nothing
- * here should add a dependency without asking. The `otpauth` URI and the base32
- * secret are both shown and copyable, which is the manual path every
- * authenticator app accepts.
+ * Reached from the security section rather than sitting in it: the flow has four
+ * steps and a one-time reveal, and burying that inside a list of settings would
+ * make a page nobody can finish on a phone.
  */
 export function TwoFactorSetupScreen() {
   const { t } = useTranslation()
@@ -54,8 +53,7 @@ export function TwoFactorSetupScreen() {
     setBusy(true)
     setError(null)
     try {
-      const result = await enrollTotp(account)
-      setEnrollment(result)
+      setEnrollment(await enrollTotp(account))
     } catch (cause) {
       reportFailure(cause, t, setError, toast)
     } finally {
@@ -71,7 +69,7 @@ export function TwoFactorSetupScreen() {
       const result = await verifyTotpEnrollment(account, code.trim())
       setBackupCodes(result.backupCodes)
       setEnrollment(null)
-      await refresh(account.id)
+      await refresh()
       setEnabled(true)
       toast.notify({ kind: 'success', message: t('twoFactorSetup.enabled') })
     } catch (cause) {
@@ -89,7 +87,7 @@ export function TwoFactorSetupScreen() {
       await disableTotp(account, { password, code: code.trim() })
       setPassword('')
       setCode('')
-      await refresh(account.id)
+      await refresh()
       setEnabled(false)
       toast.notify({ kind: 'success', message: t('twoFactorSetup.disabled') })
     } catch (cause) {
@@ -99,14 +97,10 @@ export function TwoFactorSetupScreen() {
     }
   }
 
-  async function refresh(accountId: string): Promise<void> {
-    const me = await getMe({
-      sessionToken: (account).sessionToken,
-      deviceNumber: (account).deviceNumber,
-    })
-    const updated = { ...(account), totpEnabled: me.totpEnabled }
-    await saveAccount(updated)
-    getExistingAccountStore(accountId)?.setState({ account: updated })
+  /** Re-reads `/me`, because the flag lives on the account record the app shows. */
+  async function refresh(): Promise<void> {
+    const me = await getMe(account)
+    await requireAccountStore(account.id).getState().actions.updateAccount({ totpEnabled: me.totpEnabled })
   }
 
   return (
@@ -114,7 +108,7 @@ export function TwoFactorSetupScreen() {
       <ScreenHeader
         title={t('twoFactorSetup.title')}
         onBack={() => {
-          void navigate(ROUTES.settings)
+          void navigate(settingsPath('security'))
         }}
         backMode="always"
       />
@@ -183,6 +177,8 @@ export function TwoFactorSetupScreen() {
             >
               <p className="text-sm text-fg">{t('twoFactorSetup.addHint')}</p>
 
+              <EnrollmentQr uri={enrollment.otpauthUri} />
+
               <div className="flex flex-col gap-1">
                 <span className="text-xs text-fg-muted">{t('twoFactorSetup.secret')}</span>
                 <code className="rounded-lg border border-border bg-bg px-3 py-2 font-mono text-xs break-all text-fg">
@@ -202,7 +198,7 @@ export function TwoFactorSetupScreen() {
                       console.error('[settings] could not copy the otpauth URI', cause)
                     })
                 }}
-                className="flex w-fit cursor-pointer items-center gap-1.5 text-xs font-medium text-accent hover:underline"
+                className="flex w-fit cursor-pointer items-center gap-1.5 text-xs font-medium text-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
                 <Copy className="size-3.5" aria-hidden />
                 {t('twoFactorSetup.copyUri')}
@@ -227,8 +223,50 @@ export function TwoFactorSetupScreen() {
               </Button>
             </form>
           )}
+
+          <p className="text-center text-xs text-fg-muted">{t('twoFactorSetup.backupReminder')}</p>
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * The `otpauth://` URI as a scannable code.
+ *
+ * Drawn black on white whatever the theme is: the app's dark palette inverts the
+ * contrast a scanner expects, and a fair share of them refuse an inverted code
+ * outright.
+ */
+function EnrollmentQr({ uri }: { uri: string }) {
+  const { t } = useTranslation()
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (canvas === null) {
+      return
+    }
+    void QRCode.toCanvas(canvas, uri, {
+      width: 200,
+      margin: 1,
+      color: { dark: '#000000', light: '#ffffff' },
+    }).catch((cause: unknown) => {
+      // The secret below the code is the manual path, so a canvas that refuses
+      // to draw costs convenience, not access.
+      console.error('[2fa] the QR code could not be drawn', cause)
+    })
+  }, [uri])
+
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <canvas
+        ref={canvasRef}
+        role="img"
+        aria-label={t('twoFactorSetup.qrLabel')}
+        className="rounded-lg border border-border bg-white p-1"
+      />
+      <span className="text-xs text-fg-muted">{t('twoFactorSetup.qrHint')}</span>
     </div>
   )
 }
