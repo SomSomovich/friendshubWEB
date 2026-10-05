@@ -49,6 +49,8 @@ export async function getOrCreateSavedConversation(account: Account): Promise<Co
     accountId: account.id,
     kind: 'saved',
     title: null,
+    // A conversation with yourself has no picture of its own.
+    avatarUrl: null,
     // Only this account is in it.
     memberCount: 1,
     lastEnvelopeAt: null,

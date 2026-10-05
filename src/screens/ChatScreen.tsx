@@ -40,12 +40,8 @@ import { useSenderNames } from '../hooks/useSenderNames'
 import { useToast } from '../hooks/useToast'
 import { ROUTES } from '../router/paths'
 import { requireAccountStore } from '../state/accountRegistry'
-import {
-  applyDelete,
-  applyEdit,
-  applyReaction,
-  togglePin as togglePinned,
-} from '../state/messageMutations'
+import { applyDelete, applyEdit, applyReaction } from '../state/messageMutations'
+import { togglePin as togglePinned } from '../state/pins'
 import { clearConversationHistory, deleteConversationLocally } from '../storage/conversations'
 import type { MessageRecord } from '../storage/db'
 import {

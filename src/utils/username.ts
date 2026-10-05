@@ -12,7 +12,14 @@ export const MAX_USERNAME_LENGTH = 64
 /** Words of allowed characters, one space between them, no leading or trailing. */
 const USERNAME_PATTERN = /^[A-Za-z0-9_.]+(?: [A-Za-z0-9_.]+)*$/
 
-export type UsernameProblem = 'empty' | 'tooLong' | 'invalid'
+export type UsernameProblem = 'empty' | 'tooLong' | 'invalid' | 'looksLikeFhNumber'
+
+/**
+ * `FH` followed by digits is reserved for the numbers the server issues, and a
+ * name that looks like one is refused (API_FRONTEND.md §4). Blocked here rather
+ * than after a round trip so the reason can be explained while it is being typed.
+ */
+const FH_NUMBER_PATTERN = /^FH\d+$/i
 
 /** `null` means the value is acceptable to send. */
 export function validateUsername(value: string): UsernameProblem | null {
@@ -22,6 +29,9 @@ export function validateUsername(value: string): UsernameProblem | null {
   }
   if (trimmed.length > MAX_USERNAME_LENGTH) {
     return 'tooLong'
+  }
+  if (FH_NUMBER_PATTERN.test(trimmed)) {
+    return 'looksLikeFhNumber'
   }
   return USERNAME_PATTERN.test(trimmed) ? null : 'invalid'
 }

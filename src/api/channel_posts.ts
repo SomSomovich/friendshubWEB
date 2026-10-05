@@ -40,14 +40,16 @@ export type CreatePostInput = {
 }
 
 /**
- * Newest first. Pagination is by whole seconds, so posts published in the same
- * second can be skipped by a `before` cursor — the API documents this, and the
- * client pages in small steps rather than trusting a full walk.
+ * Newest first, paged by the id of the last post of the previous page.
+ *
+ * The cursor used to be a unix timestamp, which skipped posts published in the
+ * same second as the boundary — the ids are UUIDv7 now, so they order by
+ * creation and are unique, and the boundary post is simply excluded.
  */
 export function listChannelPosts(
   account: AccountAuth,
   channelId: string,
-  query: { before?: number; limit?: number } = {},
+  query: { before?: string; limit?: number } = {},
 ): Promise<ChannelPost[]> {
   return get<ChannelPost[]>(`/channels/${encodeURIComponent(channelId)}/posts`, {
     account,
@@ -99,11 +101,21 @@ export function listPinnedPosts(
   return get<ChannelPost[]>(`/channels/${encodeURIComponent(channelId)}/pinned`, { account })
 }
 
+/**
+ * Paginated by sequence number, newest first.
+ *
+ * `seq` is the server's own ordering column, not a timestamp: reactions made in
+ * the same second are common, and a timestamp cursor would skip them.
+ */
 export function listPostReactions(
   account: AccountAuth,
   postId: string,
+  query: { before?: number; limit?: number } = {},
 ): Promise<PostReaction[]> {
-  return get<PostReaction[]>(`/channel-posts/${encodeURIComponent(postId)}/reactions`, { account })
+  return get<PostReaction[]>(`/channel-posts/${encodeURIComponent(postId)}/reactions`, {
+    account,
+    query: { before: query.before ?? null, limit: query.limit ?? null },
+  })
 }
 
 /** One reaction per actor: a repeat replaces the previous emoji. */

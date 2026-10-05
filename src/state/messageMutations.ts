@@ -1,6 +1,6 @@
 import { sendMessageAction } from '../crypto/messageActions'
 import type { MessageRecord } from '../storage/db'
-import { pinMessage, unpinMessage } from '../storage/pinned'
+import { unpinMessage } from '../storage/pinned'
 import type { Account, Reaction } from '../types'
 import { ownReaction } from '../utils/reactions'
 import { nowSeconds } from '../utils/time'
@@ -29,7 +29,7 @@ export async function applyReaction(
   // back — the same rule the server applies.
   const remove = existing === emoji
 
-  // The payload says which it is: a null emoji is the removal, and there is no
+  // The payload says which it is: a null emoji *is* the removal, and there is no
   // separate "unreact" kind to send.
   await sendMessageAction(account, message, { kind: 'reaction', emoji: remove ? null : emoji })
 
@@ -54,19 +54,12 @@ export async function applyEdit(
 export async function applyDelete(account: Account, message: MessageRecord): Promise<void> {
   await sendMessageAction(account, message, { kind: 'delete' })
 
-  // The pin row points at the message; leaving it behind would make the banner
-  // cycle through something that no longer exists.
   if (message.isPinned) {
+    // The pin row points at the message, and leaving it behind would make the
+    // banner cycle through something no longer there. Only the local cache is
+    // touched: a server pin is conversation state belonging to whoever made it,
+    // and the next refresh drops this one anyway — the message it names is gone,
+    // so the banner has nothing to show either way.
     await unpinMessage(account.id, message.conversationId, message.messageId, message.envelopeId)
   }
-}
-
-/** Pins or unpins locally — nothing about pinning is ever sent to the server. */
-export async function togglePin(account: Account, message: MessageRecord): Promise<boolean> {
-  if (message.isPinned) {
-    await unpinMessage(account.id, message.conversationId, message.messageId, message.envelopeId)
-    return false
-  }
-  await pinMessage(account.id, message.conversationId, message.messageId, message.envelopeId)
-  return true
 }

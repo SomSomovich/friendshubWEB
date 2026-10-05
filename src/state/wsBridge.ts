@@ -6,6 +6,7 @@ import type { WsClient } from '../ws/client'
 import { ENVELOPE_TYPE_MESSAGE } from '../ws/envelopeTypes'
 import { requireAccountStore } from './accountRegistry'
 import type { AccountStore } from './accountStore'
+import { refreshPins } from './pins'
 
 /**
  * Wires one WebSocket to one account's store.
@@ -52,7 +53,9 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     store.getState().actions.setPresence(event)
   })
 
-  // A connection is the moment the queue from the last disconnection can go out.
+  // A connection is the moment the queue from the last disconnection can go out,
+  // and one of the two moments a conversation's pins can have changed without
+  // this device noticing. The other is opening the conversation.
   const detachConnected = client.on('connected', () => {
     void store
       .getState()
@@ -60,6 +63,13 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
       .catch((error: unknown) => {
         console.error('[state] the outbox could not be flushed', error)
       })
+
+    const open = store.getState().activeConversationId
+    if (open !== null) {
+      void refreshPins(account, open).catch((error: unknown) => {
+        console.warn('[state] the pins could not be refreshed', error)
+      })
+    }
   })
 
   return () => {

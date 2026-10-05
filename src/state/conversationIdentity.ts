@@ -1,4 +1,4 @@
-import { avatarImageUrl } from '../api/avatars'
+import { avatarImageUrl, conversationAvatarUrl } from '../api/avatars'
 import { getConversation } from '../api/conversations'
 import type { ConversationRecord } from '../storage/db'
 import { rememberPeer } from '../storage/read_state'
@@ -62,7 +62,10 @@ export async function resolveConversationIdentity(
 
   return {
     title: conversation.title ?? labels.unknown,
-    avatarUrl: avatarImageUrl(conversation.id),
+    // A group or channel without a picture is the common case, and the list
+    // endpoint says so — asking for one anyway would be a request per row whose
+    // only possible answer is a 404.
+    avatarUrl: conversation.avatarUrl ? conversationAvatarUrl(conversation.id) : null,
     peerAccountId: null,
   }
 }

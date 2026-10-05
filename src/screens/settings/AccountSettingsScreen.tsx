@@ -19,6 +19,7 @@ const PROBLEM_KEYS = {
   empty: 'settings.account.nameEmpty',
   tooLong: 'settings.account.nameTooLong',
   invalid: 'settings.account.nameInvalid',
+  looksLikeFhNumber: 'settings.account.nameLooksLikeFh',
 } as const satisfies Record<UsernameProblem, string>
 
 /** The account's own face: picture, name, FH number and custom status. */

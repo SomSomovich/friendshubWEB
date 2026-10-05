@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStore } from 'zustand'
 import { requireAccountStore } from '../state/accountRegistry'
 import type { MessageRecord } from '../storage/db'
 import { getMessageByMessageId } from '../storage/messages'
 import { listPinned } from '../storage/pinned'
 import { loadPinnedBannerHidden, setPinnedBannerHidden } from '../storage/read_state'
+import { refreshPins } from '../state/pins'
 import type { Account } from '../types'
 
 /**
@@ -36,10 +37,23 @@ export function usePins(account: Account, conversationId: string): PinnedMessage
   const [index, setIndex] = useState(0)
   const [hidden, setHidden] = useState(false)
 
+  /** The conversation whose pins are already in the cache. */
+  const syncedRef = useRef<string | null>(null)
+
+  // Reading the cache is what every render needs; asking the server is worth one
+  // round trip per conversation, not one per message.
   useEffect(() => {
     let cancelled = false
 
     void (async () => {
+      if (syncedRef.current !== conversationId) {
+        syncedRef.current = conversationId
+        await refreshPins(account, conversationId).catch((error: unknown) => {
+          // The cache is still worth showing; the next open tries again.
+          console.warn('[pins] the server list could not be read', error)
+        })
+      }
+
       const [records, preferences] = await Promise.all([
         listPinned(account.id, conversationId),
         loadPinnedBannerHidden(account.id),
@@ -58,7 +72,7 @@ export function usePins(account: Account, conversationId: string): PinnedMessage
     return () => {
       cancelled = true
     }
-  }, [account.id, conversationId, messagesVersion])
+  }, [account, conversationId, messagesVersion])
 
   const hide = useCallback(() => {
     setHidden(true)

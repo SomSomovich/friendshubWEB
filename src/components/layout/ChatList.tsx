@@ -9,6 +9,7 @@ import {
   unarchiveConversation,
   unmuteConversation,
 } from '../../api/conversations'
+import { MIN_QUERY_LENGTH } from '../../api/search'
 import { useChatList, type ChatListRowData } from '../../hooks/useChatList'
 import { useToast } from '../../hooks/useToast'
 import { ROUTES, chatPath } from '../../router/paths'
@@ -20,6 +21,7 @@ import { cn } from '../../utils/cn'
 import { ContextMenu } from '../ui/ContextMenu'
 import type { DropdownItem } from '../ui/DropdownMenu'
 import { EmptyState } from '../ui/EmptyState'
+import { SearchResults } from './SearchResults'
 import { Spinner } from '../ui/Spinner'
 import { ChatListRow } from './ChatListRow'
 import { MuteDialog, type MuteChoice } from './MuteDialog'
@@ -54,6 +56,14 @@ export function ChatList({ account, query }: ChatListProps) {
 
   const visible = useMemo(() => filterRows(rows, filter, query), [rows, filter, query])
   const unreadByFilter = useMemo(() => countUnread(rows), [rows])
+  // The conversations already listed above the search results, so a hit for one
+  // of them is not shown twice.
+  const knownConversationIds = useMemo(
+    () => new Set(visible.map((row) => row.conversation.id)),
+    [visible],
+  )
+  /** True once the query is long enough for the server; mirrors `useGlobalSearch`. */
+  const searching = query.trim().replace(/^@/, '').trim().length >= MIN_QUERY_LENGTH
 
   function refreshConversations(): void {
     void requireAccountStore(account.id)
@@ -193,17 +203,22 @@ export function ChatList({ account, query }: ChatListProps) {
             <Spinner className="text-fg-muted" />
           </div>
         ) : visible.length === 0 ? (
-          <EmptyState
-            icon={MessageSquare}
-            title={query.length > 0 ? t('chatList.noResults') : t('chatList.empty')}
-            description={
-              query.length > 0
-                ? t('chatList.noResultsHint', { query })
-                : error === null
-                  ? t('chatList.emptyHint')
-                  : error
-            }
-          />
+          // With a query worth sending to the server, the local empty state is
+          // withheld: the search section below is the answer, and "ничего не
+          // найдено" above it would contradict whatever it finds.
+          searching ? null : (
+            <EmptyState
+              icon={MessageSquare}
+              title={query.length > 0 ? t('chatList.noResults') : t('chatList.empty')}
+              description={
+                query.length > 0
+                  ? t('chatList.noResultsHint', { query })
+                  : error === null
+                    ? t('chatList.emptyHint')
+                    : error
+              }
+            />
+          )
         ) : (
           <ul>
             {visible.map((row) => (
@@ -221,6 +236,12 @@ export function ChatList({ account, query }: ChatListProps) {
             ))}
           </ul>
         )}
+
+        <SearchResults
+          account={account}
+          query={query}
+          knownConversationIds={knownConversationIds}
+        />
       </div>
 
       <ContextMenu

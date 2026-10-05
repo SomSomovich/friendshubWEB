@@ -330,7 +330,8 @@
       "statusSave": "Save status",
       "statusClear": "Clear status",
       "statusSaved": "Status saved",
-      "statusCleared": "Status cleared"
+      "statusCleared": "Status cleared",
+      "nameLooksLikeFh": "A name cannot look like an FH number: that space belongs to account numbers."
     },
     "privacy": {
       "invisible": "Invisible mode",
@@ -564,5 +565,17 @@
       "denied": "The browser refused the request. You can change it in the site's settings.",
       "failed": "The permission could not be requested."
     }
+  },
+  "search": {
+    "sections": {
+      "accounts": "People",
+      "groups": "Groups",
+      "channels": "Channels",
+      "bots": "Bots"
+    },
+    "nothing": "Nothing matches “{{query}}”",
+    "noIdentifier": "no handle",
+    "botUnavailable": "Bot chats are not supported yet.",
+    "hint": "Start with “@” to search by FH number or handle."
   }
 }

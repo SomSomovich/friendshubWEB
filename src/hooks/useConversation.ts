@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { avatarImageUrl } from '../api/avatars'
+import { avatarImageUrl, conversationAvatarUrl } from '../api/avatars'
 import { listContacts, type Contact } from '../api/contacts'
 import { requireAccountStore } from '../state/accountRegistry'
 import { resolvePeerAccountId } from '../state/conversationIdentity'
@@ -118,5 +118,6 @@ function avatarUrlFor(
   if (conversation.kind === 'direct') {
     return peerAccountId === null ? null : avatarImageUrl(peerAccountId)
   }
-  return avatarImageUrl(conversation.id)
+  // Only when the server says there is one; see `resolveConversationIdentity`.
+  return conversation.avatarUrl ? conversationAvatarUrl(conversation.id) : null
 }

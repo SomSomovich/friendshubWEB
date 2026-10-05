@@ -60,6 +60,16 @@ export function setInvisible(account: AccountAuth, enabled: boolean): Promise<vo
   return put<void>('/profile/invisible', { enabled }, { account })
 }
 
+/**
+ * The stored invisibility flag.
+ *
+ * New in the updated API; before it, the client kept a local mirror of what it
+ * had last set, because there was no way to ask.
+ */
+export function getInvisible(account: AccountAuth): Promise<{ enabled: boolean }> {
+  return get<{ enabled: boolean }>('/profile/invisible', { account })
+}
+
 export function listPresenceExceptions(account: AccountAuth): Promise<PresenceException[]> {
   return get<PresenceException[]>('/profile/presence-exceptions', { account })
 }

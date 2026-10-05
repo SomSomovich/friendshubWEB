@@ -23,6 +23,16 @@ export function listContacts(account: AccountAuth): Promise<Contact[]> {
   return get<Contact[]>('/contacts', { account })
 }
 
+/**
+ * Search over this account's own contacts (API_FRONTEND.txt §5).
+ *
+ * Matches the local name, the account's own name and the FH number — the three
+ * things a person might type. At least three characters, like the global search.
+ */
+export function searchContacts(account: AccountAuth, query: string, limit = 30): Promise<Contact[]> {
+  return get<Contact[]>('/contacts/search', { account, query: { q: query, limit } })
+}
+
 /** Adds a contact or updates the local name; `localUsername` is 1..64 chars. */
 export function addContact(
   account: AccountAuth,

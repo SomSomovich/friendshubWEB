@@ -384,15 +384,17 @@ function captureEdge(browser, url, label, extraArgs = [], profileDir = PROFILE_D
 }
 
 /**
- * A conversation for the chat captures to open.
+ * What the signed-in captures need about the smoke account: a conversation to
+ * open, and a contact to search for.
  *
- * Resolved over the same proxy the page uses, with the smoke account's own
+ * Resolved over the same proxy the page uses, with the account's own
  * credentials, so the harness never has to know an id that changes between
- * environments. `null` means the chat captures are skipped rather than reported
- * as failures — nothing about the account guarantees it has a chat.
+ * environments. Both are `null` when the account does not have one, and the
+ * captures that need them are skipped rather than reported as failures.
  */
-async function findConversationId(origin, account) {
+async function resolveHarnessTargets(origin, account) {
   const deviceNumber = account.deviceNumber ?? 1
+  const headers = { 'X-Device-Number': String(deviceNumber) }
 
   try {
     const login = await fetch(`${origin}/api/v1/login`, {
@@ -406,21 +408,25 @@ async function findConversationId(origin, account) {
     })
     const session = await login.json()
     if (typeof session.session_token !== 'string') {
-      console.warn('[harness] the account could not be signed in for the chat captures')
-      return null
+      console.warn('[harness] the account could not be signed in for the signed-in captures')
+      return { conversationId: null, contactFhNumber: null, contactName: null }
     }
 
-    const conversations = await fetch(`${origin}/api/v1/conversations`, {
-      headers: {
-        Authorization: `Bearer ${session.session_token}`,
-        'X-Device-Number': String(deviceNumber),
-      },
-    }).then((response) => response.json())
+    const authorized = { ...headers, Authorization: `Bearer ${session.session_token}` }
+    const conversations = await fetch(`${origin}/api/v1/conversations`, { headers: authorized })
+      .then((response) => response.json())
+    const contacts = await fetch(`${origin}/api/v1/contacts`, { headers: authorized })
+      .then((response) => response.json())
 
-    return conversations.find((entry) => entry.kind !== 'saved')?.id ?? null
+    const contact = contacts.at(0)
+    return {
+      conversationId: conversations.find((entry) => entry.kind !== 'saved')?.id ?? null,
+      contactFhNumber: contact?.fh_number ?? null,
+      contactName: contact?.username ?? null,
+    }
   } catch (error) {
     console.warn('[harness] could not pick a conversation to open', error)
-    return null
+    return { conversationId: null, contactFhNumber: null, contactName: null }
   }
 }
 
@@ -567,7 +573,8 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
     const origin = `http://127.0.0.1:${UI_PORT}`
     await waitForHttp(origin)
 
-    const chatId = await findConversationId(origin, smokeAccount)
+    const targets = await resolveHarnessTargets(origin, smokeAccount)
+    const chatId = targets.conversationId
     // Signed in, with a couple of days of local history already stored, so the
     // transcript, its separators and the pinned banner have something to render.
     if (chatId !== null) {
@@ -665,6 +672,60 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
       if (next !== undefined && !next.disabled) next.click()
       return false
     })()`
+
+    /**
+     * Typing into the sidebar's search field.
+     *
+     * The field is a React input, so `.value` alone changes nothing — React
+     * listens for the event, not the property, and the native setter is the only
+     * way to make it fire. `doneText` is what proves the answer arrived, and it
+     * has to be text `innerText` actually returns: a `text-transform: uppercase`
+     * heading reads as "ЛЮДИ" there while the markup still says "Люди", so a
+     * section label is a readiness signal that can never come true.
+     */
+    const typeSearch = (query, doneText) => `(function () {
+      if (document.body.innerText.includes(${JSON.stringify(doneText)})) return true
+      const input = document.querySelector('input[type="search"]')
+      if (input === null) return false
+      if (input.value !== ${JSON.stringify(query)}) {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+        setter.call(input, ${JSON.stringify(query)})
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      }
+      return false
+    })()`
+
+    if (targets.contactFhNumber !== null) {
+      captures.push({
+        label: 'search-people-dark-ru',
+        route: null,
+        next: '/app',
+        theme: 'dark',
+        lang: 'ru',
+        size: '1280,800',
+        // The `@` prefix narrows the server's answer to exact identifiers. The
+        // signal is the identifier in the result row, not the section heading:
+        // see the note above about uppercased text.
+        // A contact, not this account: the sidebar shows the signed-in FH number
+        // and username permanently, so searching for either would let the
+        // readiness check pass before any result arrived.
+        ready: typeSearch(`@${targets.contactFhNumber}`, targets.contactFhNumber),
+        expect: ['Люди', targets.contactFhNumber, targets.contactName],
+      })
+    }
+
+    captures.push(
+      {
+        label: 'search-nothing-light-en',
+        route: null,
+        next: '/app',
+        theme: 'light',
+        lang: 'en',
+        size: '390,844',
+        ready: typeSearch('zzzqqqxyz', 'Nothing matches'),
+        expect: ['Nothing matches'],
+      },
+    )
 
     /**
      * The notices the shell owns.

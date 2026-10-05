@@ -54,6 +54,7 @@ export function AppSidebar() {
           }}
           placeholder={t('chatList.searchPlaceholder')}
           aria-label={t('chatList.searchPlaceholder')}
+          title={t('search.hint')}
           className="h-9 w-full rounded-lg border border-border bg-bg pr-3 pl-9 text-sm text-fg placeholder:text-fg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         />
       </div>
