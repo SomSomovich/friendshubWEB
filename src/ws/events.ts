@@ -15,6 +15,18 @@ export type PresenceEvent = {
   customStatusExpiresAt: number | null
 }
 
+/**
+ * Somebody's read marker moved.
+ *
+ * Sent only when it actually advances, so a repeat of a conversation already
+ * caught up with produces nothing.
+ */
+export type ReadReceiptEvent = {
+  conversationId: string
+  accountId: string
+  lastReadAt: number
+}
+
 /** Somebody is typing. Nothing is stored, and nothing says when they stop. */
 export type TypingEvent = {
   conversationId: string
@@ -82,6 +94,7 @@ export type WsClientEvents = {
   }
   presence: PresenceEvent
   typing: TypingEvent
+  readReceipt: ReadReceiptEvent
   botMessage: BotMessageEvent
   channelPost: ChannelPostEvent
 }

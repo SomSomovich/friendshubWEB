@@ -36,6 +36,7 @@ import { useChatSearch } from '../hooks/useChatSearch'
 import { useConversation } from '../hooks/useConversation'
 import { usePeerInfo } from '../hooks/usePeerInfo'
 import { usePins } from '../hooks/usePins'
+import { useReadReceipts } from '../hooks/useReadReceipts'
 import { useSenderNames } from '../hooks/useSenderNames'
 import { useToast } from '../hooks/useToast'
 import { ROUTES } from '../router/paths'
@@ -53,6 +54,7 @@ import {
 import { getActiveClientOrNull } from '../ws/activeClient'
 import { useUiStore } from '../state/uiStore'
 import { nowSeconds } from '../utils/time'
+import { readWatermark } from '../utils/readReceipts'
 import { activeTypers } from '../utils/typing'
 import type { Account } from '../types'
 
@@ -87,6 +89,8 @@ export function ChatScreen() {
  * documents as typical, and erring low costs only a missing indicator.
  */
 const TYPING_MAX_GROUP_MEMBERS = 30
+/** Shared so an absent conversation does not allocate a new object per render. */
+const EMPTY_MARKERS: Record<string, number> = {}
 /** How often this device may report typing, per conversation (API_FRONTEND.txt §27). */
 const TYPING_THROTTLE_MS = 3_000
 
@@ -104,6 +108,7 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
 
   const messages = useStore(store, (state) => state.messages)
   const typing = useStore(store, (state) => state.typing)
+  const readMarkers = useStore(store, (state) => state.readMarkers[conversationId] ?? EMPTY_MARKERS)
   const loadingMessages = useStore(store, (state) => state.loadingMessages)
   const hasOlder = useStore(store, (state) => state.hasOlder)
 
@@ -125,6 +130,23 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
   const [typingClock, setTypingClock] = useState(() => nowSeconds())
 
   const search = useChatSearch(account, conversationId, searchOpen)
+
+  // The newest message somebody else wrote: what the read marker is armed by.
+  const newestIncomingAt =
+    messages.find((message) => message.senderAccountId !== account.id)?.clientTimestamp ?? null
+  useReadReceipts(account, conversationId, newestIncomingAt)
+
+  /**
+   * The point everybody else has read up to.
+   *
+   * `memberCount - 1` others: a direct chat has one, and a group needs all of
+   * them. A saved conversation has none, so nothing is ever shown as read.
+   */
+  const readUpTo = readWatermark(
+    readMarkers,
+    account.id,
+    conversation === null ? 1 : Math.max(1, conversation.memberCount - 1),
+  )
 
   useEffect(() => {
     void store.getState().actions.openConversation(conversationId)
@@ -617,6 +639,7 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
           senderNames={senderNames}
           selfAccountId={account.id}
           language={i18n.language}
+          readWatermark={readUpTo}
           highlightedId={highlight?.id ?? null}
           onMessageMenu={(message, x, y) => {
             setMenu({ message, x, y })

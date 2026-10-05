@@ -1,7 +1,13 @@
 import type { Envelope } from '../types'
 import { bytesToHex, hexToBytes } from '../utils/hex'
 import { GROUP_CIPHERTEXT_PREFIX } from './envelopeTypes'
-import type { BotMessageEvent, ChannelPostEvent, PresenceEvent, TypingEvent } from './events'
+import type {
+  BotMessageEvent,
+  ChannelPostEvent,
+  PresenceEvent,
+  ReadReceiptEvent,
+  TypingEvent,
+} from './events'
 import { fh } from './proto/friendshub.js'
 
 /**
@@ -120,6 +126,14 @@ export function toPresenceEvent(proto: fh.PresenceUpdate): PresenceEvent {
       proto.customStatusExpiresAt === null || proto.customStatusExpiresAt === undefined
         ? null
         : toPlainNumber(proto.customStatusExpiresAt),
+  }
+}
+
+export function toReadReceiptEvent(proto: fh.ReadReceiptDelivery): ReadReceiptEvent {
+  return {
+    conversationId: bytesToUuid(proto.conversationId),
+    accountId: bytesToUuid(proto.accountId),
+    lastReadAt: toPlainNumber(proto.lastReadAt),
   }
 }
 

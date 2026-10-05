@@ -18,6 +18,12 @@ export type MessageBubbleProps = {
   /** The sender's name, shown only for somebody else's message in a group. */
   senderName: string | null
   language: string
+  /**
+   * What to draw on the tick, which is not always what is stored: a message the
+   * peer has read is `read` whether or not this device was ever told it was
+   * delivered.
+   */
+  status: MessageStatus
   /** Briefly outlined after a search hit or a pinned message jumped here. */
   highlighted: boolean
   selfAccountId: string
@@ -31,6 +37,7 @@ export function MessageBubble({
   own,
   senderName,
   language,
+  status,
   highlighted,
   selfAccountId,
   onContextMenu,
@@ -51,7 +58,7 @@ export function MessageBubble({
   )
 
   const reactions = countReactions(message.reactions, selfAccountId)
-  const statusLabel = t(`chat.status.${message.status}`)
+  const statusLabel = t(`chat.status.${status}`)
 
   return (
     <li
@@ -114,7 +121,7 @@ export function MessageBubble({
           >
             {message.editedAt == null ? null : <span>{t('chat.edited')}</span>}
             <span className="tabular-nums">{formatMessageTime(message.clientTimestamp)}</span>
-            {own ? <StatusIcon status={message.status} label={statusLabel} /> : null}
+            {own ? <StatusIcon status={status} label={statusLabel} /> : null}
           </p>
         </div>
 

@@ -291,6 +291,9 @@ export class WsClient extends TypedEmitter<WsClientEvents> {
     onTyping: (typing) => {
       this.emit('typing', typing)
     },
+    onReadReceipt: (readReceipt) => {
+      this.emit('readReceipt', readReceipt)
+    },
     onBotMessage: (botMessage) => {
       this.emit('botMessage', botMessage)
     },

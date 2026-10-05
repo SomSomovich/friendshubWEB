@@ -41,6 +41,42 @@ export function createDirectConversation(
   )
 }
 
+export type ConversationRead = {
+  accountId: string
+  /** The newest `server_timestamp` this account has read up to. */
+  lastReadAt: number
+}
+
+/**
+ * Reports how far this account has read (API_FRONTEND.txt §12).
+ *
+ * `upTo` is a *server* timestamp, which a received message does not carry — the
+ * live frame has only the sender's clock. So it is left out and the server uses
+ * its own now, which is the only value that can be trusted for "I am looking at
+ * this conversation".
+ */
+export function markConversationRead(
+  account: AccountAuth,
+  conversationId: string,
+  upTo?: number,
+): Promise<void> {
+  return post<void>(
+    `/conversations/${encodeURIComponent(conversationId)}/read`,
+    { up_to: upTo ?? null },
+    { account },
+  )
+}
+
+/** Everyone's read markers in a conversation, including this account's own. */
+export function getConversationReads(
+  account: AccountAuth,
+  conversationId: string,
+): Promise<ConversationRead[]> {
+  return get<ConversationRead[]>(`/conversations/${encodeURIComponent(conversationId)}/reads`, {
+    account,
+  })
+}
+
 export function getConversation(
   account: AccountAuth,
   conversationId: string,

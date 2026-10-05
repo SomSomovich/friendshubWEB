@@ -33,6 +33,7 @@ import { listPinned, pinMessage, unpinMessage } from '../src/storage/pinned'
 import { getSetting, setSetting } from '../src/storage/settings'
 import { encodePayload, parseKnownPayload } from '../src/crypto/payloads'
 import { hexToUtf8 } from '../src/utils/hex'
+import { isMessageRead, readWatermark } from '../src/utils/readReceipts'
 import { activeTypers, TYPING_TTL_SECONDS, withTyping, type TypingState } from '../src/utils/typing'
 
 type Check = { name: string; passed: boolean; detail?: string }
@@ -405,6 +406,30 @@ async function runWriteChecks(): Promise<void> {
     (await countIncomingAfter(ACCOUNT_A, CONV_A3, 0)) === 1,
     `${await countIncomingAfter(ACCOUNT_A, CONV_A3, 0)} counted`,
   )
+
+  // --- read receipts ---
+  check('nothing is read in a conversation nobody has marked', readWatermark({}, 'me', 1) === 0)
+  check(
+    'a direct chat is read once the peer has read it',
+    readWatermark({ 'peer': 500, me: 900 }, 'me', 1) === 500,
+  )
+  check(
+    'this account is not counted among the readers',
+    readWatermark({ me: 900 }, 'me', 1) === 0,
+  )
+  check(
+    'a group needs every other participant, not just one',
+    readWatermark({ a: 500, b: 700 }, 'me', 3) === 0,
+    String(readWatermark({ a: 500, b: 700 }, 'me', 3)),
+  )
+  check(
+    'and the slowest reader is the one that counts',
+    readWatermark({ a: 500, b: 700, c: 600 }, 'me', 3) === 500,
+  )
+
+  check('a message at or below the watermark is read', isMessageRead(500, 500) && isMessageRead(499, 500))
+  check('one above it is not', !isMessageRead(501, 500))
+  check('and a message with no server stamp is never read', !isMessageRead(0, 5_000))
 
   // --- the payload contract survives an encode and a decode ---
   const roundTrip = parseKnownPayload(

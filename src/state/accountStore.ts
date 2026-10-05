@@ -64,6 +64,12 @@ export type AccountStoreState = {
    * it does.
    */
   typing: TypingState
+  /**
+   * Conversation id → account id → the newest `server_timestamp` that account
+   * has read up to. Server state, mirrored here so a tick redraws from one
+   * source rather than from whatever the last request happened to return.
+   */
+  readMarkers: Record<string, Record<string, number>>
   /** Unacknowledged peer identity changes; cleared by `acknowledgeIdentityChanges`. */
   identityChanges: IdentityChange[]
   /**
@@ -99,6 +105,10 @@ export type AccountActions = {
   setPresence: (event: PresenceEvent) => void
   /** Records that `accountId` is typing in a conversation, for a few seconds. */
   setTyping: (conversationId: string, accountId: string) => void
+  /** Moves one account's read marker, from a live frame or from the endpoint. */
+  setReadMarker: (conversationId: string, accountId: string, lastReadAt: number) => void
+  /** Replaces a conversation's markers wholesale, from `GET /reads`. */
+  applyReadMarkers: (conversationId: string, markers: Record<string, number>) => void
   /** Applies a local change to one message in the open window and in storage. */
   patchMessage: (envelopeId: string, patch: Partial<MessageRecord>) => Promise<void>
   /** Drops one message from the open window and from storage. */
@@ -123,6 +133,7 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
     activeConversationId: null,
     presence: {},
     typing: {},
+    readMarkers: {},
     identityChanges: [],
     messagesVersion: 0,
     loadingConversations: false,
@@ -407,6 +418,25 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
         set({
           typing: withTyping(get().typing, conversationId, accountId, nowSeconds() + TYPING_TTL_SECONDS),
         })
+      },
+
+      setReadMarker(conversationId, accountId, lastReadAt) {
+        const current = get().readMarkers[conversationId] ?? {}
+        // Markers only ever move forward: a stale frame from a reconnect must not
+        // un-read what a newer one already announced.
+        if ((current[accountId] ?? 0) >= lastReadAt) {
+          return
+        }
+        set({
+          readMarkers: {
+            ...get().readMarkers,
+            [conversationId]: { ...current, [accountId]: lastReadAt },
+          },
+        })
+      },
+
+      applyReadMarkers(conversationId, markers) {
+        set({ readMarkers: { ...get().readMarkers, [conversationId]: markers } })
       },
 
       async patchMessage(envelopeId, patch) {

@@ -5,9 +5,16 @@ import {
   toChannelPostEvent,
   toPlainNumber,
   toPresenceEvent,
+  toReadReceiptEvent,
   toTypingEvent,
 } from './envelope'
-import type { BotMessageEvent, ChannelPostEvent, PresenceEvent, TypingEvent } from './events'
+import type {
+  BotMessageEvent,
+  ChannelPostEvent,
+  PresenceEvent,
+  ReadReceiptEvent,
+  TypingEvent,
+} from './events'
 import { fh } from './proto/friendshub.js'
 
 /** What the client does with each kind of frame that arrives. */
@@ -18,6 +25,7 @@ export type FrameHandlers = {
   onPong(clientTimestamp: number): void
   onPresence(event: PresenceEvent): void
   onTyping(event: TypingEvent): void
+  onReadReceipt(event: ReadReceiptEvent): void
   onBotMessage(event: BotMessageEvent): void
   onChannelPost(event: ChannelPostEvent): void
   onError(error: fh.ErrorFrame): void
@@ -92,11 +100,10 @@ export function dispatchFrame(frame: fh.ServerFrame, handlers: FrameHandlers): v
       }
       return
 
-    // Recognised and deliberately dropped for now: the logic that consumes it
-    // arrives in its own subphase, and naming it here keeps a silent rollout
-    // from looking like a frame this build cannot decode.
     case 'readReceipt':
-      console.info('[ws] readReceipt frame received; not handled yet')
+      if (frame.readReceipt) {
+        handlers.onReadReceipt(toReadReceiptEvent(frame.readReceipt as fh.ReadReceiptDelivery))
+      }
       return
 
     default:

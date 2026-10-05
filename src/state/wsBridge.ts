@@ -1,4 +1,5 @@
 import type { StoreApi } from 'zustand/vanilla'
+import { getConversationReads } from '../api/conversations'
 import { announceIncoming } from '../pwa/notify'
 import { getMessage } from '../storage/messages'
 import type { Account, Envelope } from '../types'
@@ -57,6 +58,10 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     store.getState().actions.setTyping(conversationId, accountId)
   })
 
+  const detachReadReceipt = client.on('readReceipt', ({ conversationId, accountId, lastReadAt }) => {
+    store.getState().actions.setReadMarker(conversationId, accountId, lastReadAt)
+  })
+
   // A connection is the moment the queue from the last disconnection can go out,
   // and one of the two moments a conversation's pins can have changed without
   // this device noticing. The other is opening the conversation.
@@ -73,6 +78,18 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
       void refreshPins(account, open).catch((error: unknown) => {
         console.warn('[state] the pins could not be refreshed', error)
       })
+      // Read markers too: while this device was away somebody may have read the
+      // whole conversation, and the ticks would stay grey until it is reopened.
+      void getConversationReads(account, open)
+        .then((reads) => {
+          store.getState().actions.applyReadMarkers(
+            open,
+            Object.fromEntries(reads.map((entry) => [entry.accountId, entry.lastReadAt])),
+          )
+        })
+        .catch((error: unknown) => {
+          console.warn('[state] the read markers could not be refreshed', error)
+        })
     }
   })
 
@@ -81,6 +98,7 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     detachReceipt()
     detachPresence()
     detachTyping()
+    detachReadReceipt()
     detachConnected()
   }
 }

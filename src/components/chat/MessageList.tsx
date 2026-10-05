@@ -12,6 +12,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import type { MessageRecord } from '../../storage/db'
 import { dayKey, formatDayLabel } from '../../utils/chatTime'
+import { isMessageRead } from '../../utils/readReceipts'
 import { cn } from '../../utils/cn'
 import { EmptyState } from '../ui/EmptyState'
 import { Spinner } from '../ui/Spinner'
@@ -39,6 +40,12 @@ export type MessageListProps = {
   senderNames: Map<string, string>
   selfAccountId: string
   language: string
+  /**
+   * The server timestamp everybody else has read up to, or `0` when not
+   * everybody has. One number per conversation, because a tick can only be
+   * drawn once every participant is past it.
+   */
+  readWatermark: number
   highlightedId: string | null
   onMessageMenu: (message: MessageRecord, x: number, y: number) => void
   onToggleReaction: (message: MessageRecord, emoji: string) => void
@@ -67,6 +74,7 @@ export function MessageList({
   senderNames,
   selfAccountId,
   language,
+  readWatermark,
   highlightedId,
   onMessageMenu,
   onToggleReaction,
@@ -290,6 +298,7 @@ export function MessageList({
                         : (senderNames.get(message.senderAccountId) ?? null)
                     }
                     language={language}
+                    status={statusFor(message, selfAccountId, readWatermark)}
                     highlighted={message.envelopeId === highlightedId}
                     selfAccountId={selfAccountId}
                     onContextMenu={(x, y) => {
@@ -328,6 +337,24 @@ export function MessageList({
       ) : null}
     </div>
   )
+}
+
+/**
+ * The tick for one message.
+ *
+ * Only read is computed here — the rest is what the send path recorded, since
+ * nothing else knows about it. A message this account did not send never shows
+ * a tick at all, and `MessageBubble` only draws one for its own.
+ */
+function statusFor(
+  message: MessageRecord,
+  selfAccountId: string,
+  readWatermark: number,
+): MessageRecord['status'] {
+  if (message.senderAccountId === selfAccountId && isMessageRead(message.serverTimestamp, readWatermark)) {
+    return 'read'
+  }
+  return message.status
 }
 
 type DayGroup = {
