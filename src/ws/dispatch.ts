@@ -72,6 +72,15 @@ export function dispatchFrame(frame: fh.ServerFrame, handlers: FrameHandlers): v
       }
       return
 
+    // Recognised and deliberately dropped for now. Both are new frames the
+    // server already sends, and the logic that consumes them arrives in its own
+    // subphase; naming them here keeps a silent rollout from looking like a
+    // frame this build cannot decode.
+    case 'typing':
+    case 'readReceipt':
+      console.info(`[ws] ${frame.kind} frame received; not handled yet`)
+      return
+
     default:
       console.warn(`[ws] unhandled frame kind: ${String(frame.kind)}`)
   }

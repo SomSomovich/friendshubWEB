@@ -359,13 +359,7 @@ export namespace fh {
         ENVELOPE_TYPE_CALL_REJECT = 14,
 
         /** ENVELOPE_TYPE_BOT_MESSAGE value */
-        ENVELOPE_TYPE_BOT_MESSAGE = 15,
-
-        /** ENVELOPE_TYPE_PIN value */
-        ENVELOPE_TYPE_PIN = 16,
-
-        /** ENVELOPE_TYPE_UNPIN value */
-        ENVELOPE_TYPE_UNPIN = 17
+        ENVELOPE_TYPE_BOT_MESSAGE = 15
     }
 
     /**
@@ -399,8 +393,11 @@ export namespace fh {
         /** ClientFrame ping. */
         ping?: (fh.Ping.$Properties|null);
 
+        /** ClientFrame typing. */
+        typing?: (fh.TypingFrame.$Properties|null);
+
         /** ClientFrame kind. */
-        kind?: ("hello"|"upload"|"ack"|"ping");
+        kind?: ("hello"|"upload"|"ack"|"ping"|"typing");
 
         /**
          * Creates a new ClientFrame instance using the specified properties.
@@ -498,8 +495,11 @@ export namespace fh {
             /** ClientFrame ping */
             ping?: (fh.Ping.$Properties|null);
 
+            /** ClientFrame typing */
+            typing?: (fh.TypingFrame.$Properties|null);
+
             /** ClientFrame kind */
-            kind?: ("hello"|"upload"|"ack"|"ping");
+            kind?: ("hello"|"upload"|"ack"|"ping"|"typing");
 
             /** Unknown fields preserved while decoding when enabled */
             $unknowns?: Uint8Array[];
@@ -511,9 +511,10 @@ export namespace fh {
           upload?: fh.EnvelopeUpload.$Shape|null;
           ack?: fh.EnvelopeAck.$Shape|null;
           ping?: fh.Ping.$Shape|null;
+          typing?: fh.TypingFrame.$Shape|null;
           $unknowns?: Uint8Array[];
         } & (
-          ({ kind?: undefined; hello?: null; upload?: null; ack?: null; ping?: null }|{ kind?: "hello"; hello: fh.ClientHello.$Shape; upload?: null; ack?: null; ping?: null }|{ kind?: "upload"; hello?: null; upload: fh.EnvelopeUpload.$Shape; ack?: null; ping?: null }|{ kind?: "ack"; hello?: null; upload?: null; ack: fh.EnvelopeAck.$Shape; ping?: null }|{ kind?: "ping"; hello?: null; upload?: null; ack?: null; ping: fh.Ping.$Shape })
+          ({ kind?: undefined; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null }|{ kind?: "hello"; hello: fh.ClientHello.$Shape; upload?: null; ack?: null; ping?: null; typing?: null }|{ kind?: "upload"; hello?: null; upload: fh.EnvelopeUpload.$Shape; ack?: null; ping?: null; typing?: null }|{ kind?: "ack"; hello?: null; upload?: null; ack: fh.EnvelopeAck.$Shape; ping?: null; typing?: null }|{ kind?: "ping"; hello?: null; upload?: null; ack?: null; ping: fh.Ping.$Shape; typing?: null }|{ kind?: "typing"; hello?: null; upload?: null; ack?: null; ping?: null; typing: fh.TypingFrame.$Shape })
         );
     }
 
@@ -809,6 +810,9 @@ export namespace fh {
         /** EnvelopeAck envelopeIds. */
         envelopeIds: Uint8Array[];
 
+        /** EnvelopeAck serverTimestamps. */
+        serverTimestamps: (number|Long)[];
+
         /**
          * Creates a new EnvelopeAck instance using the specified properties.
          * @param [properties] Properties to set
@@ -895,6 +899,9 @@ export namespace fh {
 
             /** EnvelopeAck envelopeIds */
             envelopeIds?: (Uint8Array[]|null);
+
+            /** EnvelopeAck serverTimestamps */
+            serverTimestamps?: ((number|Long)[]|null);
 
             /** Unknown fields preserved while decoding when enabled */
             $unknowns?: Uint8Array[];
@@ -1064,8 +1071,14 @@ export namespace fh {
         /** ServerFrame channelPost. */
         channelPost?: (fh.ChannelPostDelivery.$Properties|null);
 
+        /** ServerFrame typing. */
+        typing?: (fh.TypingDelivery.$Properties|null);
+
+        /** ServerFrame readReceipt. */
+        readReceipt?: (fh.ReadReceiptDelivery.$Properties|null);
+
         /** ServerFrame kind. */
-        kind?: ("hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost");
+        kind?: ("hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt");
 
         /**
          * Creates a new ServerFrame instance using the specified properties.
@@ -1175,8 +1188,14 @@ export namespace fh {
             /** ServerFrame channelPost */
             channelPost?: (fh.ChannelPostDelivery.$Properties|null);
 
+            /** ServerFrame typing */
+            typing?: (fh.TypingDelivery.$Properties|null);
+
+            /** ServerFrame readReceipt */
+            readReceipt?: (fh.ReadReceiptDelivery.$Properties|null);
+
             /** ServerFrame kind */
-            kind?: ("hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost");
+            kind?: ("hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt");
 
             /** Unknown fields preserved while decoding when enabled */
             $unknowns?: Uint8Array[];
@@ -1192,9 +1211,11 @@ export namespace fh {
           presence?: fh.PresenceUpdate.$Shape|null;
           botMessage?: fh.BotMessageDelivery.$Shape|null;
           channelPost?: fh.ChannelPostDelivery.$Shape|null;
+          typing?: fh.TypingDelivery.$Shape|null;
+          readReceipt?: fh.ReadReceiptDelivery.$Shape|null;
           $unknowns?: Uint8Array[];
         } & (
-          ({ kind?: undefined; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null }|{ kind?: "hello"; hello: fh.ServerHello.$Shape; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null }|{ kind?: "delivery"; hello?: null; delivery: fh.EnvelopeDelivery.$Shape; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null }|{ kind?: "receipt"; hello?: null; delivery?: null; receipt: fh.EnvelopeAck.$Shape; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null }|{ kind?: "pong"; hello?: null; delivery?: null; receipt?: null; pong: fh.Pong.$Shape; error?: null; presence?: null; botMessage?: null; channelPost?: null }|{ kind?: "error"; hello?: null; delivery?: null; receipt?: null; pong?: null; error: fh.ErrorFrame.$Shape; presence?: null; botMessage?: null; channelPost?: null }|{ kind?: "presence"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence: fh.PresenceUpdate.$Shape; botMessage?: null; channelPost?: null }|{ kind?: "botMessage"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage: fh.BotMessageDelivery.$Shape; channelPost?: null }|{ kind?: "channelPost"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost: fh.ChannelPostDelivery.$Shape })
+          ({ kind?: undefined; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "hello"; hello: fh.ServerHello.$Shape; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "delivery"; hello?: null; delivery: fh.EnvelopeDelivery.$Shape; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "receipt"; hello?: null; delivery?: null; receipt: fh.EnvelopeAck.$Shape; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "pong"; hello?: null; delivery?: null; receipt?: null; pong: fh.Pong.$Shape; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "error"; hello?: null; delivery?: null; receipt?: null; pong?: null; error: fh.ErrorFrame.$Shape; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "presence"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence: fh.PresenceUpdate.$Shape; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "botMessage"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage: fh.BotMessageDelivery.$Shape; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "channelPost"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost: fh.ChannelPostDelivery.$Shape; typing?: null; readReceipt?: null }|{ kind?: "typing"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing: fh.TypingDelivery.$Shape; readReceipt?: null }|{ kind?: "readReceipt"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt: fh.ReadReceiptDelivery.$Shape })
         );
     }
 
@@ -2171,5 +2192,374 @@ export namespace fh {
 
         /** Shape of a ChannelPostDelivery. */
         type $Shape = fh.ChannelPostDelivery.$Properties;
+    }
+
+    /**
+     * Properties of a TypingFrame.
+     * @deprecated Use fh.TypingFrame.$Properties instead.
+     */
+    interface ITypingFrame extends fh.TypingFrame.$Properties {
+    }
+
+    /** Represents a TypingFrame. */
+    class TypingFrame {
+
+        /**
+         * Constructs a new TypingFrame.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: fh.TypingFrame.$Properties);
+
+        /** Unknown fields preserved while decoding when enabled */
+        $unknowns?: Uint8Array[];
+
+        /** TypingFrame conversationId. */
+        conversationId: Uint8Array;
+
+        /**
+         * Creates a new TypingFrame instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns TypingFrame instance
+         */
+        static create(properties: fh.TypingFrame.$Shape): fh.TypingFrame & fh.TypingFrame.$Shape;
+        static create(properties?: fh.TypingFrame.$Properties): fh.TypingFrame;
+
+        /**
+         * Encodes the specified TypingFrame message. Does not implicitly {@link fh.TypingFrame.verify|verify} messages.
+         * @param message TypingFrame message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encode(message: fh.TypingFrame.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified TypingFrame message, length delimited. Does not implicitly {@link fh.TypingFrame.verify|verify} messages.
+         * @param message TypingFrame message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encodeDelimited(message: fh.TypingFrame.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a TypingFrame message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns {fh.TypingFrame & fh.TypingFrame.$Shape} TypingFrame
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): fh.TypingFrame & fh.TypingFrame.$Shape;
+
+        /**
+         * Decodes a TypingFrame message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns {fh.TypingFrame & fh.TypingFrame.$Shape} TypingFrame
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): fh.TypingFrame & fh.TypingFrame.$Shape;
+
+        /**
+         * Verifies a TypingFrame message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a TypingFrame message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns TypingFrame
+         */
+        static fromObject(object: { [k: string]: any }): fh.TypingFrame;
+
+        /**
+         * Creates a plain object from a TypingFrame message. Also converts values to other types if specified.
+         * @param message TypingFrame
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        static toObject(message: fh.TypingFrame, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this TypingFrame to JSON.
+         * @returns JSON object
+         */
+        toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the type url for TypingFrame
+         * @param [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns The type url
+         */
+        static getTypeUrl(prefix?: string): string;
+    }
+
+    namespace TypingFrame {
+
+        /** Properties of a TypingFrame. */
+        interface $Properties {
+
+            /** TypingFrame conversationId */
+            conversationId?: (Uint8Array|null);
+
+            /** Unknown fields preserved while decoding when enabled */
+            $unknowns?: Uint8Array[];
+        }
+
+        /** Shape of a TypingFrame. */
+        type $Shape = fh.TypingFrame.$Properties;
+    }
+
+    /**
+     * Properties of a TypingDelivery.
+     * @deprecated Use fh.TypingDelivery.$Properties instead.
+     */
+    interface ITypingDelivery extends fh.TypingDelivery.$Properties {
+    }
+
+    /** Represents a TypingDelivery. */
+    class TypingDelivery {
+
+        /**
+         * Constructs a new TypingDelivery.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: fh.TypingDelivery.$Properties);
+
+        /** Unknown fields preserved while decoding when enabled */
+        $unknowns?: Uint8Array[];
+
+        /** TypingDelivery conversationId. */
+        conversationId: Uint8Array;
+
+        /** TypingDelivery accountId. */
+        accountId: Uint8Array;
+
+        /**
+         * Creates a new TypingDelivery instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns TypingDelivery instance
+         */
+        static create(properties: fh.TypingDelivery.$Shape): fh.TypingDelivery & fh.TypingDelivery.$Shape;
+        static create(properties?: fh.TypingDelivery.$Properties): fh.TypingDelivery;
+
+        /**
+         * Encodes the specified TypingDelivery message. Does not implicitly {@link fh.TypingDelivery.verify|verify} messages.
+         * @param message TypingDelivery message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encode(message: fh.TypingDelivery.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified TypingDelivery message, length delimited. Does not implicitly {@link fh.TypingDelivery.verify|verify} messages.
+         * @param message TypingDelivery message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encodeDelimited(message: fh.TypingDelivery.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a TypingDelivery message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns {fh.TypingDelivery & fh.TypingDelivery.$Shape} TypingDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): fh.TypingDelivery & fh.TypingDelivery.$Shape;
+
+        /**
+         * Decodes a TypingDelivery message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns {fh.TypingDelivery & fh.TypingDelivery.$Shape} TypingDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): fh.TypingDelivery & fh.TypingDelivery.$Shape;
+
+        /**
+         * Verifies a TypingDelivery message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a TypingDelivery message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns TypingDelivery
+         */
+        static fromObject(object: { [k: string]: any }): fh.TypingDelivery;
+
+        /**
+         * Creates a plain object from a TypingDelivery message. Also converts values to other types if specified.
+         * @param message TypingDelivery
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        static toObject(message: fh.TypingDelivery, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this TypingDelivery to JSON.
+         * @returns JSON object
+         */
+        toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the type url for TypingDelivery
+         * @param [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns The type url
+         */
+        static getTypeUrl(prefix?: string): string;
+    }
+
+    namespace TypingDelivery {
+
+        /** Properties of a TypingDelivery. */
+        interface $Properties {
+
+            /** TypingDelivery conversationId */
+            conversationId?: (Uint8Array|null);
+
+            /** TypingDelivery accountId */
+            accountId?: (Uint8Array|null);
+
+            /** Unknown fields preserved while decoding when enabled */
+            $unknowns?: Uint8Array[];
+        }
+
+        /** Shape of a TypingDelivery. */
+        type $Shape = fh.TypingDelivery.$Properties;
+    }
+
+    /**
+     * Properties of a ReadReceiptDelivery.
+     * @deprecated Use fh.ReadReceiptDelivery.$Properties instead.
+     */
+    interface IReadReceiptDelivery extends fh.ReadReceiptDelivery.$Properties {
+    }
+
+    /** Represents a ReadReceiptDelivery. */
+    class ReadReceiptDelivery {
+
+        /**
+         * Constructs a new ReadReceiptDelivery.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: fh.ReadReceiptDelivery.$Properties);
+
+        /** Unknown fields preserved while decoding when enabled */
+        $unknowns?: Uint8Array[];
+
+        /** ReadReceiptDelivery conversationId. */
+        conversationId: Uint8Array;
+
+        /** ReadReceiptDelivery accountId. */
+        accountId: Uint8Array;
+
+        /** ReadReceiptDelivery lastReadAt. */
+        lastReadAt: (number|Long);
+
+        /**
+         * Creates a new ReadReceiptDelivery instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns ReadReceiptDelivery instance
+         */
+        static create(properties: fh.ReadReceiptDelivery.$Shape): fh.ReadReceiptDelivery & fh.ReadReceiptDelivery.$Shape;
+        static create(properties?: fh.ReadReceiptDelivery.$Properties): fh.ReadReceiptDelivery;
+
+        /**
+         * Encodes the specified ReadReceiptDelivery message. Does not implicitly {@link fh.ReadReceiptDelivery.verify|verify} messages.
+         * @param message ReadReceiptDelivery message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encode(message: fh.ReadReceiptDelivery.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified ReadReceiptDelivery message, length delimited. Does not implicitly {@link fh.ReadReceiptDelivery.verify|verify} messages.
+         * @param message ReadReceiptDelivery message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encodeDelimited(message: fh.ReadReceiptDelivery.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a ReadReceiptDelivery message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns {fh.ReadReceiptDelivery & fh.ReadReceiptDelivery.$Shape} ReadReceiptDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): fh.ReadReceiptDelivery & fh.ReadReceiptDelivery.$Shape;
+
+        /**
+         * Decodes a ReadReceiptDelivery message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns {fh.ReadReceiptDelivery & fh.ReadReceiptDelivery.$Shape} ReadReceiptDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): fh.ReadReceiptDelivery & fh.ReadReceiptDelivery.$Shape;
+
+        /**
+         * Verifies a ReadReceiptDelivery message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a ReadReceiptDelivery message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns ReadReceiptDelivery
+         */
+        static fromObject(object: { [k: string]: any }): fh.ReadReceiptDelivery;
+
+        /**
+         * Creates a plain object from a ReadReceiptDelivery message. Also converts values to other types if specified.
+         * @param message ReadReceiptDelivery
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        static toObject(message: fh.ReadReceiptDelivery, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this ReadReceiptDelivery to JSON.
+         * @returns JSON object
+         */
+        toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the type url for ReadReceiptDelivery
+         * @param [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns The type url
+         */
+        static getTypeUrl(prefix?: string): string;
+    }
+
+    namespace ReadReceiptDelivery {
+
+        /** Properties of a ReadReceiptDelivery. */
+        interface $Properties {
+
+            /** ReadReceiptDelivery conversationId */
+            conversationId?: (Uint8Array|null);
+
+            /** ReadReceiptDelivery accountId */
+            accountId?: (Uint8Array|null);
+
+            /** ReadReceiptDelivery lastReadAt */
+            lastReadAt?: (number|Long|null);
+
+            /** Unknown fields preserved while decoding when enabled */
+            $unknowns?: Uint8Array[];
+        }
+
+        /** Shape of a ReadReceiptDelivery. */
+        type $Shape = fh.ReadReceiptDelivery.$Properties;
     }
 }

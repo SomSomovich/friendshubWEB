@@ -888,14 +888,6 @@ export const fh = $root.fh = (() => {
                 case 15:
                     message.envelopeType = 15;
                     break;
-                case "ENVELOPE_TYPE_PIN":
-                case 16:
-                    message.envelopeType = 16;
-                    break;
-                case "ENVELOPE_TYPE_UNPIN":
-                case 17:
-                    message.envelopeType = 17;
-                    break;
                 default:
                     if (typeof object.envelopeType === "number" && (object.envelopeType | 0) === object.envelopeType)
                         message.envelopeType = object.envelopeType;
@@ -1073,8 +1065,6 @@ export const fh = $root.fh = (() => {
      * @property {number} ENVELOPE_TYPE_CALL_HANGUP=13 ENVELOPE_TYPE_CALL_HANGUP value
      * @property {number} ENVELOPE_TYPE_CALL_REJECT=14 ENVELOPE_TYPE_CALL_REJECT value
      * @property {number} ENVELOPE_TYPE_BOT_MESSAGE=15 ENVELOPE_TYPE_BOT_MESSAGE value
-     * @property {number} ENVELOPE_TYPE_PIN=16 ENVELOPE_TYPE_PIN value
-     * @property {number} ENVELOPE_TYPE_UNPIN=17 ENVELOPE_TYPE_UNPIN value
      */
     fh.EnvelopeType = (function() {
         const valuesById = $Object.create(null), values = $Object.create(valuesById);
@@ -1094,8 +1084,6 @@ export const fh = $root.fh = (() => {
         values[valuesById[13] = "ENVELOPE_TYPE_CALL_HANGUP"] = 13;
         values[valuesById[14] = "ENVELOPE_TYPE_CALL_REJECT"] = 14;
         values[valuesById[15] = "ENVELOPE_TYPE_BOT_MESSAGE"] = 15;
-        values[valuesById[16] = "ENVELOPE_TYPE_PIN"] = 16;
-        values[valuesById[17] = "ENVELOPE_TYPE_UNPIN"] = 17;
         return values;
     })();
 
@@ -1108,7 +1096,8 @@ export const fh = $root.fh = (() => {
          * @property {fh.EnvelopeUpload.$Properties|null} [upload] ClientFrame upload
          * @property {fh.EnvelopeAck.$Properties|null} [ack] ClientFrame ack
          * @property {fh.Ping.$Properties|null} [ping] ClientFrame ping
-         * @property {"hello"|"upload"|"ack"|"ping"} [kind] ClientFrame kind
+         * @property {fh.TypingFrame.$Properties|null} [typing] ClientFrame typing
+         * @property {"hello"|"upload"|"ack"|"ping"|"typing"} [kind] ClientFrame kind
          * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
          */
 
@@ -1127,9 +1116,10 @@ export const fh = $root.fh = (() => {
          *   upload?: fh.EnvelopeUpload.$Shape|null;
          *   ack?: fh.EnvelopeAck.$Shape|null;
          *   ping?: fh.Ping.$Shape|null;
+         *   typing?: fh.TypingFrame.$Shape|null;
          *   $unknowns?: Array.<Uint8Array>;
          * } & (
-         *   ({ kind?: undefined; hello?: null; upload?: null; ack?: null; ping?: null }|{ kind?: "hello"; hello: fh.ClientHello.$Shape; upload?: null; ack?: null; ping?: null }|{ kind?: "upload"; hello?: null; upload: fh.EnvelopeUpload.$Shape; ack?: null; ping?: null }|{ kind?: "ack"; hello?: null; upload?: null; ack: fh.EnvelopeAck.$Shape; ping?: null }|{ kind?: "ping"; hello?: null; upload?: null; ack?: null; ping: fh.Ping.$Shape })
+         *   ({ kind?: undefined; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null }|{ kind?: "hello"; hello: fh.ClientHello.$Shape; upload?: null; ack?: null; ping?: null; typing?: null }|{ kind?: "upload"; hello?: null; upload: fh.EnvelopeUpload.$Shape; ack?: null; ping?: null; typing?: null }|{ kind?: "ack"; hello?: null; upload?: null; ack: fh.EnvelopeAck.$Shape; ping?: null; typing?: null }|{ kind?: "ping"; hello?: null; upload?: null; ack?: null; ping: fh.Ping.$Shape; typing?: null }|{ kind?: "typing"; hello?: null; upload?: null; ack?: null; ping?: null; typing: fh.TypingFrame.$Shape })
          * )} fh.ClientFrame.$Shape
          */
 
@@ -1180,17 +1170,25 @@ export const fh = $root.fh = (() => {
          */
         ClientFrame.prototype.ping = null;
 
+        /**
+         * ClientFrame typing.
+         * @member {fh.TypingFrame.$Properties|null|undefined} typing
+         * @memberof fh.ClientFrame
+         * @instance
+         */
+        ClientFrame.prototype.typing = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         /**
          * ClientFrame kind.
-         * @member {"hello"|"upload"|"ack"|"ping"|undefined} kind
+         * @member {"hello"|"upload"|"ack"|"ping"|"typing"|undefined} kind
          * @memberof fh.ClientFrame
          * @instance
          */
         $Object.defineProperty(ClientFrame.prototype, "kind", {
-            get: $util.oneOfGetter($oneOfFields = ["hello", "upload", "ack", "ping"]),
+            get: $util.oneOfGetter($oneOfFields = ["hello", "upload", "ack", "ping", "typing"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -1234,6 +1232,8 @@ export const fh = $root.fh = (() => {
                 $root.fh.EnvelopeAck.encode(message.ack, writer.uint32(/* id 3, wireType 2 =*/26).fork(), _depth + 1).ldelim();
             if (message.ping != null && $Object.hasOwnProperty.call(message, "ping"))
                 $root.fh.Ping.encode(message.ping, writer.uint32(/* id 4, wireType 2 =*/34).fork(), _depth + 1).ldelim();
+            if (message.typing != null && $Object.hasOwnProperty.call(message, "typing"))
+                $root.fh.TypingFrame.encode(message.typing, writer.uint32(/* id 5, wireType 2 =*/42).fork(), _depth + 1).ldelim();
             if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
                 for (let i = 0; i < message.$unknowns.length; ++i)
                     writer.raw(message.$unknowns[i]);
@@ -1317,6 +1317,13 @@ export const fh = $root.fh = (() => {
                             break;
                         message.ping = $root.fh.Ping.decode(reader, reader.uint32(), $undefined, _depth + 1, message.ping);
                         message.kind = "ping";
+                        continue;
+                    }
+                case 5: {
+                        if (wireType !== 2)
+                            break;
+                        message.typing = $root.fh.TypingFrame.decode(reader, reader.uint32(), $undefined, _depth + 1, message.typing);
+                        message.kind = "typing";
                         continue;
                     }
                 }
@@ -1406,6 +1413,16 @@ export const fh = $root.fh = (() => {
                         return "ping." + error;
                 }
             }
+            if (message.typing != null && $Object.hasOwnProperty.call(message, "typing")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                {
+                    let error = $root.fh.TypingFrame.verify(message.typing, _depth + 1);
+                    if (error)
+                        return "typing." + error;
+                }
+            }
             return null;
         };
 
@@ -1447,6 +1464,11 @@ export const fh = $root.fh = (() => {
                     throw $TypeError(".fh.ClientFrame.ping: object expected");
                 message.ping = $root.fh.Ping.fromObject(object.ping, _depth + 1);
             }
+            if (object.typing != null) {
+                if (!$util.isObject(object.typing))
+                    throw $TypeError(".fh.ClientFrame.typing: object expected");
+                message.typing = $root.fh.TypingFrame.fromObject(object.typing, _depth + 1);
+            }
             return message;
         };
 
@@ -1486,6 +1508,11 @@ export const fh = $root.fh = (() => {
                 object.ping = $root.fh.Ping.toObject(message.ping, options, _depth + 1);
                 if (options.oneofs)
                     object.kind = "ping";
+            }
+            if (message.typing != null && $Object.hasOwnProperty.call(message, "typing")) {
+                object.typing = $root.fh.TypingFrame.toObject(message.typing, options, _depth + 1);
+                if (options.oneofs)
+                    object.kind = "typing";
             }
             return object;
         };
@@ -2266,6 +2293,7 @@ export const fh = $root.fh = (() => {
          * Properties of an EnvelopeAck.
          * @typedef {Object} fh.EnvelopeAck.$Properties
          * @property {Array.<Uint8Array>|null} [envelopeIds] EnvelopeAck envelopeIds
+         * @property {Array.<number|Long>|null} [serverTimestamps] EnvelopeAck serverTimestamps
          * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
          */
 
@@ -2292,6 +2320,7 @@ export const fh = $root.fh = (() => {
          */
         const EnvelopeAck = function (properties) {
             this.envelopeIds = [];
+            this.serverTimestamps = [];
             if (properties)
                 for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null && keys[i] !== "__proto__")
@@ -2305,6 +2334,14 @@ export const fh = $root.fh = (() => {
          * @instance
          */
         EnvelopeAck.prototype.envelopeIds = $util.emptyArray;
+
+        /**
+         * EnvelopeAck serverTimestamps.
+         * @member {Array.<number|Long>} serverTimestamps
+         * @memberof fh.EnvelopeAck
+         * @instance
+         */
+        EnvelopeAck.prototype.serverTimestamps = $util.emptyArray;
 
         /**
          * Creates a new EnvelopeAck instance using the specified properties.
@@ -2341,6 +2378,8 @@ export const fh = $root.fh = (() => {
             if (message.envelopeIds != null && message.envelopeIds.length)
                 for (let i = 0; i < message.envelopeIds.length; ++i)
                     writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.envelopeIds[i]);
+            if (message.serverTimestamps != null && message.serverTimestamps.length)
+                writer.uint32(/* id 2, wireType 2 =*/18).int64s(message.serverTimestamps);
             if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
                 for (let i = 0; i < message.$unknowns.length; ++i)
                     writer.raw(message.$unknowns[i]);
@@ -2406,6 +2445,20 @@ export const fh = $root.fh = (() => {
                         message.envelopeIds.push(reader.bytes());
                         continue;
                     }
+                case 2: {
+                        if (wireType === 2) {
+                            if (!(message.serverTimestamps && message.serverTimestamps.length))
+                                message.serverTimestamps = [];
+                            reader.int64s(message.serverTimestamps);
+                            continue;
+                        }
+                        if (wireType !== 0)
+                            break;
+                        if (!(message.serverTimestamps && message.serverTimestamps.length))
+                            message.serverTimestamps = [];
+                        message.serverTimestamps.push(reader.int64());
+                        continue;
+                    }
                 }
                 reader.skipType(wireType, _depth, tag);
                 if (!reader.discardUnknown) {
@@ -2461,6 +2514,13 @@ export const fh = $root.fh = (() => {
                     if (!(message.envelopeIds[i] && typeof message.envelopeIds[i].length === "number" || $util.isString(message.envelopeIds[i])))
                         return "envelopeIds: buffer[] expected";
             }
+            if (message.serverTimestamps != null && $Object.hasOwnProperty.call(message, "serverTimestamps")) {
+                if (!$Array.isArray(message.serverTimestamps))
+                    return "serverTimestamps: array expected";
+                for (let i = 0; i < message.serverTimestamps.length; ++i)
+                    if (!$util.isInteger(message.serverTimestamps[i]) && !(message.serverTimestamps[i] && $util.isInteger(message.serverTimestamps[i].low) && $util.isInteger(message.serverTimestamps[i].high)))
+                        return "serverTimestamps: integer|Long[] expected";
+            }
             return null;
         };
 
@@ -2492,6 +2552,20 @@ export const fh = $root.fh = (() => {
                     else if (object.envelopeIds[i].length >= 0)
                         message.envelopeIds[i] = object.envelopeIds[i];
             }
+            if (object.serverTimestamps) {
+                if (!$Array.isArray(object.serverTimestamps))
+                    throw $TypeError(".fh.EnvelopeAck.serverTimestamps: array expected");
+                message.serverTimestamps = $Array(object.serverTimestamps.length);
+                for (let i = 0; i < object.serverTimestamps.length; ++i)
+                    if ($util.Long)
+                        message.serverTimestamps[i] = $util.Long.fromValue(object.serverTimestamps[i], false);
+                    else if (typeof object.serverTimestamps[i] === "string")
+                        message.serverTimestamps[i] = $parseInt(object.serverTimestamps[i], 10);
+                    else if (typeof object.serverTimestamps[i] === "number")
+                        message.serverTimestamps[i] = object.serverTimestamps[i];
+                    else if (typeof object.serverTimestamps[i] === "object")
+                        message.serverTimestamps[i] = new $util.LongBits(object.serverTimestamps[i].low >>> 0, object.serverTimestamps[i].high >>> 0).toNumber();
+            }
             return message;
         };
 
@@ -2512,12 +2586,24 @@ export const fh = $root.fh = (() => {
             if (_depth > $util.recursionLimit)
                 throw $Error("max depth exceeded");
             let object = {};
-            if (options.arrays || options.defaults)
+            if (options.arrays || options.defaults) {
                 object.envelopeIds = [];
+                object.serverTimestamps = [];
+            }
             if (message.envelopeIds && message.envelopeIds.length) {
                 object.envelopeIds = $Array(message.envelopeIds.length);
                 for (let j = 0; j < message.envelopeIds.length; ++j)
                     object.envelopeIds[j] = options.bytes === $String ? $util.base64.encode(message.envelopeIds[j], 0, message.envelopeIds[j].length) : options.bytes === $Array ? $Array.prototype.slice.call(message.envelopeIds[j]) : message.envelopeIds[j];
+            }
+            if (message.serverTimestamps && message.serverTimestamps.length) {
+                object.serverTimestamps = $Array(message.serverTimestamps.length);
+                for (let j = 0; j < message.serverTimestamps.length; ++j)
+                    if (typeof $BigInt !== "undefined" && options.longs === $BigInt)
+                        object.serverTimestamps[j] = typeof message.serverTimestamps[j] === "number" ? $BigInt(message.serverTimestamps[j]) : $util.Long.fromBits(message.serverTimestamps[j].low >>> 0, message.serverTimestamps[j].high >>> 0, false).toBigInt();
+                    else if (typeof message.serverTimestamps[j] === "number")
+                        object.serverTimestamps[j] = options.longs === $String ? $String(message.serverTimestamps[j]) : message.serverTimestamps[j];
+                    else
+                        object.serverTimestamps[j] = options.longs === $String ? $util.Long.prototype.toString.call(message.serverTimestamps[j]) : options.longs === $Number ? new $util.LongBits(message.serverTimestamps[j].low >>> 0, message.serverTimestamps[j].high >>> 0).toNumber() : message.serverTimestamps[j];
             }
             return object;
         };
@@ -2854,7 +2940,9 @@ export const fh = $root.fh = (() => {
          * @property {fh.PresenceUpdate.$Properties|null} [presence] ServerFrame presence
          * @property {fh.BotMessageDelivery.$Properties|null} [botMessage] ServerFrame botMessage
          * @property {fh.ChannelPostDelivery.$Properties|null} [channelPost] ServerFrame channelPost
-         * @property {"hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"} [kind] ServerFrame kind
+         * @property {fh.TypingDelivery.$Properties|null} [typing] ServerFrame typing
+         * @property {fh.ReadReceiptDelivery.$Properties|null} [readReceipt] ServerFrame readReceipt
+         * @property {"hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt"} [kind] ServerFrame kind
          * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
          */
 
@@ -2877,9 +2965,11 @@ export const fh = $root.fh = (() => {
          *   presence?: fh.PresenceUpdate.$Shape|null;
          *   botMessage?: fh.BotMessageDelivery.$Shape|null;
          *   channelPost?: fh.ChannelPostDelivery.$Shape|null;
+         *   typing?: fh.TypingDelivery.$Shape|null;
+         *   readReceipt?: fh.ReadReceiptDelivery.$Shape|null;
          *   $unknowns?: Array.<Uint8Array>;
          * } & (
-         *   ({ kind?: undefined; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null }|{ kind?: "hello"; hello: fh.ServerHello.$Shape; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null }|{ kind?: "delivery"; hello?: null; delivery: fh.EnvelopeDelivery.$Shape; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null }|{ kind?: "receipt"; hello?: null; delivery?: null; receipt: fh.EnvelopeAck.$Shape; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null }|{ kind?: "pong"; hello?: null; delivery?: null; receipt?: null; pong: fh.Pong.$Shape; error?: null; presence?: null; botMessage?: null; channelPost?: null }|{ kind?: "error"; hello?: null; delivery?: null; receipt?: null; pong?: null; error: fh.ErrorFrame.$Shape; presence?: null; botMessage?: null; channelPost?: null }|{ kind?: "presence"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence: fh.PresenceUpdate.$Shape; botMessage?: null; channelPost?: null }|{ kind?: "botMessage"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage: fh.BotMessageDelivery.$Shape; channelPost?: null }|{ kind?: "channelPost"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost: fh.ChannelPostDelivery.$Shape })
+         *   ({ kind?: undefined; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "hello"; hello: fh.ServerHello.$Shape; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "delivery"; hello?: null; delivery: fh.EnvelopeDelivery.$Shape; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "receipt"; hello?: null; delivery?: null; receipt: fh.EnvelopeAck.$Shape; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "pong"; hello?: null; delivery?: null; receipt?: null; pong: fh.Pong.$Shape; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "error"; hello?: null; delivery?: null; receipt?: null; pong?: null; error: fh.ErrorFrame.$Shape; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "presence"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence: fh.PresenceUpdate.$Shape; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "botMessage"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage: fh.BotMessageDelivery.$Shape; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "channelPost"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost: fh.ChannelPostDelivery.$Shape; typing?: null; readReceipt?: null }|{ kind?: "typing"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing: fh.TypingDelivery.$Shape; readReceipt?: null }|{ kind?: "readReceipt"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt: fh.ReadReceiptDelivery.$Shape })
          * )} fh.ServerFrame.$Shape
          */
 
@@ -2962,17 +3052,33 @@ export const fh = $root.fh = (() => {
          */
         ServerFrame.prototype.channelPost = null;
 
+        /**
+         * ServerFrame typing.
+         * @member {fh.TypingDelivery.$Properties|null|undefined} typing
+         * @memberof fh.ServerFrame
+         * @instance
+         */
+        ServerFrame.prototype.typing = null;
+
+        /**
+         * ServerFrame readReceipt.
+         * @member {fh.ReadReceiptDelivery.$Properties|null|undefined} readReceipt
+         * @memberof fh.ServerFrame
+         * @instance
+         */
+        ServerFrame.prototype.readReceipt = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         /**
          * ServerFrame kind.
-         * @member {"hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|undefined} kind
+         * @member {"hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt"|undefined} kind
          * @memberof fh.ServerFrame
          * @instance
          */
         $Object.defineProperty(ServerFrame.prototype, "kind", {
-            get: $util.oneOfGetter($oneOfFields = ["hello", "delivery", "receipt", "pong", "error", "presence", "botMessage", "channelPost"]),
+            get: $util.oneOfGetter($oneOfFields = ["hello", "delivery", "receipt", "pong", "error", "presence", "botMessage", "channelPost", "typing", "readReceipt"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -3024,6 +3130,10 @@ export const fh = $root.fh = (() => {
                 $root.fh.BotMessageDelivery.encode(message.botMessage, writer.uint32(/* id 7, wireType 2 =*/58).fork(), _depth + 1).ldelim();
             if (message.channelPost != null && $Object.hasOwnProperty.call(message, "channelPost"))
                 $root.fh.ChannelPostDelivery.encode(message.channelPost, writer.uint32(/* id 8, wireType 2 =*/66).fork(), _depth + 1).ldelim();
+            if (message.typing != null && $Object.hasOwnProperty.call(message, "typing"))
+                $root.fh.TypingDelivery.encode(message.typing, writer.uint32(/* id 9, wireType 2 =*/74).fork(), _depth + 1).ldelim();
+            if (message.readReceipt != null && $Object.hasOwnProperty.call(message, "readReceipt"))
+                $root.fh.ReadReceiptDelivery.encode(message.readReceipt, writer.uint32(/* id 10, wireType 2 =*/82).fork(), _depth + 1).ldelim();
             if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
                 for (let i = 0; i < message.$unknowns.length; ++i)
                     writer.raw(message.$unknowns[i]);
@@ -3135,6 +3245,20 @@ export const fh = $root.fh = (() => {
                             break;
                         message.channelPost = $root.fh.ChannelPostDelivery.decode(reader, reader.uint32(), $undefined, _depth + 1, message.channelPost);
                         message.kind = "channelPost";
+                        continue;
+                    }
+                case 9: {
+                        if (wireType !== 2)
+                            break;
+                        message.typing = $root.fh.TypingDelivery.decode(reader, reader.uint32(), $undefined, _depth + 1, message.typing);
+                        message.kind = "typing";
+                        continue;
+                    }
+                case 10: {
+                        if (wireType !== 2)
+                            break;
+                        message.readReceipt = $root.fh.ReadReceiptDelivery.decode(reader, reader.uint32(), $undefined, _depth + 1, message.readReceipt);
+                        message.kind = "readReceipt";
                         continue;
                     }
                 }
@@ -3264,6 +3388,26 @@ export const fh = $root.fh = (() => {
                         return "channelPost." + error;
                 }
             }
+            if (message.typing != null && $Object.hasOwnProperty.call(message, "typing")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                {
+                    let error = $root.fh.TypingDelivery.verify(message.typing, _depth + 1);
+                    if (error)
+                        return "typing." + error;
+                }
+            }
+            if (message.readReceipt != null && $Object.hasOwnProperty.call(message, "readReceipt")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                {
+                    let error = $root.fh.ReadReceiptDelivery.verify(message.readReceipt, _depth + 1);
+                    if (error)
+                        return "readReceipt." + error;
+                }
+            }
             return null;
         };
 
@@ -3325,6 +3469,16 @@ export const fh = $root.fh = (() => {
                     throw $TypeError(".fh.ServerFrame.channelPost: object expected");
                 message.channelPost = $root.fh.ChannelPostDelivery.fromObject(object.channelPost, _depth + 1);
             }
+            if (object.typing != null) {
+                if (!$util.isObject(object.typing))
+                    throw $TypeError(".fh.ServerFrame.typing: object expected");
+                message.typing = $root.fh.TypingDelivery.fromObject(object.typing, _depth + 1);
+            }
+            if (object.readReceipt != null) {
+                if (!$util.isObject(object.readReceipt))
+                    throw $TypeError(".fh.ServerFrame.readReceipt: object expected");
+                message.readReceipt = $root.fh.ReadReceiptDelivery.fromObject(object.readReceipt, _depth + 1);
+            }
             return message;
         };
 
@@ -3384,6 +3538,16 @@ export const fh = $root.fh = (() => {
                 object.channelPost = $root.fh.ChannelPostDelivery.toObject(message.channelPost, options, _depth + 1);
                 if (options.oneofs)
                     object.kind = "channelPost";
+            }
+            if (message.typing != null && $Object.hasOwnProperty.call(message, "typing")) {
+                object.typing = $root.fh.TypingDelivery.toObject(message.typing, options, _depth + 1);
+                if (options.oneofs)
+                    object.kind = "typing";
+            }
+            if (message.readReceipt != null && $Object.hasOwnProperty.call(message, "readReceipt")) {
+                object.readReceipt = $root.fh.ReadReceiptDelivery.toObject(message.readReceipt, options, _depth + 1);
+                if (options.oneofs)
+                    object.kind = "readReceipt";
             }
             return object;
         };
@@ -6323,6 +6487,981 @@ export const fh = $root.fh = (() => {
         };
 
         return ChannelPostDelivery;
+    })();
+
+    fh.TypingFrame = (function() {
+
+        /**
+         * Properties of a TypingFrame.
+         * @typedef {Object} fh.TypingFrame.$Properties
+         * @property {Uint8Array|null} [conversationId] TypingFrame conversationId
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+
+        /**
+         * Properties of a TypingFrame.
+         * @memberof fh
+         * @interface ITypingFrame
+         * @augments fh.TypingFrame.$Properties
+         * @deprecated Use fh.TypingFrame.$Properties instead.
+         */
+
+        /**
+         * Shape of a TypingFrame.
+         * @typedef {fh.TypingFrame.$Properties} fh.TypingFrame.$Shape
+         */
+
+        /**
+         * Constructs a new TypingFrame.
+         * @memberof fh
+         * @classdesc Represents a TypingFrame.
+         * @constructor
+         * @param {fh.TypingFrame.$Properties=} [properties] Properties to set
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+        const TypingFrame = function (properties) {
+            if (properties)
+                for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                        this[keys[i]] = properties[keys[i]];
+        };
+
+        /**
+         * TypingFrame conversationId.
+         * @member {Uint8Array} conversationId
+         * @memberof fh.TypingFrame
+         * @instance
+         */
+        TypingFrame.prototype.conversationId = $util.newBuffer([]);
+
+        /**
+         * Creates a new TypingFrame instance using the specified properties.
+         * @function create
+         * @memberof fh.TypingFrame
+         * @static
+         * @param {fh.TypingFrame.$Properties=} [properties] Properties to set
+         * @returns {fh.TypingFrame} TypingFrame instance
+         * @type {{
+         *   (properties: fh.TypingFrame.$Shape): fh.TypingFrame & fh.TypingFrame.$Shape;
+         *   (properties?: fh.TypingFrame.$Properties): fh.TypingFrame;
+         * }}
+         */
+        TypingFrame.create = function(properties) {
+            return new TypingFrame(properties);
+        };
+
+        /**
+         * Encodes the specified TypingFrame message. Does not implicitly {@link fh.TypingFrame.verify|verify} messages.
+         * @function encode
+         * @memberof fh.TypingFrame
+         * @static
+         * @param {fh.TypingFrame.$Properties} message TypingFrame message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        TypingFrame.encode = function (message, writer, _depth) {
+            if (!writer)
+                writer = $Writer.create();
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId") && message.conversationId.length)
+                writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.conversationId);
+            if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified TypingFrame message, length delimited. Does not implicitly {@link fh.TypingFrame.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof fh.TypingFrame
+         * @static
+         * @param {fh.TypingFrame.$Properties} message TypingFrame message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        TypingFrame.encodeDelimited = function(message, writer) {
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+        };
+
+        /**
+         * Decodes a TypingFrame message from the specified reader or buffer.
+         * @function decode
+         * @memberof fh.TypingFrame
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {fh.TypingFrame & fh.TypingFrame.$Shape} TypingFrame
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        TypingFrame.decode = function (reader, length, _end, _depth, _target) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw $Error("max depth exceeded");
+            let end, message, value;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.fh.TypingFrame();
+            while (reader.pos < end) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = $undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 2)
+                            break;
+                        if ((value = reader.bytes()).length)
+                            message.conversationId = value;
+                        else
+                            delete message.conversationId;
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                if (!reader.discardUnknown) {
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                }
+            }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
+            if (_end !== $undefined)
+                throw $Error("missing end group");
+            return message;
+        };
+
+        /**
+         * Decodes a TypingFrame message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof fh.TypingFrame
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {fh.TypingFrame & fh.TypingFrame.$Shape} TypingFrame
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        TypingFrame.decodeDelimited = function(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a TypingFrame message.
+         * @function verify
+         * @memberof fh.TypingFrame
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        TypingFrame.verify = function (message, _depth) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                return "max depth exceeded";
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId"))
+                if (!(message.conversationId && typeof message.conversationId.length === "number" || $util.isString(message.conversationId)))
+                    return "conversationId: buffer expected";
+            return null;
+        };
+
+        /**
+         * Creates a TypingFrame message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof fh.TypingFrame
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {fh.TypingFrame} TypingFrame
+         */
+        TypingFrame.fromObject = function (object, _depth) {
+            if (object instanceof $root.fh.TypingFrame)
+                return object;
+            if (!$util.isObject(object))
+                throw $TypeError(".fh.TypingFrame: object expected");
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let message = new $root.fh.TypingFrame();
+            if (object.conversationId != null)
+                if (object.conversationId.length)
+                    if (typeof object.conversationId === "string")
+                        $util.base64.decode(object.conversationId, message.conversationId = $util.newBuffer($util.base64.length(object.conversationId)), 0);
+                    else if (object.conversationId.length >= 0)
+                        message.conversationId = object.conversationId;
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a TypingFrame message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof fh.TypingFrame
+         * @static
+         * @param {fh.TypingFrame} message TypingFrame
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        TypingFrame.toObject = function (message, options, _depth) {
+            if (!options)
+                options = {};
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let object = {};
+            if (options.defaults)
+                if (options.bytes === $String)
+                    object.conversationId = "";
+                else {
+                    object.conversationId = [];
+                    if (options.bytes !== $Array)
+                        object.conversationId = $util.newBuffer(object.conversationId);
+                }
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId"))
+                object.conversationId = options.bytes === $String ? $util.base64.encode(message.conversationId, 0, message.conversationId.length) : options.bytes === $Array ? $Array.prototype.slice.call(message.conversationId) : message.conversationId;
+            return object;
+        };
+
+        /**
+         * Converts this TypingFrame to JSON.
+         * @function toJSON
+         * @memberof fh.TypingFrame
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        TypingFrame.prototype.toJSON = function() {
+            return TypingFrame.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the type url for TypingFrame
+         * @function getTypeUrl
+         * @memberof fh.TypingFrame
+         * @static
+         * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns {string} The type url
+         */
+        TypingFrame.getTypeUrl = function(prefix) {
+            if (prefix === $undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/fh.TypingFrame";
+        };
+
+        return TypingFrame;
+    })();
+
+    fh.TypingDelivery = (function() {
+
+        /**
+         * Properties of a TypingDelivery.
+         * @typedef {Object} fh.TypingDelivery.$Properties
+         * @property {Uint8Array|null} [conversationId] TypingDelivery conversationId
+         * @property {Uint8Array|null} [accountId] TypingDelivery accountId
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+
+        /**
+         * Properties of a TypingDelivery.
+         * @memberof fh
+         * @interface ITypingDelivery
+         * @augments fh.TypingDelivery.$Properties
+         * @deprecated Use fh.TypingDelivery.$Properties instead.
+         */
+
+        /**
+         * Shape of a TypingDelivery.
+         * @typedef {fh.TypingDelivery.$Properties} fh.TypingDelivery.$Shape
+         */
+
+        /**
+         * Constructs a new TypingDelivery.
+         * @memberof fh
+         * @classdesc Represents a TypingDelivery.
+         * @constructor
+         * @param {fh.TypingDelivery.$Properties=} [properties] Properties to set
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+        const TypingDelivery = function (properties) {
+            if (properties)
+                for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                        this[keys[i]] = properties[keys[i]];
+        };
+
+        /**
+         * TypingDelivery conversationId.
+         * @member {Uint8Array} conversationId
+         * @memberof fh.TypingDelivery
+         * @instance
+         */
+        TypingDelivery.prototype.conversationId = $util.newBuffer([]);
+
+        /**
+         * TypingDelivery accountId.
+         * @member {Uint8Array} accountId
+         * @memberof fh.TypingDelivery
+         * @instance
+         */
+        TypingDelivery.prototype.accountId = $util.newBuffer([]);
+
+        /**
+         * Creates a new TypingDelivery instance using the specified properties.
+         * @function create
+         * @memberof fh.TypingDelivery
+         * @static
+         * @param {fh.TypingDelivery.$Properties=} [properties] Properties to set
+         * @returns {fh.TypingDelivery} TypingDelivery instance
+         * @type {{
+         *   (properties: fh.TypingDelivery.$Shape): fh.TypingDelivery & fh.TypingDelivery.$Shape;
+         *   (properties?: fh.TypingDelivery.$Properties): fh.TypingDelivery;
+         * }}
+         */
+        TypingDelivery.create = function(properties) {
+            return new TypingDelivery(properties);
+        };
+
+        /**
+         * Encodes the specified TypingDelivery message. Does not implicitly {@link fh.TypingDelivery.verify|verify} messages.
+         * @function encode
+         * @memberof fh.TypingDelivery
+         * @static
+         * @param {fh.TypingDelivery.$Properties} message TypingDelivery message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        TypingDelivery.encode = function (message, writer, _depth) {
+            if (!writer)
+                writer = $Writer.create();
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId") && message.conversationId.length)
+                writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.conversationId);
+            if (message.accountId != null && $Object.hasOwnProperty.call(message, "accountId") && message.accountId.length)
+                writer.uint32(/* id 2, wireType 2 =*/18).bytes(message.accountId);
+            if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified TypingDelivery message, length delimited. Does not implicitly {@link fh.TypingDelivery.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof fh.TypingDelivery
+         * @static
+         * @param {fh.TypingDelivery.$Properties} message TypingDelivery message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        TypingDelivery.encodeDelimited = function(message, writer) {
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+        };
+
+        /**
+         * Decodes a TypingDelivery message from the specified reader or buffer.
+         * @function decode
+         * @memberof fh.TypingDelivery
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {fh.TypingDelivery & fh.TypingDelivery.$Shape} TypingDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        TypingDelivery.decode = function (reader, length, _end, _depth, _target) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw $Error("max depth exceeded");
+            let end, message, value;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.fh.TypingDelivery();
+            while (reader.pos < end) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = $undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 2)
+                            break;
+                        if ((value = reader.bytes()).length)
+                            message.conversationId = value;
+                        else
+                            delete message.conversationId;
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 2)
+                            break;
+                        if ((value = reader.bytes()).length)
+                            message.accountId = value;
+                        else
+                            delete message.accountId;
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                if (!reader.discardUnknown) {
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                }
+            }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
+            if (_end !== $undefined)
+                throw $Error("missing end group");
+            return message;
+        };
+
+        /**
+         * Decodes a TypingDelivery message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof fh.TypingDelivery
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {fh.TypingDelivery & fh.TypingDelivery.$Shape} TypingDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        TypingDelivery.decodeDelimited = function(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a TypingDelivery message.
+         * @function verify
+         * @memberof fh.TypingDelivery
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        TypingDelivery.verify = function (message, _depth) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                return "max depth exceeded";
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId"))
+                if (!(message.conversationId && typeof message.conversationId.length === "number" || $util.isString(message.conversationId)))
+                    return "conversationId: buffer expected";
+            if (message.accountId != null && $Object.hasOwnProperty.call(message, "accountId"))
+                if (!(message.accountId && typeof message.accountId.length === "number" || $util.isString(message.accountId)))
+                    return "accountId: buffer expected";
+            return null;
+        };
+
+        /**
+         * Creates a TypingDelivery message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof fh.TypingDelivery
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {fh.TypingDelivery} TypingDelivery
+         */
+        TypingDelivery.fromObject = function (object, _depth) {
+            if (object instanceof $root.fh.TypingDelivery)
+                return object;
+            if (!$util.isObject(object))
+                throw $TypeError(".fh.TypingDelivery: object expected");
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let message = new $root.fh.TypingDelivery();
+            if (object.conversationId != null)
+                if (object.conversationId.length)
+                    if (typeof object.conversationId === "string")
+                        $util.base64.decode(object.conversationId, message.conversationId = $util.newBuffer($util.base64.length(object.conversationId)), 0);
+                    else if (object.conversationId.length >= 0)
+                        message.conversationId = object.conversationId;
+            if (object.accountId != null)
+                if (object.accountId.length)
+                    if (typeof object.accountId === "string")
+                        $util.base64.decode(object.accountId, message.accountId = $util.newBuffer($util.base64.length(object.accountId)), 0);
+                    else if (object.accountId.length >= 0)
+                        message.accountId = object.accountId;
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a TypingDelivery message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof fh.TypingDelivery
+         * @static
+         * @param {fh.TypingDelivery} message TypingDelivery
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        TypingDelivery.toObject = function (message, options, _depth) {
+            if (!options)
+                options = {};
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let object = {};
+            if (options.defaults) {
+                if (options.bytes === $String)
+                    object.conversationId = "";
+                else {
+                    object.conversationId = [];
+                    if (options.bytes !== $Array)
+                        object.conversationId = $util.newBuffer(object.conversationId);
+                }
+                if (options.bytes === $String)
+                    object.accountId = "";
+                else {
+                    object.accountId = [];
+                    if (options.bytes !== $Array)
+                        object.accountId = $util.newBuffer(object.accountId);
+                }
+            }
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId"))
+                object.conversationId = options.bytes === $String ? $util.base64.encode(message.conversationId, 0, message.conversationId.length) : options.bytes === $Array ? $Array.prototype.slice.call(message.conversationId) : message.conversationId;
+            if (message.accountId != null && $Object.hasOwnProperty.call(message, "accountId"))
+                object.accountId = options.bytes === $String ? $util.base64.encode(message.accountId, 0, message.accountId.length) : options.bytes === $Array ? $Array.prototype.slice.call(message.accountId) : message.accountId;
+            return object;
+        };
+
+        /**
+         * Converts this TypingDelivery to JSON.
+         * @function toJSON
+         * @memberof fh.TypingDelivery
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        TypingDelivery.prototype.toJSON = function() {
+            return TypingDelivery.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the type url for TypingDelivery
+         * @function getTypeUrl
+         * @memberof fh.TypingDelivery
+         * @static
+         * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns {string} The type url
+         */
+        TypingDelivery.getTypeUrl = function(prefix) {
+            if (prefix === $undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/fh.TypingDelivery";
+        };
+
+        return TypingDelivery;
+    })();
+
+    fh.ReadReceiptDelivery = (function() {
+
+        /**
+         * Properties of a ReadReceiptDelivery.
+         * @typedef {Object} fh.ReadReceiptDelivery.$Properties
+         * @property {Uint8Array|null} [conversationId] ReadReceiptDelivery conversationId
+         * @property {Uint8Array|null} [accountId] ReadReceiptDelivery accountId
+         * @property {number|Long|null} [lastReadAt] ReadReceiptDelivery lastReadAt
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+
+        /**
+         * Properties of a ReadReceiptDelivery.
+         * @memberof fh
+         * @interface IReadReceiptDelivery
+         * @augments fh.ReadReceiptDelivery.$Properties
+         * @deprecated Use fh.ReadReceiptDelivery.$Properties instead.
+         */
+
+        /**
+         * Shape of a ReadReceiptDelivery.
+         * @typedef {fh.ReadReceiptDelivery.$Properties} fh.ReadReceiptDelivery.$Shape
+         */
+
+        /**
+         * Constructs a new ReadReceiptDelivery.
+         * @memberof fh
+         * @classdesc Represents a ReadReceiptDelivery.
+         * @constructor
+         * @param {fh.ReadReceiptDelivery.$Properties=} [properties] Properties to set
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+        const ReadReceiptDelivery = function (properties) {
+            if (properties)
+                for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                        this[keys[i]] = properties[keys[i]];
+        };
+
+        /**
+         * ReadReceiptDelivery conversationId.
+         * @member {Uint8Array} conversationId
+         * @memberof fh.ReadReceiptDelivery
+         * @instance
+         */
+        ReadReceiptDelivery.prototype.conversationId = $util.newBuffer([]);
+
+        /**
+         * ReadReceiptDelivery accountId.
+         * @member {Uint8Array} accountId
+         * @memberof fh.ReadReceiptDelivery
+         * @instance
+         */
+        ReadReceiptDelivery.prototype.accountId = $util.newBuffer([]);
+
+        /**
+         * ReadReceiptDelivery lastReadAt.
+         * @member {number|Long} lastReadAt
+         * @memberof fh.ReadReceiptDelivery
+         * @instance
+         */
+        ReadReceiptDelivery.prototype.lastReadAt = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+
+        /**
+         * Creates a new ReadReceiptDelivery instance using the specified properties.
+         * @function create
+         * @memberof fh.ReadReceiptDelivery
+         * @static
+         * @param {fh.ReadReceiptDelivery.$Properties=} [properties] Properties to set
+         * @returns {fh.ReadReceiptDelivery} ReadReceiptDelivery instance
+         * @type {{
+         *   (properties: fh.ReadReceiptDelivery.$Shape): fh.ReadReceiptDelivery & fh.ReadReceiptDelivery.$Shape;
+         *   (properties?: fh.ReadReceiptDelivery.$Properties): fh.ReadReceiptDelivery;
+         * }}
+         */
+        ReadReceiptDelivery.create = function(properties) {
+            return new ReadReceiptDelivery(properties);
+        };
+
+        /**
+         * Encodes the specified ReadReceiptDelivery message. Does not implicitly {@link fh.ReadReceiptDelivery.verify|verify} messages.
+         * @function encode
+         * @memberof fh.ReadReceiptDelivery
+         * @static
+         * @param {fh.ReadReceiptDelivery.$Properties} message ReadReceiptDelivery message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ReadReceiptDelivery.encode = function (message, writer, _depth) {
+            if (!writer)
+                writer = $Writer.create();
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId") && message.conversationId.length)
+                writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.conversationId);
+            if (message.accountId != null && $Object.hasOwnProperty.call(message, "accountId") && message.accountId.length)
+                writer.uint32(/* id 2, wireType 2 =*/18).bytes(message.accountId);
+            if (message.lastReadAt != null && $Object.hasOwnProperty.call(message, "lastReadAt") && (typeof message.lastReadAt === "object" ? message.lastReadAt.low || message.lastReadAt.high : message.lastReadAt !== 0))
+                writer.uint32(/* id 3, wireType 0 =*/24).int64(message.lastReadAt);
+            if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified ReadReceiptDelivery message, length delimited. Does not implicitly {@link fh.ReadReceiptDelivery.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof fh.ReadReceiptDelivery
+         * @static
+         * @param {fh.ReadReceiptDelivery.$Properties} message ReadReceiptDelivery message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ReadReceiptDelivery.encodeDelimited = function(message, writer) {
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+        };
+
+        /**
+         * Decodes a ReadReceiptDelivery message from the specified reader or buffer.
+         * @function decode
+         * @memberof fh.ReadReceiptDelivery
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {fh.ReadReceiptDelivery & fh.ReadReceiptDelivery.$Shape} ReadReceiptDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ReadReceiptDelivery.decode = function (reader, length, _end, _depth, _target) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw $Error("max depth exceeded");
+            let end, message, value;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.fh.ReadReceiptDelivery();
+            while (reader.pos < end) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = $undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 2)
+                            break;
+                        if ((value = reader.bytes()).length)
+                            message.conversationId = value;
+                        else
+                            delete message.conversationId;
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 2)
+                            break;
+                        if ((value = reader.bytes()).length)
+                            message.accountId = value;
+                        else
+                            delete message.accountId;
+                        continue;
+                    }
+                case 3: {
+                        if (wireType !== 0)
+                            break;
+                        if (typeof (value = reader.int64()) === "object" ? value.low || value.high : value !== 0)
+                            message.lastReadAt = value;
+                        else
+                            delete message.lastReadAt;
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                if (!reader.discardUnknown) {
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                }
+            }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
+            if (_end !== $undefined)
+                throw $Error("missing end group");
+            return message;
+        };
+
+        /**
+         * Decodes a ReadReceiptDelivery message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof fh.ReadReceiptDelivery
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {fh.ReadReceiptDelivery & fh.ReadReceiptDelivery.$Shape} ReadReceiptDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ReadReceiptDelivery.decodeDelimited = function(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a ReadReceiptDelivery message.
+         * @function verify
+         * @memberof fh.ReadReceiptDelivery
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        ReadReceiptDelivery.verify = function (message, _depth) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                return "max depth exceeded";
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId"))
+                if (!(message.conversationId && typeof message.conversationId.length === "number" || $util.isString(message.conversationId)))
+                    return "conversationId: buffer expected";
+            if (message.accountId != null && $Object.hasOwnProperty.call(message, "accountId"))
+                if (!(message.accountId && typeof message.accountId.length === "number" || $util.isString(message.accountId)))
+                    return "accountId: buffer expected";
+            if (message.lastReadAt != null && $Object.hasOwnProperty.call(message, "lastReadAt"))
+                if (!$util.isInteger(message.lastReadAt) && !(message.lastReadAt && $util.isInteger(message.lastReadAt.low) && $util.isInteger(message.lastReadAt.high)))
+                    return "lastReadAt: integer|Long expected";
+            return null;
+        };
+
+        /**
+         * Creates a ReadReceiptDelivery message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof fh.ReadReceiptDelivery
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {fh.ReadReceiptDelivery} ReadReceiptDelivery
+         */
+        ReadReceiptDelivery.fromObject = function (object, _depth) {
+            if (object instanceof $root.fh.ReadReceiptDelivery)
+                return object;
+            if (!$util.isObject(object))
+                throw $TypeError(".fh.ReadReceiptDelivery: object expected");
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let message = new $root.fh.ReadReceiptDelivery();
+            if (object.conversationId != null)
+                if (object.conversationId.length)
+                    if (typeof object.conversationId === "string")
+                        $util.base64.decode(object.conversationId, message.conversationId = $util.newBuffer($util.base64.length(object.conversationId)), 0);
+                    else if (object.conversationId.length >= 0)
+                        message.conversationId = object.conversationId;
+            if (object.accountId != null)
+                if (object.accountId.length)
+                    if (typeof object.accountId === "string")
+                        $util.base64.decode(object.accountId, message.accountId = $util.newBuffer($util.base64.length(object.accountId)), 0);
+                    else if (object.accountId.length >= 0)
+                        message.accountId = object.accountId;
+            if (object.lastReadAt != null)
+                if (typeof object.lastReadAt === "object" ? object.lastReadAt.low || object.lastReadAt.high : $Number(object.lastReadAt) !== 0)
+                    if ($util.Long)
+                        message.lastReadAt = $util.Long.fromValue(object.lastReadAt, false);
+                    else if (typeof object.lastReadAt === "string")
+                        message.lastReadAt = $parseInt(object.lastReadAt, 10);
+                    else if (typeof object.lastReadAt === "number")
+                        message.lastReadAt = object.lastReadAt;
+                    else if (typeof object.lastReadAt === "object")
+                        message.lastReadAt = new $util.LongBits(object.lastReadAt.low >>> 0, object.lastReadAt.high >>> 0).toNumber();
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a ReadReceiptDelivery message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof fh.ReadReceiptDelivery
+         * @static
+         * @param {fh.ReadReceiptDelivery} message ReadReceiptDelivery
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        ReadReceiptDelivery.toObject = function (message, options, _depth) {
+            if (!options)
+                options = {};
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let object = {};
+            if (options.defaults) {
+                if (options.bytes === $String)
+                    object.conversationId = "";
+                else {
+                    object.conversationId = [];
+                    if (options.bytes !== $Array)
+                        object.conversationId = $util.newBuffer(object.conversationId);
+                }
+                if (options.bytes === $String)
+                    object.accountId = "";
+                else {
+                    object.accountId = [];
+                    if (options.bytes !== $Array)
+                        object.accountId = $util.newBuffer(object.accountId);
+                }
+                if ($util.Long) {
+                    let long = new $util.Long(0, 0, false);
+                    object.lastReadAt = options.longs === $String ? long.toString() : options.longs === $Number ? long.toNumber() : typeof $BigInt !== "undefined" && options.longs === $BigInt ? long.toBigInt() : long;
+                } else
+                    object.lastReadAt = options.longs === $String ? "0" : typeof $BigInt !== "undefined" && options.longs === $BigInt ? $BigInt("0") : 0;
+            }
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId"))
+                object.conversationId = options.bytes === $String ? $util.base64.encode(message.conversationId, 0, message.conversationId.length) : options.bytes === $Array ? $Array.prototype.slice.call(message.conversationId) : message.conversationId;
+            if (message.accountId != null && $Object.hasOwnProperty.call(message, "accountId"))
+                object.accountId = options.bytes === $String ? $util.base64.encode(message.accountId, 0, message.accountId.length) : options.bytes === $Array ? $Array.prototype.slice.call(message.accountId) : message.accountId;
+            if (message.lastReadAt != null && $Object.hasOwnProperty.call(message, "lastReadAt"))
+                if (typeof $BigInt !== "undefined" && options.longs === $BigInt)
+                    object.lastReadAt = typeof message.lastReadAt === "number" ? $BigInt(message.lastReadAt) : $util.Long.fromBits(message.lastReadAt.low >>> 0, message.lastReadAt.high >>> 0, false).toBigInt();
+                else if (typeof message.lastReadAt === "number")
+                    object.lastReadAt = options.longs === $String ? $String(message.lastReadAt) : message.lastReadAt;
+                else
+                    object.lastReadAt = options.longs === $String ? $util.Long.prototype.toString.call(message.lastReadAt) : options.longs === $Number ? new $util.LongBits(message.lastReadAt.low >>> 0, message.lastReadAt.high >>> 0).toNumber() : message.lastReadAt;
+            return object;
+        };
+
+        /**
+         * Converts this ReadReceiptDelivery to JSON.
+         * @function toJSON
+         * @memberof fh.ReadReceiptDelivery
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        ReadReceiptDelivery.prototype.toJSON = function() {
+            return ReadReceiptDelivery.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the type url for ReadReceiptDelivery
+         * @function getTypeUrl
+         * @memberof fh.ReadReceiptDelivery
+         * @static
+         * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns {string} The type url
+         */
+        ReadReceiptDelivery.getTypeUrl = function(prefix) {
+            if (prefix === $undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/fh.ReadReceiptDelivery";
+        };
+
+        return ReadReceiptDelivery;
     })();
 
     return fh;

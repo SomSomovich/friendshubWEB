@@ -21,9 +21,24 @@ export const ENVELOPE_TYPE_EDIT = fh.EnvelopeType.ENVELOPE_TYPE_EDIT
 export const ENVELOPE_TYPE_DELETE = fh.EnvelopeType.ENVELOPE_TYPE_DELETE
 export const ENVELOPE_TYPE_REACTION = fh.EnvelopeType.ENVELOPE_TYPE_REACTION
 
-/** Defined on the wire, not used by this client yet. */
+/**
+ * Defined on the wire, not used by this client yet.
+ *
+ * An envelope of this type carries a read marker, but nothing sends one: reading
+ * is reported over HTTP (`POST /conversations/{id}/read`) and announced with the
+ * `ReadReceipt` server frame, so the envelope type is dead weight here.
+ */
 export const ENVELOPE_TYPE_READ_RECEIPT = fh.EnvelopeType.ENVELOPE_TYPE_READ_RECEIPT
-/** Defined on the wire, not used by this client yet. */
+
+/**
+ * Still in the enum, and **must never be uploaded as an envelope**.
+ *
+ * The server rejects an `EnvelopeUpload` carrying this type outright; typing is
+ * reported with the `ClientFrame::Typing` frame instead (API_FRONTEND.txt §27).
+ * The constant stays because the enum is the wire format and a value that is
+ * simply missing from it would be worse than one that is documented as
+ * unusable.
+ */
 export const ENVELOPE_TYPE_TYPING = fh.EnvelopeType.ENVELOPE_TYPE_TYPING
 
 /** Attachment symmetric key handed to the recipient. */
@@ -37,10 +52,16 @@ export const ENVELOPE_TYPE_CALL_REJECT = fh.EnvelopeType.ENVELOPE_TYPE_CALL_REJE
 
 /** Bot traffic is delivered as its own server frame; the type exists for completeness. */
 export const ENVELOPE_TYPE_BOT_MESSAGE = fh.EnvelopeType.ENVELOPE_TYPE_BOT_MESSAGE
-/** Local-only pinning is never sent to the server; reserved on the wire. */
-export const ENVELOPE_TYPE_PIN = fh.EnvelopeType.ENVELOPE_TYPE_PIN
-/** See `ENVELOPE_TYPE_PIN`. */
-export const ENVELOPE_TYPE_UNPIN = fh.EnvelopeType.ENVELOPE_TYPE_UNPIN
+
+/**
+ * 16 and 17 were `ENVELOPE_TYPE_PIN` and `ENVELOPE_TYPE_UNPIN`.
+ *
+ * Pins are conversation state rather than something one device tells another, and
+ * they are managed over REST now (API_FRONTEND.txt §11). The numbers are
+ * `reserved` in the proto rather than reused, so a client that still emits one
+ * cannot be silently read as something else — and this client has no constant
+ * for them at all, because it must never send one.
+ */
 
 /** Debug label for an envelope type; unknown values are labelled, not dropped. */
 export function envelopeTypeName(value: number): string {

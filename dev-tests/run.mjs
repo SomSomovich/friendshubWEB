@@ -609,6 +609,12 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
       )
     }
 
+    // Read rather than written down: the About screen reports this value, and a
+    // release should not need a second edit here to keep the check honest.
+    const appVersion = JSON.parse(
+      readFileSync(resolve(projectRoot, 'package.json'), 'utf8'),
+    ).version
+
     // Settings and the profile: signed in like the chat captures, but on screens
     // whose panels each read something from the server.
     const sections = [
@@ -621,7 +627,7 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
         { label: 'settings-privacy-dark-ru', path: '/app/settings/privacy', theme: 'dark', lang: 'ru', size: '1280,800',
           ready: 'Заблокированные', expect: ['Невидимка', 'Исключения для присутствия', 'Заблокированные'] },
         { label: 'settings-about-light-en', path: '/app/settings/about', theme: 'light', lang: 'en', size: '390,844',
-          ready: 'AGPL-3.0', expect: ['Version', '0.1.6', 'AGPL-3.0', 'Sign out', 'GitHub'] },
+          ready: 'AGPL-3.0', expect: ['Version', appVersion, 'AGPL-3.0', 'Sign out', 'GitHub'] },
         { label: 'settings-notifications-dark-ru', path: '/app/settings/notifications', theme: 'dark', lang: 'ru', size: '1280,800',
           ready: 'Звук сообщений', expect: ['Звук сообщений', 'Системные уведомления', 'Разрешение'] },
         { label: 'profile-dark-ru', path: '/app/profile', theme: 'dark', lang: 'ru', size: '1280,800',

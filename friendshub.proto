@@ -39,8 +39,13 @@ enum EnvelopeType {
   ENVELOPE_TYPE_CALL_HANGUP = 13;
   ENVELOPE_TYPE_CALL_REJECT = 14;
   ENVELOPE_TYPE_BOT_MESSAGE = 15;
-  ENVELOPE_TYPE_PIN = 16;
-  ENVELOPE_TYPE_UNPIN = 17;
+
+  // 16 and 17 were ENVELOPE_TYPE_PIN and ENVELOPE_TYPE_UNPIN. Pins are
+  // conversation state, not messages one device sends to another, and
+  // they are now managed through REST. The numbers are reserved rather
+  // than reused so an old client that still emits them cannot be
+  // silently interpreted as a different type.
+  reserved 16, 17;
 }
 
 message ClientFrame {
@@ -49,6 +54,7 @@ message ClientFrame {
     EnvelopeUpload upload = 2;
     EnvelopeAck ack = 3;
     Ping ping = 4;
+    TypingFrame typing = 5;
   }
 }
 
@@ -68,6 +74,10 @@ message EnvelopeUpload {
 
 message EnvelopeAck {
   repeated bytes envelope_ids = 1;
+  // Filled only by the server, in the same order as nvelope_ids.
+  // A client ack never sets it: the client does not know the server
+  // timestamp of the envelopes it is acknowledging.
+  repeated int64 server_timestamps = 2;
 }
 
 message Ping {
@@ -84,6 +94,8 @@ message ServerFrame {
     PresenceUpdate presence = 6;
     BotMessageDelivery bot_message = 7;
     ChannelPostDelivery channel_post = 8;
+    TypingDelivery typing = 9;
+    ReadReceiptDelivery read_receipt = 10;
   }
 }
 
@@ -139,4 +151,19 @@ message ChannelPostDelivery {
   repeated string attachment_ids = 6;
   optional string reply_to_post_id = 7;
   int64 created_at = 8;
+}
+
+message TypingFrame {
+  bytes conversation_id = 1;
+}
+
+message TypingDelivery {
+  bytes conversation_id = 1;
+  bytes account_id = 2;
+}
+
+message ReadReceiptDelivery {
+  bytes conversation_id = 1;
+  bytes account_id = 2;
+  int64 last_read_at = 3;
 }
