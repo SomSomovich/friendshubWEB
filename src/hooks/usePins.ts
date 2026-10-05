@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useStore } from 'zustand'
 import { requireAccountStore } from '../state/accountRegistry'
 import type { MessageRecord } from '../storage/db'
-import { getMessage } from '../storage/messages'
+import { getMessageByMessageId } from '../storage/messages'
 import { listPinned } from '../storage/pinned'
 import { loadPinnedBannerHidden, setPinnedBannerHidden } from '../storage/read_state'
 import type { Account } from '../types'
@@ -45,7 +45,7 @@ export function usePins(account: Account, conversationId: string): PinnedMessage
         loadPinnedBannerHidden(account.id),
       ])
       const messages = await Promise.all(
-        records.map((record) => getMessage(account.id, record.envelopeId)),
+        records.map((record) => getMessageByMessageId(account.id, conversationId, record.messageId)),
       )
 
       if (cancelled) {

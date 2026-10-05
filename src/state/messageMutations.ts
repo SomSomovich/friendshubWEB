@@ -29,7 +29,9 @@ export async function applyReaction(
   // back — the same rule the server applies.
   const remove = existing === emoji
 
-  await sendMessageAction(account, message, { kind: 'reaction', emoji, remove })
+  // The payload says which it is: a null emoji is the removal, and there is no
+  // separate "unreact" kind to send.
+  await sendMessageAction(account, message, { kind: 'reaction', emoji: remove ? null : emoji })
 
   const others = message.reactions.filter((reaction) => reaction.actorId !== account.id)
   if (remove) {
@@ -55,16 +57,16 @@ export async function applyDelete(account: Account, message: MessageRecord): Pro
   // The pin row points at the message; leaving it behind would make the banner
   // cycle through something that no longer exists.
   if (message.isPinned) {
-    await unpinMessage(account.id, message.conversationId, message.envelopeId)
+    await unpinMessage(account.id, message.conversationId, message.messageId, message.envelopeId)
   }
 }
 
 /** Pins or unpins locally — nothing about pinning is ever sent to the server. */
 export async function togglePin(account: Account, message: MessageRecord): Promise<boolean> {
   if (message.isPinned) {
-    await unpinMessage(account.id, message.conversationId, message.envelopeId)
+    await unpinMessage(account.id, message.conversationId, message.messageId, message.envelopeId)
     return false
   }
-  await pinMessage(account.id, message.conversationId, message.envelopeId)
+  await pinMessage(account.id, message.conversationId, message.messageId, message.envelopeId)
   return true
 }

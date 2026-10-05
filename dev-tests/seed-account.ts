@@ -140,6 +140,10 @@ async function seedConversation(accountId: string, conversationId: string): Prom
     plaintext: string,
     extra: Partial<MessageRecord> = {},
   ): MessageRecord => ({
+    // Both identifiers, as the payload contract requires: the logical one is
+    // what an edit or a reaction would address, the envelope one is the store's
+    // key. Seeded rows are their own origin, so nothing else pairs them up.
+    messageId: `seed-msg-${suffix}`,
     envelopeId: `seed-${suffix}`,
     accountId,
     conversationId,
@@ -153,7 +157,8 @@ async function seedConversation(accountId: string, conversationId: string): Prom
     clientTimestamp: at,
     serverTimestamp: at,
     attachments: [],
-    replyToEnvelopeId: null,
+    replyTo: null,
+    forwardFrom: null,
     editedAt: null,
     isPinned: false,
     reactions: [],
@@ -176,7 +181,7 @@ async function seedConversation(accountId: string, conversationId: string): Prom
   ]
 
   await saveMessages(messages)
-  await pinMessage(accountId, conversationId, 'seed-3')
+  await pinMessage(accountId, conversationId, 'seed-msg-3', 'seed-3')
 }
 
 /**

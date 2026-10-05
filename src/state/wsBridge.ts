@@ -39,10 +39,10 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     }
   })
 
-  const detachReceipt = client.on('receipt', ({ envelopeIds }) => {
+  const detachReceipt = client.on('receipt', ({ envelopeIds, serverTimestamps }) => {
     void store
       .getState()
-      .actions.applyReceipt(envelopeIds)
+      .actions.applyReceipt(envelopeIds, serverTimestamps)
       .catch((error: unknown) => {
         console.error('[state] a receipt could not be applied', error)
       })

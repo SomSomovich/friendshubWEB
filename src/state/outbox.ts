@@ -11,10 +11,12 @@ import { getSetting, setSetting } from '../storage/settings'
  */
 
 export type OutboxItem = {
-  /** The id of the placeholder message this belongs to. */
+  /** The `envelopeId` of the placeholder message this belongs to. */
   id: string
   conversationId: string
   plaintext: string
+  /** When the message was written, which is what its payload will carry. */
+  createdAt: number
   queuedAt: number
 }
 
@@ -63,6 +65,7 @@ function isOutboxItem(value: unknown): value is OutboxItem {
     typeof candidate.id === 'string' &&
     typeof candidate.conversationId === 'string' &&
     typeof candidate.plaintext === 'string' &&
+    typeof candidate.createdAt === 'number' &&
     typeof candidate.queuedAt === 'number'
   )
 }

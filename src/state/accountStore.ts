@@ -6,6 +6,8 @@ import {
   sendGroupMessage,
   sendMessage as sendDirectMessage,
   sendToSaved as sendSavedMessage,
+  type MessageDraft,
+  type SendOptions,
 } from '../crypto/send'
 import { SAVED_PAGE_SIZE, loadSavedHistory } from '../crypto/saved'
 import { saveAccount } from '../storage/accounts'
@@ -15,12 +17,13 @@ import { loadHistoryCursors } from '../storage/read_state'
 import {
   deleteMessage,
   getMessages,
-  markDelivered,
   saveMessage,
   updateMessage,
+  updateServerTimestamp,
 } from '../storage/messages'
 import type { Account, Envelope } from '../types'
 import { nowSeconds } from '../utils/time'
+import { uuidV7 } from '../utils/uuid'
 import { getActiveClientOrNull, requireActiveClient } from '../ws/activeClient'
 import { clearIdentityChanges, type IdentityChange } from '../wasm'
 import type { PresenceEvent } from '../ws/events'
@@ -87,8 +90,8 @@ export type AccountActions = {
   /** Sends whatever was queued while the connection was down. */
   flushOutbox: () => Promise<void>
   applyEnvelope: (envelope: Envelope) => Promise<void>
-  /** Records that the server stored these envelopes (`'sent'` → `'delivered'`). */
-  applyReceipt: (envelopeIds: string[]) => Promise<void>
+  /** Records the server's stamp for envelopes this device uploaded. */
+  applyReceipt: (envelopeIds: string[], serverTimestamps: number[]) => Promise<void>
   setPresence: (event: PresenceEvent) => void
   setTyping: (conversationId: string) => void
   /** Applies a local change to one message in the open window and in storage. */
@@ -231,19 +234,27 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
         }
 
         // No socket to send over: the message is written locally and queued, so
-        // what the reader typed is never lost to a tunnel. The envelope ids it
-        // would have carried are absent, which is the same state a message is in
-        // for the moment between writing it and the server storing it.
+        // what the reader typed is never lost to a tunnel. It gets both of its
+        // identifiers now, and keeps them when it is finally sent — the queue is
+        // keyed by the same ids the flusher will use.
         if (getActiveClientOrNull()?.isConnected !== true) {
-          const placeholder: MessageRecord = {
-            ...buildLocalMessageRecord(account, activeConversationId, plaintext),
+          const messageId = uuidV7()
+          const createdAt = nowSeconds()
+          const placeholder = buildLocalMessageRecord(account, {
+            conversationId: activeConversationId,
+            messageId,
+            envelopeId: uuidV7(),
+            draft: { text: plaintext },
+            createdAt,
             status: 'sending',
-          }
+          })
+
           await saveMessage(placeholder)
           await enqueue(account.id, {
             id: placeholder.envelopeId,
             conversationId: activeConversationId,
             plaintext,
+            createdAt,
           })
           set({
             messages: mergeById([placeholder], get().messages),
@@ -255,7 +266,7 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
 
         set({ sending: true, error: null })
         try {
-          const record = await sendToOpenConversation(account, activeConversationId, plaintext, get())
+          const record = await sendToOpenConversation(account, activeConversationId, { text: plaintext }, get())
           await saveMessage(record)
           set({
             messages: mergeById([record], get().messages),
@@ -284,7 +295,13 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
 
         for (const item of queue) {
           try {
-            const record = await sendToOpenConversation(account, item.conversationId, item.plaintext, get())
+            const record = await sendToOpenConversation(
+              account,
+              item.conversationId,
+              { text: item.plaintext },
+              get(),
+              { createdAt: item.createdAt },
+            )
             // The placeholder goes first: the real record has its own envelope
             // id, and both at once would be the message twice.
             await deleteMessage(account.id, item.id)
@@ -311,7 +328,7 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
       async sendToSaved(plaintext) {
         set({ sending: true, error: null })
         try {
-          const result = await sendSavedMessage(account, plaintext)
+          const result = await sendSavedMessage(account, { text: plaintext })
           set({
             messages:
               get().activeConversationId === result.conversationId
@@ -350,16 +367,34 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
         })
       },
 
-      async applyReceipt(envelopeIds) {
-        const changed = await markDelivered(account.id, envelopeIds)
+      async applyReceipt(envelopeIds, serverTimestamps) {
+        // Only the envelopes this device uploaded are known here; the rest of a
+        // batch belongs to devices it will never see. One of them is enough —
+        // every envelope of one upload carries the same stamp.
+        const stamped = new Map<string, number>()
+        for (const [index, envelopeId] of envelopeIds.entries()) {
+          const stamp = serverTimestamps[index]
+          if (stamp !== undefined && stamp > 0) {
+            stamped.set(envelopeId, stamp)
+          }
+        }
+
+        const changed: Array<{ envelopeId: string; serverTimestamp: number }> = []
+        for (const [envelopeId, serverTimestamp] of stamped) {
+          if (await updateServerTimestamp(account.id, envelopeId, serverTimestamp)) {
+            changed.push({ envelopeId, serverTimestamp })
+          }
+        }
         if (changed.length === 0) {
           return
         }
-        const delivered = new Set(changed)
+
+        const byEnvelope = new Map(changed.map((entry) => [entry.envelopeId, entry.serverTimestamp]))
         set({
-          messages: get().messages.map((message) =>
-            delivered.has(message.envelopeId) ? { ...message, status: 'delivered' } : message,
-          ),
+          messages: get().messages.map((message) => {
+            const serverTimestamp = byEnvelope.get(message.envelopeId)
+            return serverTimestamp === undefined ? message : { ...message, serverTimestamp }
+          }),
         })
       },
 
@@ -426,27 +461,28 @@ function isSaved(conversationId: string, state: AccountStore): boolean {
   return state.conversations.find((entry) => entry.id === conversationId)?.kind === 'saved'
 }
 
+/**
+ * Sends a draft to whichever kind of conversation is open.
+ *
+ * The send helpers build the local row themselves, so the caller never
+ * re-assembles one: the identifiers in it have to be the ones that actually went
+ * out, and a second construction site is a second chance to get that wrong.
+ */
 async function sendToOpenConversation(
   account: Account,
   conversationId: string,
-  plaintext: string,
+  draft: MessageDraft,
   state: AccountStore,
+  options: SendOptions = {},
 ): Promise<MessageRecord> {
   const conversation = state.conversations.find((entry) => entry.id === conversationId)
 
   if (conversation?.kind === 'saved') {
-    return (await sendSavedMessage(account, plaintext, conversationId)).message
+    return (await sendSavedMessage(account, draft, conversationId, options)).message
   }
 
   if (conversation?.kind === 'group') {
-    const result = await sendGroupMessage(account, conversationId, plaintext)
-    return buildLocalMessageRecord(
-      account,
-      conversationId,
-      plaintext,
-      result.envelopeIds[0],
-      devicesByAccount(result.envelopes),
-    )
+    return (await sendGroupMessage(account, conversationId, draft, options)).message
   }
 
   if (conversation !== undefined && conversation.kind !== 'direct') {
@@ -454,23 +490,7 @@ async function sendToOpenConversation(
   }
 
   const peerAccountId = await resolveDirectPeer(account, conversationId)
-  const result = await sendDirectMessage(account, { conversationId, peerAccountId }, plaintext)
-  return buildLocalMessageRecord(
-    account,
-    conversationId,
-    plaintext,
-    result.envelopeIds[0],
-    devicesByAccount(result.envelopes),
-  )
-}
-
-/** Maps each recipient device to the envelope it received. */
-function devicesByAccount(envelopes: Envelope[]): Record<string, string> {
-  const map: Record<string, string> = {}
-  for (const envelope of envelopes) {
-    map[`${envelope.recipientAccountId}:${envelope.recipientDeviceNumber}`] = envelope.envelopeId
-  }
-  return map
+  return (await sendDirectMessage(account, { conversationId, peerAccountId }, draft, options)).message
 }
 
 function describe(error: unknown): string {

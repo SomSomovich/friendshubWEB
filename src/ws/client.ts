@@ -274,8 +274,8 @@ export class WsClient extends TypedEmitter<WsClientEvents> {
         this.emit('delivery', { envelopes })
       }
     },
-    onReceipt: (envelopeIds) => {
-      this.emit('receipt', { envelopeIds })
+    onReceipt: (envelopeIds, serverTimestamps) => {
+      this.emit('receipt', { envelopeIds, serverTimestamps })
     },
     onPong: (clientTimestamp) => {
       this.sender.resolvePong(clientTimestamp)

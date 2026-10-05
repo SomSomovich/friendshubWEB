@@ -17,6 +17,7 @@
 import { getMe, login, logout, register } from '../src/api/auth'
 import { createDirectConversation, getConversation } from '../src/api/conversations'
 import { initializeAccount } from '../src/crypto/account'
+import { sendMessageAction } from '../src/crypto/messageActions'
 import { handleEnvelope } from '../src/crypto/receive'
 import { getOrCreateSavedConversation } from '../src/crypto/saved'
 import { sendMessage, sendToSaved } from '../src/crypto/send'
@@ -24,8 +25,15 @@ import type { Account, Envelope } from '../src/types'
 import { initWasm, reset } from '../src/wasm'
 import { setActiveClient } from '../src/ws/activeClient'
 import { WsClient } from '../src/ws/client'
+import {
+  ENVELOPE_TYPE_EDIT,
+  ENVELOPE_TYPE_MESSAGE,
+  ENVELOPE_TYPE_REACTION,
+} from '../src/ws/envelopeTypes'
 
 const MESSAGE_TEXT = 'hello from smoke test'
+const EDIT_TEXT = 'hello from smoke test, corrected'
+const REACTION_EMOJI = '🔥'
 const SAVED_TEXT = 'saved note from smoke test'
 const DELIVERY_TIMEOUT_MS = 30_000
 
@@ -113,10 +121,26 @@ async function run(): Promise<void> {
   await aliceClient.connect(alice)
   check('Alice connects over the WebSocket', aliceClient.isConnected)
 
-  const sent = await sendMessage(alice, { conversationId: conversation.id, peerAccountId: bob.id }, MESSAGE_TEXT)
-  check('Alice encrypts for exactly one Bob device', sent.envelopeIds.length === 1, sent.envelopeIds.join(','))
-  // Alice has no other devices, so there is nobody to sync a copy to.
-  check('no sync copies are produced for a single-device account', sent.envelopes.length === sent.envelopeIds.length)
+  const sent = await sendMessage(
+    alice,
+    { conversationId: conversation.id, peerAccountId: bob.id },
+    { text: MESSAGE_TEXT },
+  )
+  check('Alice encrypts for exactly one Bob device', sent.envelopes.length === 1, `${sent.envelopes.length} envelopes`)
+  check(
+    'the message carries one logical id and one envelope id, and they differ',
+    sent.messageId !== sent.message.envelopeId && sent.message.messageId === sent.messageId,
+  )
+
+  // An edit and a reaction, addressed by the logical id — the whole point of the
+  // contract: they would name a different envelope on each of Bob's devices.
+  const actionsSent = await sendMessageAction(alice, sent.message, { kind: 'edit', newText: EDIT_TEXT })
+  check('Alice edits the message', actionsSent === 1, `${actionsSent} envelopes`)
+  const reactionsSent = await sendMessageAction(alice, sent.message, {
+    kind: 'reaction',
+    emoji: REACTION_EMOJI,
+  })
+  check('Alice reacts to it', reactionsSent === 1, `${reactionsSent} envelopes`)
 
   await aliceClient.close()
   setActiveClient(bobClient)
@@ -126,32 +150,63 @@ async function run(): Promise<void> {
   await bobClient.connect(bob)
   check('Bob connects over the WebSocket', bobClient.isConnected)
 
-  const bobEnvelopeId = sent.envelopeIds[0]
   const delivered = await waitFor(
-    () => deliveredToBob.find((envelope) => envelope.envelopeId === bobEnvelopeId) ?? null,
+    () => (deliveredToBob.length >= 3 ? deliveredToBob : null),
     DELIVERY_TIMEOUT_MS,
   )
   check(
-    'the envelope is delivered to Bob with its ciphertext intact',
-    delivered !== undefined && delivered !== null && delivered.senderAccountId === alice.id,
-    delivered === undefined ? 'not delivered' : `type ${delivered.envelopeType}, ${delivered.ciphertext.length / 2} bytes`,
+    'all three envelopes are delivered to Bob with their ciphertext intact',
+    delivered !== null && delivered.every((envelope) => envelope.senderAccountId === alice.id),
+    delivered === null ? 'not delivered' : `${delivered.length} envelopes`,
   )
 
-  if (delivered === undefined || delivered === null) {
+  if (delivered === null) {
     throw new Error('the delivery never arrived; nothing to decrypt')
   }
 
-  const received = await handleEnvelope(bob, delivered)
-  check('the envelope decrypts to a message', received.kind === 'message', received.kind)
+  const byType = (type: number): Envelope | undefined =>
+    delivered.find((envelope) => envelope.envelopeType === type)
+  const messageEnvelope = byType(ENVELOPE_TYPE_MESSAGE)
+  const editEnvelope = byType(ENVELOPE_TYPE_EDIT)
+  const reactionEnvelope = byType(ENVELOPE_TYPE_REACTION)
+
+  if (messageEnvelope === undefined || editEnvelope === undefined || reactionEnvelope === undefined) {
+    throw new Error('one of the three envelopes never arrived')
+  }
+
+  const received = await handleEnvelope(bob, messageEnvelope)
+  check('the message envelope decrypts to a message', received.kind === 'message', received.kind)
   check(
-    'and the plaintext is exactly what Alice sent',
-    received.plaintext === MESSAGE_TEXT,
-    JSON.stringify(received.plaintext),
+    'and the text is exactly what Alice sent',
+    received.kind === 'message' && received.payload.text === MESSAGE_TEXT,
+    received.kind === 'message' ? JSON.stringify(received.payload.text) : '-',
   )
+  check(
+    'with the logical id the sender generated',
+    received.kind === 'message' && received.payload.message_id === sent.messageId,
+  )
+
+  const edited = await handleEnvelope(bob, editEnvelope)
+  check('the edit envelope decrypts to an edit', edited.kind === 'edit', edited.kind)
+  check(
+    'and it names the same logical message, not an envelope',
+    edited.kind === 'edit' && edited.payload.target_message_id === sent.messageId,
+    edited.kind === 'edit' ? edited.payload.target_message_id : '-',
+  )
+  check('and carries the new text', edited.kind === 'edit' && edited.payload.new_text === EDIT_TEXT)
+
+  const reacted = await handleEnvelope(bob, reactionEnvelope)
+  check('the reaction envelope decrypts to a reaction', reacted.kind === 'reaction', reacted.kind)
+  check(
+    'and it names the same logical message too',
+    reacted.kind === 'reaction' && reacted.payload.target_message_id === sent.messageId,
+  )
+  check('and carries the emoji', reacted.kind === 'reaction' && reacted.payload.emoji === REACTION_EMOJI)
+
   check('no identity key changed during the exchange', received.identityChanges.length === 0)
 
-  await bobClient.ackEnvelopes([delivered.envelopeId])
-  check('Bob acknowledges the envelope', true)
+  await bobClient.ackEnvelopes(delivered.map((envelope) => envelope.envelopeId))
+  check('Bob acknowledges every envelope', true)
 
   // --- Saved Messages -------------------------------------------------------
 
@@ -159,7 +214,7 @@ async function run(): Promise<void> {
   const savedTwice = await getOrCreateSavedConversation(alice)
   check('the saved conversation is created and stable', savedOnce.id === savedTwice.id && savedOnce.kind === 'saved', savedOnce.id)
 
-  const savedSend = await sendToSaved(alice, SAVED_TEXT, savedOnce.id)
+  const savedSend = await sendToSaved(alice, { text: SAVED_TEXT }, savedOnce.id)
   check(
     'a saved message is stored locally',
     savedSend.message.plaintext === SAVED_TEXT && savedSend.message.conversationId === savedOnce.id,

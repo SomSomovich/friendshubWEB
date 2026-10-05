@@ -67,6 +67,12 @@ export type WsClientEvents = {
   }
   receipt: {
     envelopeIds: string[]
+    /**
+     * The server's stamp for each id, in the same order — every envelope of one
+     * upload shares one value. It is what a read marker is compared against,
+     * because the client's own clock may disagree with the server's.
+     */
+    serverTimestamps: number[]
   }
   presence: PresenceEvent
   botMessage: BotMessageEvent

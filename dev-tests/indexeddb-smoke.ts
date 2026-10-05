@@ -18,16 +18,21 @@ import {
 } from '../src/storage/devices_cache'
 import {
   addReaction,
+  countIncomingAfter,
   deleteMessage,
   getMessage,
+  getMessageByMessageId,
   getMessages,
   removeReaction,
   saveMessages,
   updateMessage,
+  updateServerTimestamp,
   updateStatus,
 } from '../src/storage/messages'
 import { listPinned, pinMessage, unpinMessage } from '../src/storage/pinned'
 import { getSetting, setSetting } from '../src/storage/settings'
+import { encodePayload, parseKnownPayload } from '../src/crypto/payloads'
+import { hexToUtf8 } from '../src/utils/hex'
 
 type Check = { name: string; passed: boolean; detail?: string }
 
@@ -69,12 +74,21 @@ function conversation(id: string, accountId: string, updatedAt: number) {
   }
 }
 
-function message(envelopeId: string, accountId: string, conversationId: string, clientTimestamp: number) {
+function message(
+  envelopeId: string,
+  accountId: string,
+  conversationId: string,
+  clientTimestamp: number,
+  senderAccountId: string = accountId,
+) {
   return {
+    // One logical id per message, one envelope per delivery: the ids differ in
+    // production and the store must not assume they are the same string.
+    messageId: `msg-${envelopeId}`,
     envelopeId,
     accountId,
     conversationId,
-    senderAccountId: accountId,
+    senderAccountId,
     senderDeviceNumber: 1,
     recipientAccountId: 'peer',
     recipientDeviceNumber: 1,
@@ -84,14 +98,106 @@ function message(envelopeId: string, accountId: string, conversationId: string, 
     clientTimestamp,
     serverTimestamp: clientTimestamp,
     attachments: [],
-    replyToEnvelopeId: null,
+    replyTo: null,
+    forwardFrom: null,
     isPinned: false,
     reactions: [],
     status: 'sent' as const,
   }
 }
 
+/**
+ * Builds the database as the previous version left it, then lets the app open it.
+ *
+ * This is the path every existing install takes on the first load after an
+ * update, and it is the only one that can silently lose a message history — so
+ * it is exercised here rather than reconstructed on trust.
+ */
+async function seedLegacyDatabase(): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open('friendshub', 1)
+    request.onerror = () => reject(request.error ?? new Error('could not open the old database'))
+    request.onupgradeneeded = () => {
+      const database = request.result
+      database.createObjectStore('accounts', { keyPath: 'id' })
+      const conversations = database.createObjectStore('conversations', {
+        keyPath: ['accountId', 'id'],
+      })
+      conversations.createIndex('byUpdated', ['accountId', 'updatedAt'])
+      const messages = database.createObjectStore('messages', { keyPath: 'envelopeId' })
+      messages.createIndex('byConversation', ['accountId', 'conversationId', 'clientTimestamp'])
+      messages.createIndex('byConversationServer', ['accountId', 'conversationId', 'serverTimestamp'])
+      database.createObjectStore('crypto_state', { keyPath: 'accountId' })
+      const pinned = database.createObjectStore('pinned', {
+        keyPath: ['accountId', 'conversationId', 'envelopeId'],
+      })
+      database.createObjectStore('settings', { keyPath: 'key' })
+      database.createObjectStore('devices_cache', { keyPath: ['accountId', 'peerAccountId'] })
+      const attachments = database.createObjectStore('attachments', {
+        keyPath: ['accountId', 'id'],
+      })
+      attachments.createIndex('byConversation', ['accountId', 'conversationId'])
+
+      // One message and one pin, in the shape the old contract wrote them.
+      messages.put({
+        ...message('legacy-1', ACCOUNT_A, CONV_A1, 500),
+        messageId: undefined,
+        replyToEnvelopeId: null,
+        envelopeIdsByDevice: { 'peer:1': 'legacy-1' },
+      })
+      // Through the upgrade transaction's own store handle: a second
+      // transaction cannot be started from inside a versionchange one.
+      pinned.put({
+        accountId: ACCOUNT_A,
+        conversationId: CONV_A1,
+        envelopeId: 'legacy-1',
+        pinnedAt: 5,
+      })
+    }
+    request.onsuccess = () => {
+      request.result.close()
+      resolve()
+    }
+  })
+}
+
+async function runMigrationChecks(): Promise<void> {
+  await deleteDatabase()
+  await seedLegacyDatabase()
+
+  // Opening at the new version is what runs the upgrade.
+  const database = await openDatabase()
+  const message_ = (await database.get('messages', 'legacy-1')) as
+    | (Record<string, unknown> & { messageId?: string })
+    | undefined
+
+  check(
+    'an old message keeps its history and gains a logical id',
+    message_?.messageId === 'legacy-1' && message_?.plaintext !== undefined,
+    JSON.stringify(message_?.messageId),
+  )
+  check(
+    'the fields the contract retired are gone',
+    message_ !== undefined &&
+      message_['replyToEnvelopeId'] === undefined &&
+      message_['envelopeIdsByDevice'] === undefined,
+  )
+  check(
+    'and the new index finds it by that id',
+    (await getMessageByMessageId(ACCOUNT_A, CONV_A1, 'legacy-1'))?.envelopeId === 'legacy-1',
+  )
+
+  const pins = await listPinned(ACCOUNT_A, CONV_A1)
+  check(
+    'an old pin is re-keyed onto the logical id',
+    pins.length === 1 && pins[0]?.messageId === 'legacy-1',
+    JSON.stringify(pins),
+  )
+}
+
 async function runWriteChecks(): Promise<void> {
+  await runMigrationChecks()
+
   await deleteDatabase()
   const database = await openDatabase()
 
@@ -259,17 +365,79 @@ async function runWriteChecks(): Promise<void> {
   check('and lands as soon as the lock is free', afterUnlock === 'snapshot-a2')
 
   // --- pinned ---
-  await pinMessage(ACCOUNT_A, CONV_A1, 'e101')
-  await pinMessage(ACCOUNT_A, CONV_A1, 'e102')
+  await pinMessage(ACCOUNT_A, CONV_A1, 'msg-e101', 'e101')
+  await pinMessage(ACCOUNT_A, CONV_A1, 'msg-e102', 'e102')
   const pins = await listPinned(ACCOUNT_A, CONV_A1)
   check(
     'pins are listed oldest first and scoped to the conversation',
-    pins.length === 2 && pins[0]?.envelopeId === 'e101' && pins[1]?.envelopeId === 'e102',
+    pins.length === 2 && pins[0]?.messageId === 'msg-e101' && pins[1]?.messageId === 'msg-e102',
   )
   check('pinning also flags the message', (await getMessage(ACCOUNT_A, 'e101'))?.isPinned === true)
-  await unpinMessage(ACCOUNT_A, CONV_A1, 'e101')
+  await unpinMessage(ACCOUNT_A, CONV_A1, 'msg-e101', 'e101')
   check('unpinning clears the flag', (await getMessage(ACCOUNT_A, 'e101'))?.isPinned === false)
   check('and removes the pin record', (await listPinned(ACCOUNT_A, CONV_A1)).length === 1)
+
+  // --- the logical id, and the server stamp that read receipts compare against ---
+  check(
+    'a message is found by its logical id within its conversation',
+    (await getMessageByMessageId(ACCOUNT_A, CONV_A1, 'msg-e103'))?.envelopeId === 'e103',
+  )
+  check(
+    'and not from another conversation',
+    (await getMessageByMessageId(ACCOUNT_A, CONV_A2, 'msg-e103')) === null,
+  )
+  check(
+    'a receipt records the server stamp',
+    (await updateServerTimestamp(ACCOUNT_A, 'e103', 5_000)) === true &&
+      (await getMessage(ACCOUNT_A, 'e103'))?.serverTimestamp === 5_000,
+  )
+  check(
+    'and a stamp equal to the stored one changes nothing',
+    (await updateServerTimestamp(ACCOUNT_A, 'e103', 5_000)) === false,
+  )
+
+  // --- the unread badge counts only what somebody else wrote ---
+  await saveMessages([message('in1', ACCOUNT_A, CONV_A3, 900, 'peer')])
+  await saveMessages([message('own1', ACCOUNT_A, CONV_A3, 901)])
+  check(
+    'own messages are never unread',
+    (await countIncomingAfter(ACCOUNT_A, CONV_A3, 0)) === 1,
+    `${await countIncomingAfter(ACCOUNT_A, CONV_A3, 0)} counted`,
+  )
+
+  // --- the payload contract survives an encode and a decode ---
+  const roundTrip = parseKnownPayload(
+    JSON.parse(
+      hexToUtf8(
+        encodePayload({
+          kind: 'message',
+          message_id: 'm-1',
+          text: 'привет',
+          reply_to: { message_id: 'm-0', preview: 'previous', sender_account_id: 'acc-x' },
+          forward_from: null,
+          attachment_ids: ['a-1'],
+          created_at: 1_700_000_000,
+        }),
+      ),
+    ),
+  )
+  check(
+    'a message payload survives the wire format',
+    roundTrip?.kind === 'message' &&
+      roundTrip.text === 'привет' &&
+      roundTrip.reply_to?.message_id === 'm-0' &&
+      roundTrip.attachment_ids[0] === 'a-1',
+  )
+  check(
+    'a reaction with a null emoji parses as a removal',
+    parseKnownPayload({ kind: 'reaction', target_message_id: 'm-1', emoji: null, created_at: 1 })
+      ?.kind === 'reaction',
+  )
+  check('an unknown kind is refused rather than guessed at', parseKnownPayload({ kind: 'nope' }) === null)
+  check(
+    'a retracted field is refused too',
+    parseKnownPayload({ kind: 'edit', target_envelope_id: 'e1', new_plaintext_hex: '00' }) === null,
+  )
 
   // --- settings ---
   await setSetting(SETTING_KEY, SETTING_VALUE)

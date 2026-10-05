@@ -9,7 +9,7 @@ import {
   type ContactName,
 } from '../state/conversationIdentity'
 import type { ConversationRecord } from '../storage/db'
-import { countMessagesAfter, getMessages } from '../storage/messages'
+import { countIncomingAfter, getMessages } from '../storage/messages'
 import { listPinned } from '../storage/pinned'
 import { loadHiddenConversations, loadPeerCache, loadReadState } from '../storage/read_state'
 import type { Account } from '../types'
@@ -159,7 +159,7 @@ async function assembleRow(
 ): Promise<ChatListRowData> {
   const [lastPage, unread, pinned] = await Promise.all([
     getMessages(account.id, conversation.id, { limit: 1 }),
-    countMessagesAfter(account.id, conversation.id, context.readState[conversation.id] ?? 0),
+    countIncomingAfter(account.id, conversation.id, context.readState[conversation.id] ?? 0),
     listPinned(account.id, conversation.id),
   ])
 

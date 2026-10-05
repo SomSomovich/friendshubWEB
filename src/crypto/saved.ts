@@ -92,9 +92,9 @@ export async function loadSavedHistory(
         account,
         conversation.id,
         envelope,
-        received.plaintext ?? '',
+        received.payload,
         // It reached the server and came back: from this device's point of view
-        // it is delivered, and there is no receipt channel for saved messages.
+        // it is sent, and there is no receipt channel for saved messages.
         'sent',
         savedEnvelope.serverTimestamp,
       ),

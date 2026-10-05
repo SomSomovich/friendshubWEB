@@ -6,7 +6,7 @@ import { fh } from './proto/friendshub.js'
 export type FrameHandlers = {
   onHello(hello: fh.ServerHello): void
   onDelivery(envelopes: ReturnType<typeof fromProtoEnvelopesLenient>): void
-  onReceipt(envelopeIds: string[]): void
+  onReceipt(envelopeIds: string[], serverTimestamps: number[]): void
   onPong(clientTimestamp: number): void
   onPresence(event: PresenceEvent): void
   onBotMessage(event: BotMessageEvent): void
@@ -39,6 +39,11 @@ export function dispatchFrame(frame: fh.ServerFrame, handlers: FrameHandlers): v
     case 'receipt':
       handlers.onReceipt(
         (frame.receipt?.envelopeIds ?? []).map((id: Uint8Array) => bytesToUuid(id)),
+        // Parallel to the ids and filled only by the server. A missing or
+        // mismatched list yields zeros rather than throwing: the ack itself is
+        // still worth having, and a timestamp of 0 simply never marks anything
+        // read.
+        (frame.receipt?.serverTimestamps ?? []).map((stamp) => toPlainNumber(stamp)),
       )
       return
 

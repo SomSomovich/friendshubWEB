@@ -1,4 +1,11 @@
-import { deleteDB, openDB, type DBSchema, type IDBPDatabase } from 'idb'
+import {
+  deleteDB,
+  openDB,
+  type DBSchema,
+  type IDBPDatabase,
+  type IDBPTransaction,
+  type StoreNames,
+} from 'idb'
 import type { Account, Attachment, Conversation, Message } from '../types'
 
 /**
@@ -11,29 +18,30 @@ export const DATABASE_NAME = 'friendshub'
 
 /**
  * Bump this together with a branch in `upgradeSchema`. Existing stores are never
- * recreated: that would drop the user's message history.
+ * recreated: that would drop the user's message history, which is the one thing
+ * in this database that cannot be fetched again.
+ *
+ * 2 — the payload contract moved every message to a JSON body with a logical
+ *     `messageId`, so rows written before it have to be given one.
  */
-export const DATABASE_VERSION = 1
+export const DATABASE_VERSION = 2
 
 /** The account record is keyed by its own id, so it needs no prefix. */
 export type ConversationRecord = Conversation & { accountId: string }
-export type MessageRecord = Message & {
-  accountId: string
-  /**
-   * For a message this device sent: the id of the envelope each recipient device
-   * received, keyed by `${accountId}:${deviceNumber}`.
-   *
-   * An edit, a reaction or a delete carries the id of the message *as that device
-   * knows it*, so the mapping has to be kept from the moment the envelopes go out.
-   */
-  envelopeIdsByDevice?: Record<string, string>
-}
+export type MessageRecord = Message & { accountId: string }
 export type AttachmentRecord = Attachment & { accountId: string }
 export type CryptoStateRecord = { accountId: string; json: string; updatedAt: number }
+/**
+ * A pin names its message by the logical id, not by an envelope.
+ *
+ * The server does the same (API_FRONTEND.txt §11), and one message has as many
+ * envelope ids as the recipient has devices — so an envelope-keyed pin would
+ * stop meaning anything the moment a second device existed.
+ */
 export type PinnedRecord = {
   accountId: string
   conversationId: string
-  envelopeId: string
+  messageId: string
   pinnedAt: number
 }
 export type SettingRecord = { key: string; value: string }
@@ -69,6 +77,12 @@ export interface FriendsHubDB extends DBSchema {
     indexes: {
       byConversation: [string, string, number]
       byConversationServer: [string, string, number]
+      /**
+       * The logical id, so an edit or a reaction that arrives for a message
+       * outside the open window can still be applied. Envelope ids cannot do
+       * this job: one message has as many of them as the recipient has devices.
+       */
+      byMessageId: string
     }
   }
   crypto_state: { key: string; value: CryptoStateRecord }
@@ -92,8 +106,8 @@ let databasePromise: Promise<IDBPDatabase<FriendsHubDB>> | null = null
 export function openDatabase(): Promise<IDBPDatabase<FriendsHubDB>> {
   if (databasePromise === null) {
     databasePromise = openDB<FriendsHubDB>(DATABASE_NAME, DATABASE_VERSION, {
-      upgrade(database, oldVersion) {
-        upgradeSchema(database, oldVersion)
+      upgrade(database, oldVersion, _newVersion, transaction) {
+        return upgradeSchema(database, oldVersion, transaction)
       },
       blocked() {
         console.warn(
@@ -114,7 +128,11 @@ export function openDatabase(): Promise<IDBPDatabase<FriendsHubDB>> {
   return databasePromise
 }
 
-function upgradeSchema(database: IDBPDatabase<FriendsHubDB>, oldVersion: number): void {
+async function upgradeSchema(
+  database: IDBPDatabase<FriendsHubDB>,
+  oldVersion: number,
+  transaction: IDBPTransaction<FriendsHubDB, StoreNames<FriendsHubDB>[], 'versionchange'>,
+): Promise<void> {
   if (oldVersion < 1) {
     database.createObjectStore('accounts', { keyPath: 'id' })
 
@@ -132,7 +150,9 @@ function upgradeSchema(database: IDBPDatabase<FriendsHubDB>, oldVersion: number)
     ])
 
     database.createObjectStore('crypto_state', { keyPath: 'accountId' })
-    database.createObjectStore('pinned', { keyPath: ['accountId', 'conversationId', 'envelopeId'] })
+    // Created without its key path here; the version 2 branch below is what
+    // builds it, so a fresh database and an upgraded one end up identical.
+
     database.createObjectStore('settings', { keyPath: 'key' })
     database.createObjectStore('devices_cache', { keyPath: ['accountId', 'peerAccountId'] })
 
@@ -142,8 +162,84 @@ function upgradeSchema(database: IDBPDatabase<FriendsHubDB>, oldVersion: number)
     attachments.createIndex('byConversation', ['accountId', 'conversationId'])
   }
 
+  if (oldVersion < 2) {
+    // Rows written by the previous contract have no logical id and a reply field
+    // that no longer exists. The copy's own envelope id is the only sane stand-in:
+    // it is unique, stable, and every later operation on that message will then
+    // address it by this value.
+    await migrateMessagesToLogicalIds(transaction)
+    transaction.objectStore('messages').createIndex('byMessageId', 'messageId')
+    await migratePinsToMessageIds(database, transaction)
+  }
+
   // Later versions add `if (oldVersion < N) { ... }` branches here, and never
   // recreate an existing store.
+}
+
+/**
+ * Rebuilds the pin store around `messageId`.
+ *
+ * A key path cannot be changed in place, so the store is dropped and recreated
+ * inside the same transaction — the rows are read first and written back, so
+ * nothing is lost. A pin written before the contract named its message by its
+ * envelope id, and for those rows the two are the same value.
+ */
+async function migratePinsToMessageIds(
+  database: IDBPDatabase<FriendsHubDB>,
+  transaction: IDBPTransaction<FriendsHubDB, StoreNames<FriendsHubDB>[], 'versionchange'>,
+): Promise<void> {
+  const existing = database.objectStoreNames.contains('pinned')
+  const legacy = existing
+    ? ((await transaction.objectStore('pinned').getAll()) as Array<
+        PinnedRecord & { envelopeId?: string }
+      >)
+    : []
+  const migrated = legacy.map((row) => ({
+    accountId: row.accountId,
+    conversationId: row.conversationId,
+    messageId: row.messageId ?? row.envelopeId ?? '',
+    pinnedAt: row.pinnedAt,
+  }))
+
+  // The store methods live on the connection, not on the transaction, even
+  // though only a versionchange transaction may call them. A fresh database has
+  // no store to drop — the version 1 branch deliberately leaves this one to be
+  // built here, so that a new database and an upgraded one end up identical.
+  if (existing) {
+    database.deleteObjectStore('pinned')
+  }
+  const store = database.createObjectStore('pinned', {
+    keyPath: ['accountId', 'conversationId', 'messageId'],
+  })
+  for (const row of migrated) {
+    await store.put(row)
+  }
+}
+
+/** Gives pre-`messageId` rows one, and drops the fields the contract retired. */
+async function migrateMessagesToLogicalIds(
+  transaction: IDBPTransaction<FriendsHubDB, StoreNames<FriendsHubDB>[], 'versionchange'>,
+): Promise<void> {
+  const store = transaction.objectStore('messages')
+  let cursor = await store.openCursor()
+
+  while (cursor !== null) {
+    const legacy = cursor.value as MessageRecord & Record<string, unknown>
+    const next: MessageRecord = {
+      ...legacy,
+      messageId: typeof legacy.messageId === 'string' ? legacy.messageId : legacy.envelopeId,
+      replyTo: null,
+      forwardFrom: null,
+    }
+
+    // Dead weight from the old contract: a per-device envelope map that nothing
+    // reads now that actions are addressed by the logical id.
+    delete (next as Record<string, unknown>)['envelopeIdsByDevice']
+    delete (next as Record<string, unknown>)['replyToEnvelopeId']
+
+    await cursor.update(next)
+    cursor = await cursor.continue()
+  }
 }
 
 /**
