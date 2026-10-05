@@ -15,6 +15,12 @@ export type PresenceEvent = {
   customStatusExpiresAt: number | null
 }
 
+/** Somebody is typing. Nothing is stored, and nothing says when they stop. */
+export type TypingEvent = {
+  conversationId: string
+  accountId: string
+}
+
 export type BotMessageEvent = {
   messageId: string
   botId: string
@@ -75,6 +81,7 @@ export type WsClientEvents = {
     serverTimestamps: number[]
   }
   presence: PresenceEvent
+  typing: TypingEvent
   botMessage: BotMessageEvent
   channelPost: ChannelPostEvent
 }

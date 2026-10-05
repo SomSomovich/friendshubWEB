@@ -114,6 +114,11 @@ export class WsClient extends TypedEmitter<WsClientEvents> {
     return this.sender.ackEnvelopes(envelopeIds)
   }
 
+  /** See `FrameSender.sendTyping`. Throws when the socket is not open. */
+  sendTyping(conversationId: string): void {
+    this.sender.sendTyping(conversationId)
+  }
+
   /** Round-trip time in milliseconds, measured by an echoed ping. */
   ping(timeoutMs?: number): Promise<number> {
     return this.sender.ping(timeoutMs)
@@ -282,6 +287,9 @@ export class WsClient extends TypedEmitter<WsClientEvents> {
     },
     onPresence: (presence) => {
       this.emit('presence', presence)
+    },
+    onTyping: (typing) => {
+      this.emit('typing', typing)
     },
     onBotMessage: (botMessage) => {
       this.emit('botMessage', botMessage)

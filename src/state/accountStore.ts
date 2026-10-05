@@ -27,6 +27,7 @@ import { uuidV7 } from '../utils/uuid'
 import { getActiveClientOrNull, requireActiveClient } from '../ws/activeClient'
 import { clearIdentityChanges, type IdentityChange } from '../wasm'
 import type { PresenceEvent } from '../ws/events'
+import { TYPING_TTL_SECONDS, withTyping, type TypingState } from '../utils/typing'
 import { applyReceivedEnvelope, mergeById } from './applyEnvelope'
 import { enqueue, listOutbox, removeFromOutbox } from './outbox'
 import { useUiStore } from './uiStore'
@@ -41,8 +42,6 @@ import { useUiStore } from './uiStore'
  */
 
 const MESSAGE_PAGE_SIZE = 50
-/** How long a typing indicator stays visible after the last signal. */
-const TYPING_TTL_SECONDS = 5
 
 export type AccountStoreState = {
   accountId: string
@@ -58,8 +57,13 @@ export type AccountStoreState = {
   activeConversationId: string | null
   /** Latest presence per peer account id. */
   presence: Record<string, PresenceEvent>
-  /** Conversation id → unix seconds until which the peer is typing. */
-  typing: Record<string, number>
+  /**
+   * Conversation id → account id → unix seconds until which that account is
+   * typing. Per account rather than per conversation because a group can have
+   * several people typing at once, and the header says something different when
+   * it does.
+   */
+  typing: TypingState
   /** Unacknowledged peer identity changes; cleared by `acknowledgeIdentityChanges`. */
   identityChanges: IdentityChange[]
   /**
@@ -93,7 +97,8 @@ export type AccountActions = {
   /** Records the server's stamp for envelopes this device uploaded. */
   applyReceipt: (envelopeIds: string[], serverTimestamps: number[]) => Promise<void>
   setPresence: (event: PresenceEvent) => void
-  setTyping: (conversationId: string) => void
+  /** Records that `accountId` is typing in a conversation, for a few seconds. */
+  setTyping: (conversationId: string, accountId: string) => void
   /** Applies a local change to one message in the open window and in storage. */
   patchMessage: (envelopeId: string, patch: Partial<MessageRecord>) => Promise<void>
   /** Drops one message from the open window and from storage. */
@@ -108,10 +113,6 @@ export type AccountActions = {
 
 export type AccountStore = AccountStoreState & { actions: AccountActions }
 
-/** True while a peer's typing indicator has not expired. */
-export function typingIsActive(untilSeconds: number, now: number = nowSeconds()): boolean {
-  return untilSeconds > now
-}
 
 export function createAccountStore(account: Account): StoreApi<AccountStore> {
   const initialState: AccountStoreState = {
@@ -402,8 +403,10 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
         set({ presence: { ...get().presence, [event.accountId]: event } })
       },
 
-      setTyping(conversationId) {
-        set({ typing: { ...get().typing, [conversationId]: nowSeconds() + TYPING_TTL_SECONDS } })
+      setTyping(conversationId, accountId) {
+        set({
+          typing: withTyping(get().typing, conversationId, accountId, nowSeconds() + TYPING_TTL_SECONDS),
+        })
       },
 
       async patchMessage(envelopeId, patch) {

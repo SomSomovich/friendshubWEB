@@ -33,6 +33,7 @@ import { listPinned, pinMessage, unpinMessage } from '../src/storage/pinned'
 import { getSetting, setSetting } from '../src/storage/settings'
 import { encodePayload, parseKnownPayload } from '../src/crypto/payloads'
 import { hexToUtf8 } from '../src/utils/hex'
+import { activeTypers, TYPING_TTL_SECONDS, withTyping, type TypingState } from '../src/utils/typing'
 
 type Check = { name: string; passed: boolean; detail?: string }
 
@@ -437,6 +438,37 @@ async function runWriteChecks(): Promise<void> {
   check(
     'a retracted field is refused too',
     parseKnownPayload({ kind: 'edit', target_envelope_id: 'e1', new_plaintext_hex: '00' }) === null,
+  )
+
+  // --- typing, which expires on its own because nothing says it stopped ---
+  const now = 1_000
+  let typing: TypingState = {}
+  check('nobody is typing in a conversation with no entry', activeTypers(typing, CONV_A1, now).length === 0)
+
+  typing = withTyping(typing, CONV_A1, 'peer-1', now + TYPING_TTL_SECONDS)
+  check('a fresh indicator is shown', activeTypers(typing, CONV_A1, now).join() === 'peer-1')
+  check('and only in its own conversation', activeTypers(typing, CONV_A2, now).length === 0)
+  check(
+    'and it expires without anything having to cancel it',
+    activeTypers(typing, CONV_A1, now + TYPING_TTL_SECONDS).length === 0,
+  )
+
+  typing = withTyping(typing, CONV_A1, 'peer-2', now + TYPING_TTL_SECONDS)
+  check(
+    'a second person typing joins the first rather than replacing them',
+    activeTypers(typing, CONV_A1, now).sort().join() === 'peer-1,peer-2',
+  )
+
+  // Two people, two different expiries: the older indicator goes while the
+  // newer one stays, which is the case a single per-conversation timestamp
+  // could not express.
+  let staggered: TypingState = {}
+  staggered = withTyping(staggered, CONV_A1, 'early', now + 2)
+  staggered = withTyping(staggered, CONV_A1, 'late', now + TYPING_TTL_SECONDS)
+  check(
+    'an expired indicator drops out while a fresh one stays',
+    activeTypers(staggered, CONV_A1, now + 3).join() === 'late',
+    activeTypers(staggered, CONV_A1, now + 3).join(),
   )
 
   // --- settings ---

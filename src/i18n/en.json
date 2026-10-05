@@ -231,6 +231,10 @@
       "banner": "Editing a message",
       "cancel": "Cancel editing",
       "save": "Save"
+    },
+    "typing": {
+      "one": "{{name}} is typing…",
+      "many": "several people are typing…"
     }
   },
   "chatList": {

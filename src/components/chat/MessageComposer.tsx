@@ -22,6 +22,8 @@ export type MessageComposerProps = {
   onSubmitEdit: (text: string) => Promise<void>
   /** Blocks sending while a conversation is still being read. */
   disabled: boolean
+  /** Called on a keystroke that adds text; the caller throttles it. */
+  onTyping: () => void
   /** Focuses the field when the search overlay closes. */
   focusToken: number
 }
@@ -38,6 +40,7 @@ export function MessageComposer({
   onSubmitEdit,
   disabled,
   focusToken,
+  onTyping,
 }: MessageComposerProps) {
   const { t } = useTranslation()
   const toast = useToast()
@@ -180,6 +183,11 @@ export function MessageComposer({
           disabled={disabled}
           onChange={(event) => {
             setValue(event.target.value)
+            // Only forward: deleting is not typing, and reporting it would keep
+            // the indicator alive while the field empties.
+            if (event.target.value.length > value.length) {
+              onTyping()
+            }
           }}
           onKeyDown={(event) => {
             // Enter sends, Shift+Enter breaks the line. An IME composition is

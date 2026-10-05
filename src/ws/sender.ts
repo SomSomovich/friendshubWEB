@@ -49,6 +49,17 @@ export class FrameSender {
     }
   }
 
+  /**
+   * Reports that this device is typing in a conversation.
+   *
+   * A frame of its own rather than an envelope: typing is not a message, has no
+   * recipient device and is never stored — sending it as `ENVELOPE_TYPE_TYPING`
+   * is rejected by the server outright.
+   */
+  sendTyping(conversationId: string): void {
+    this.sendFrame({ typing: { conversationId: uuidToBytes(conversationId) } })
+  }
+
   /** Acknowledges delivered envelopes so the server stops replaying them. */
   async ackEnvelopes(envelopeIds: string[]): Promise<void> {
     for (let index = 0; index < envelopeIds.length; index += MAX_ENVELOPES_PER_FRAME) {

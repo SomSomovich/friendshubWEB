@@ -53,6 +53,10 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     store.getState().actions.setPresence(event)
   })
 
+  const detachTyping = client.on('typing', ({ conversationId, accountId }) => {
+    store.getState().actions.setTyping(conversationId, accountId)
+  })
+
   // A connection is the moment the queue from the last disconnection can go out,
   // and one of the two moments a conversation's pins can have changed without
   // this device noticing. The other is opening the conversation.
@@ -76,6 +80,7 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     detachDelivery()
     detachReceipt()
     detachPresence()
+    detachTyping()
     detachConnected()
   }
 }

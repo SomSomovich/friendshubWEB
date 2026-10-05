@@ -50,7 +50,10 @@ import {
   setHistoryCursor,
   setPinnedBannerHidden,
 } from '../storage/read_state'
+import { getActiveClientOrNull } from '../ws/activeClient'
 import { useUiStore } from '../state/uiStore'
+import { nowSeconds } from '../utils/time'
+import { activeTypers } from '../utils/typing'
 import type { Account } from '../types'
 
 /**
@@ -75,6 +78,18 @@ export function ChatScreen() {
   return <ChatView key={id} account={account} conversationId={id} />
 }
 
+/**
+ * Group size past which typing is not reported.
+ *
+ * The server stops fanning it out beyond its own threshold (`TYPING_MAX_GROUP_MEMBERS`),
+ * and sending into that would spend a rate limit shared with the whole
+ * conversation on frames nobody receives. Thirty is the figure the protocol
+ * documents as typical, and erring low costs only a missing indicator.
+ */
+const TYPING_MAX_GROUP_MEMBERS = 30
+/** How often this device may report typing, per conversation (API_FRONTEND.txt §27). */
+const TYPING_THROTTLE_MS = 3_000
+
 function ChatView({ account, conversationId }: { account: Account; conversationId: string }) {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
@@ -88,6 +103,7 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
   const pins = usePins(account, conversationId)
 
   const messages = useStore(store, (state) => state.messages)
+  const typing = useStore(store, (state) => state.typing)
   const loadingMessages = useStore(store, (state) => state.loadingMessages)
   const hasOlder = useStore(store, (state) => state.hasOlder)
 
@@ -102,6 +118,11 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
   const [attachment, setAttachment] = useState<{ file: File; kind: AttachmentKind } | null>(null)
   const [busy, setBusy] = useState(false)
   const [focusToken, setFocusToken] = useState(0)
+  /** When typing was last reported here, for the throttle below. */
+  const lastTypingSentRef = useRef(0)
+  // Ticks so the "typing" line disappears on its own five seconds after the last
+  // frame; nothing arrives to say it stopped.
+  const [typingClock, setTypingClock] = useState(() => nowSeconds())
 
   const search = useChatSearch(account, conversationId, searchOpen)
 
@@ -115,6 +136,15 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
   }, [store, account.id, conversationId])
 
   useEffect(() => {
+    const timer = setInterval(() => {
+      setTypingClock(nowSeconds())
+    }, 2_000)
+    return () => {
+      clearInterval(timer)
+    }
+  }, [])
+
+  useEffect(() => {
     if (highlight === null) {
       return
     }
@@ -125,6 +155,22 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
       clearTimeout(timer)
     }
   }, [highlight])
+
+  /**
+   * Whether typing is worth reporting here at all.
+   *
+   * The server does not fan it out for a channel, a saved conversation or a
+   * large group, and the rate limit is per (account, conversation) — sending
+   * into that would spend the budget on frames nobody receives.
+   */
+  const typingAllowed =
+    conversation !== null &&
+    (conversation.kind === 'direct' ||
+      (conversation.kind === 'group' && conversation.memberCount <= TYPING_MAX_GROUP_MEMBERS))
+
+  const typers = activeTypers(typing, conversationId, typingClock).filter(
+    (id) => id !== account.id,
+  )
 
   const isGroup = conversation?.kind === 'group'
   const senderIds = useMemo(
@@ -149,6 +195,27 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
     return conversation.title ?? t('chatList.unknownPeer')
   }, [conversation, contactName, peer.profile, loadingConversation, t])
 
+  /**
+   * What to say about somebody typing, or `null`.
+   *
+   * Computed rather than memoised: `activeTypers` returns a fresh list on every
+   * render, so a memo here would never hit — and the value that feeds the
+   * subtitle below is this string, which compares by value.
+   */
+  const typingLine =
+    conversation === null || typers.length === 0
+      ? null
+      : typers.length === 1
+        ? t('chat.typing.one', {
+            // A one-to-one conversation has exactly one possible typer, and
+            // their name is already the title; a group needs a lookup.
+            name:
+              conversation.kind === 'direct'
+                ? title
+                : (senderNames.get(typers[0] ?? '') ?? t('chatList.unknownPeer')),
+          })
+        : t('chat.typing.many')
+
   const subtitle = useMemo(() => {
     if (conversation === null) {
       return null
@@ -156,11 +223,16 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
     if (conversation.kind === 'saved') {
       return account.fhNumber
     }
+    // Somebody typing displaces the usual subtitle: it is the more interesting
+    // fact, and it is what the reader is waiting on.
+    if (typingLine !== null) {
+      return typingLine
+    }
     if (conversation.kind === 'direct') {
       return presenceText(peer.presence, i18n.language, t)
     }
     return t('chat.memberCount', { count: conversation.memberCount })
-  }, [conversation, peer.presence, i18n.language, t, account.fhNumber])
+  }, [conversation, peer.presence, i18n.language, t, account.fhNumber, typingLine])
 
   const senderNameFor = (message: MessageRecord): string => {
     if (message.senderAccountId === account.id) {
@@ -172,6 +244,37 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
       return title
     }
     return senderNames.get(message.senderAccountId) ?? t('chatList.unknownPeer')
+  }
+
+  /**
+   * Tells the conversation that somebody is typing.
+   *
+   * Throttled to one frame per three seconds, which is the server's own rule.
+   * Sent as a keystroke happens rather than on a timer: there is no "stopped"
+   * frame, so a stream of them is what keeps the indicator alive, and it expires
+   * on its own five seconds after the last.
+   */
+  function reportTyping(): void {
+    if (!typingAllowed) {
+      return
+    }
+    const now = Date.now()
+    if (now - lastTypingSentRef.current < TYPING_THROTTLE_MS) {
+      return
+    }
+
+    const client = getActiveClientOrNull()
+    if (client?.isConnected !== true) {
+      return
+    }
+    try {
+      client.sendTyping(conversationId)
+      lastTypingSentRef.current = now
+    } catch (error) {
+      // A frame that could not go out is not worth interrupting the typing it
+      // was reporting.
+      console.warn('[chat] the typing frame was not sent', error)
+    }
   }
 
   function report(cause: unknown, fallbackKey: 'chat.actionFailed'): void {
@@ -529,6 +632,7 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
           // Remounting on a new edit target is what refills the field; see the
           // component's initial state.
           key={editing?.envelopeId ?? 'new-message'}
+          onTyping={reportTyping}
           editing={editing}
           onCancelEdit={() => {
             setEditing(null)

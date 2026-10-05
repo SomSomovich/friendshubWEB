@@ -1,5 +1,13 @@
-import { bytesToUuid, fromProtoEnvelopesLenient, toBotMessageEvent, toChannelPostEvent, toPlainNumber, toPresenceEvent } from './envelope'
-import type { BotMessageEvent, ChannelPostEvent, PresenceEvent } from './events'
+import {
+  bytesToUuid,
+  fromProtoEnvelopesLenient,
+  toBotMessageEvent,
+  toChannelPostEvent,
+  toPlainNumber,
+  toPresenceEvent,
+  toTypingEvent,
+} from './envelope'
+import type { BotMessageEvent, ChannelPostEvent, PresenceEvent, TypingEvent } from './events'
 import { fh } from './proto/friendshub.js'
 
 /** What the client does with each kind of frame that arrives. */
@@ -9,6 +17,7 @@ export type FrameHandlers = {
   onReceipt(envelopeIds: string[], serverTimestamps: number[]): void
   onPong(clientTimestamp: number): void
   onPresence(event: PresenceEvent): void
+  onTyping(event: TypingEvent): void
   onBotMessage(event: BotMessageEvent): void
   onChannelPost(event: ChannelPostEvent): void
   onError(error: fh.ErrorFrame): void
@@ -77,13 +86,17 @@ export function dispatchFrame(frame: fh.ServerFrame, handlers: FrameHandlers): v
       }
       return
 
-    // Recognised and deliberately dropped for now. Both are new frames the
-    // server already sends, and the logic that consumes them arrives in its own
-    // subphase; naming them here keeps a silent rollout from looking like a
-    // frame this build cannot decode.
     case 'typing':
+      if (frame.typing) {
+        handlers.onTyping(toTypingEvent(frame.typing as fh.TypingDelivery))
+      }
+      return
+
+    // Recognised and deliberately dropped for now: the logic that consumes it
+    // arrives in its own subphase, and naming it here keeps a silent rollout
+    // from looking like a frame this build cannot decode.
     case 'readReceipt':
-      console.info(`[ws] ${frame.kind} frame received; not handled yet`)
+      console.info('[ws] readReceipt frame received; not handled yet')
       return
 
     default:
