@@ -3,6 +3,7 @@ import { ChatIndexScreen } from '../screens/ChatIndexScreen'
 import { ConnectScreen } from '../screens/ConnectScreen'
 import { TwoFactorScreen } from '../screens/TwoFactorScreen'
 import { TwoFactorSetupScreen } from '../screens/TwoFactorSetupScreen'
+import { BotChatScreen } from '../screens/BotChatScreen'
 import { ChatScreen } from '../screens/ChatScreen'
 import { CreateChannelScreen } from '../screens/CreateChannelScreen'
 import { CreateGroupScreen } from '../screens/CreateGroupScreen'
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
           { index: true, element: <ChatIndexScreen /> },
           { path: '2fa', element: <TwoFactorSetupScreen /> },
           { path: CHAT_ROUTE_PATTERN, element: <ChatScreen /> },
+          { path: 'bot/:id', element: <BotChatScreen /> },
           { path: 'settings', element: <SettingsScreen /> },
           { path: 'settings/account', element: <AccountSettingsScreen /> },
           { path: 'settings/appearance', element: <AppearanceSettingsScreen /> },

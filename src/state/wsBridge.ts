@@ -62,6 +62,20 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     store.getState().actions.setReadMarker(conversationId, accountId, lastReadAt)
   })
 
+  // A bot's reply is its own frame rather than an envelope, so it arrives here
+  // rather than through the decryption path.
+  const detachBotMessage = client.on('botMessage', (event) => {
+    store.getState().actions.appendBotMessage(event.botId, {
+      id: event.messageId,
+      botId: event.botId,
+      senderAccountId: account.id,
+      direction: 'from_bot',
+      text: event.text,
+      replyToId: event.replyToMessageId,
+      createdAt: event.createdAt,
+    })
+  })
+
   // A connection is the moment the queue from the last disconnection can go out,
   // and one of the two moments a conversation's pins can have changed without
   // this device noticing. The other is opening the conversation.
@@ -99,6 +113,7 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     detachPresence()
     detachTyping()
     detachReadReceipt()
+    detachBotMessage()
     detachConnected()
   }
 }

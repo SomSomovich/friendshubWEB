@@ -6,9 +6,9 @@ import { subscribeChannel } from '../../api/channels'
 import { joinGroup } from '../../api/groups'
 import type { SearchEntityType, SearchResult } from '../../api/search'
 import { useActionReporter } from '../../hooks/useActionReporter'
-import { useToast } from '../../hooks/useToast'
 import { useGlobalSearch } from '../../hooks/useGlobalSearch'
-import { chatPath } from '../../router/paths'
+import { botPath, chatPath } from '../../router/paths'
+import { focusableRows, searchInput, SEARCH_RESULTS_ID } from '../../utils/searchDom'
 import { requireAccountStore } from '../../state/accountRegistry'
 import { useUiStore } from '../../state/uiStore'
 import type { Account } from '../../types'
@@ -42,7 +42,6 @@ const SECTIONS: ReadonlyArray<{ type: SearchEntityType; labelKey: ParseKeys }> =
 export function SearchResults({ account, query, knownConversationIds }: SearchResultsProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const toast = useToast()
   const fail = useActionReporter('search')
   const openProfile = useUiStore((state) => state.openProfile)
 
@@ -80,10 +79,9 @@ export function SearchResults({ account, query, knownConversationIds }: SearchRe
         void openConversation(result.entityId, 'channel')
         return
       default:
-        // Bots are searchable and not chattable from here: this client has no
-        // bot module at all, and opening a conversation with one would need an
-        // endpoint it has never called.
-        toast.notify({ kind: 'info', message: t('search.botUnavailable') })
+        // A bot is not an account and has no conversation, so it opens a thread
+        // of its own rather than a chat.
+        void navigate(botPath(result.entityId))
     }
   }
 
@@ -107,8 +105,39 @@ export function SearchResults({ account, query, knownConversationIds }: SearchRe
     )
   }
 
+  /**
+   * Arrow keys move between the rows, Escape leaves the list.
+   *
+   * Nothing is trapped: the rows are buttons, so Enter and Space already do the
+   * obvious thing, and Tab still moves on to whatever is next on the page.
+   */
+  function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
+    const rows = focusableRows(event.currentTarget)
+    if (rows.length === 0) {
+      return
+    }
+
+    const current = rows.findIndex((row) => row === document.activeElement)
+    if (event.key === 'Escape') {
+      // Back to the field, which is where the typing happens.
+      searchInput()?.focus()
+      return
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      const step = event.key === 'ArrowDown' ? 1 : -1
+      const next = current < 0 ? 0 : (current + step + rows.length) % rows.length
+      rows[next]?.focus()
+      return
+    }
+    if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault()
+      rows[event.key === 'Home' ? 0 : rows.length - 1]?.focus()
+    }
+  }
+
   return (
-    <div className="flex flex-col gap-3 px-1 py-2">
+    <div id={SEARCH_RESULTS_ID} onKeyDown={onKeyDown} className="flex flex-col gap-3 px-1 py-2">
       {SECTIONS.map((section) => {
         const entries = shown.filter((result) => result.entityType === section.type)
         if (entries.length === 0) {

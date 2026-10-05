@@ -9,6 +9,7 @@ import { Avatar } from '../ui/Avatar'
 import { LanguageSwitcher } from '../LanguageSwitcher'
 import { ThemeSwitcher } from '../ThemeSwitcher'
 import { ChatList } from './ChatList'
+import { focusableRows, searchResults, SEARCH_INPUT_ID } from '../../utils/searchDom'
 import { HamburgerMenu } from './HamburgerMenu'
 
 /**
@@ -47,10 +48,27 @@ export function AppSidebar() {
           aria-hidden
         />
         <input
+          id={SEARCH_INPUT_ID}
           type="search"
           value={query}
           onChange={(event) => {
             setQuery(event.target.value)
+          }}
+          onKeyDown={(event) => {
+            // Down from the field steps into the results, which is the gesture a
+            // combobox trained everyone to expect.
+            if (event.key !== 'ArrowDown') {
+              return
+            }
+            const results = searchResults()
+            if (results === null) {
+              return
+            }
+            const rows = focusableRows(results)
+            if (rows.length > 0) {
+              event.preventDefault()
+              rows[0]?.focus()
+            }
           }}
           placeholder={t('chatList.searchPlaceholder')}
           aria-label={t('chatList.searchPlaceholder')}

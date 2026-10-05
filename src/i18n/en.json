@@ -589,7 +589,13 @@
     },
     "nothing": "Nothing matches “{{query}}”",
     "noIdentifier": "no handle",
-    "botUnavailable": "Bot chats are not supported yet.",
     "hint": "Start with “@” to search by FH number or handle."
+  },
+  "bots": {
+    "title": "Bot",
+    "subtitle": "An automated counterpart",
+    "empty": "No messages yet",
+    "emptyHint": "Say something to the bot.",
+    "placeholder": "Message the bot"
   }
 }

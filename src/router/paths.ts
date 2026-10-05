@@ -52,6 +52,10 @@ export function addAccountPath(): string {
   return `${ROUTES.login}?add=1`
 }
 
+export function botPath(botId: string): string {
+  return `${ROUTES.app}/bot/${encodeURIComponent(botId)}`
+}
+
 export function chatPath(conversationId: string): string {
   return `${ROUTES.app}/chat/${encodeURIComponent(conversationId)}`
 }

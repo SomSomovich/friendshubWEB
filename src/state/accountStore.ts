@@ -21,6 +21,7 @@ import {
   updateMessage,
   updateServerTimestamp,
 } from '../storage/messages'
+import type { BotMessage } from '../api/bots'
 import type { Account, Envelope } from '../types'
 import { nowSeconds } from '../utils/time'
 import { uuidV7 } from '../utils/uuid'
@@ -70,6 +71,12 @@ export type AccountStoreState = {
    * source rather than from whatever the last request happened to return.
    */
   readMarkers: Record<string, Record<string, number>>
+  /**
+   * Bot threads, newest last. A bot is not a conversation — it has no members,
+   * no envelopes and no conversation id — so its history is kept apart, keyed by
+   * the bot it belongs to.
+   */
+  botThreads: Record<string, BotMessage[]>
   /** Unacknowledged peer identity changes; cleared by `acknowledgeIdentityChanges`. */
   identityChanges: IdentityChange[]
   /**
@@ -116,6 +123,10 @@ export type AccountActions = {
   setReadMarker: (conversationId: string, accountId: string, lastReadAt: number) => void
   /** Replaces a conversation's markers wholesale, from `GET /reads`. */
   applyReadMarkers: (conversationId: string, markers: Record<string, number>) => void
+  /** Replaces a bot thread with its history. */
+  setBotThread: (botId: string, messages: BotMessage[]) => void
+  /** Adds one message to a bot thread, keeping the order by creation time. */
+  appendBotMessage: (botId: string, message: BotMessage) => void
   /** Applies a local change to one message in the open window and in storage. */
   patchMessage: (envelopeId: string, patch: Partial<MessageRecord>) => Promise<void>
   /** Drops one message from the open window and from storage. */
@@ -141,6 +152,7 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
     presence: {},
     typing: {},
     readMarkers: {},
+    botThreads: {},
     identityChanges: [],
     messagesVersion: 0,
     loadingConversations: false,
@@ -465,6 +477,25 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
 
       applyReadMarkers(conversationId, markers) {
         set({ readMarkers: { ...get().readMarkers, [conversationId]: markers } })
+      },
+
+      setBotThread(botId, messages) {
+        set({ botThreads: { ...get().botThreads, [botId]: messages } })
+      },
+
+      appendBotMessage(botId, message) {
+        const thread = get().botThreads[botId] ?? []
+        // A message the socket announced can also be in the page that was just
+        // fetched; the id is what keeps the thread from showing it twice.
+        if (thread.some((entry) => entry.id === message.id)) {
+          return
+        }
+        set({
+          botThreads: {
+            ...get().botThreads,
+            [botId]: [...thread, message].sort((left, right) => left.createdAt - right.createdAt),
+          },
+        })
       },
 
       async patchMessage(envelopeId, patch) {
