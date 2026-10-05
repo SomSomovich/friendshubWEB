@@ -400,7 +400,10 @@
       "granted": "Granted",
       "denied": "Denied — allow it in the browser's settings",
       "prompt": "Not asked yet",
-      "unsupported": "Not supported by this browser"
+      "unsupported": "Not supported by this browser",
+      "reRegister": "Re-register this device",
+      "subscribed": "This device is subscribed to push",
+      "disabled": "The server has no VAPID key configured, so push is off. Notifications arrive while the tab is open."
     },
     "accounts": {
       "title": "Accounts",
@@ -565,9 +568,9 @@
       "body": "Let the browser show notifications while the tab is in the background?",
       "allow": "Allow",
       "later": "Not now",
-      "noKey": "The permission was granted, but this build has no VAPID key: a Web Push subscription is not available. Notifications will arrive while the tab is open.",
       "denied": "The browser refused the request. You can change it in the site's settings.",
-      "failed": "The permission could not be requested."
+      "failed": "The permission could not be requested.",
+      "disabled": "The permission was granted, but the server has no VAPID key configured: it cannot wake this device. Notifications will arrive while the tab is open."
     }
   },
   "search": {

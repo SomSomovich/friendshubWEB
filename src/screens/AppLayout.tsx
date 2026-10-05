@@ -5,6 +5,7 @@ import { InstallBanner } from '../components/pwa/InstallBanner'
 import { OfflineBanner } from '../components/pwa/OfflineBanner'
 import { PushPrompt } from '../components/pwa/PushPrompt'
 import { useAccountConnection } from '../hooks/useAccountConnection'
+import { usePushRegistration } from '../hooks/usePushRegistration'
 import { ROUTES } from '../router/paths'
 import { cn } from '../utils/cn'
 
@@ -23,6 +24,7 @@ import { cn } from '../utils/cn'
 export function AppLayout() {
   const onIndex = useMatch({ path: ROUTES.app, end: true }) !== null
   useAccountConnection()
+  usePushRegistration()
 
   return (
     <div className="app-viewport flex min-h-0 flex-col bg-bg text-fg">

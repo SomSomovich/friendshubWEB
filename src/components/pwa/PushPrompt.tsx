@@ -46,16 +46,18 @@ export function PushPrompt() {
   }
 
   async function allow(): Promise<void> {
-    if (accountId === null) {
+    if (account === null) {
       return
     }
     setBusy(true)
     try {
-      const outcome = await subscribeToPush(accountId)
+      const outcome = await subscribeToPush(account)
       close()
 
-      if (outcome.kind === 'no-key') {
-        toast.notify({ kind: 'info', message: t('pwa.push.noKey') })
+      if (outcome.kind === 'disabled') {
+        // Permission granted and still useful — it is what lets the app raise a
+        // notification from the page — but the server cannot wake the device.
+        toast.notify({ kind: 'info', message: t('pwa.push.disabled') })
       } else if (outcome.kind === 'denied') {
         toast.notify({ kind: 'info', message: t('pwa.push.denied') })
       } else if (outcome.kind === 'failed') {

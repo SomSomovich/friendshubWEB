@@ -1,8 +1,11 @@
 import { BellRing } from 'lucide-react'
-import type { ParseKeys } from 'i18next'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ensurePushRegistered, subscribeToPush, type PushOutcome } from '../../pwa/push'
 import { useActionReporter } from '../../hooks/useActionReporter'
+import { useToast } from '../../hooks/useToast'
+import { useActiveAccount } from '../../hooks/useActiveAccount'
+import type { TFunction } from 'i18next'
 import {
   readNotificationPrefs,
   writeNotificationPrefs,
@@ -91,7 +94,9 @@ export function SoundPanel({ account }: { account: Account }) {
 /** The browser's permission for system notifications, and the button to ask. */
 export function PushPanel() {
   const { t } = useTranslation()
-  const fail = useActionReporter('notifications')
+  const toast = useToast()
+  const fail = useActionReporter('push')
+  const account = useActiveAccount()
 
   // Read once, lazily: the permission can only change through this screen or the
   // browser's own settings, and re-reading it on every render buys nothing.
@@ -99,11 +104,56 @@ export function PushPanel() {
     supported() ? Notification.permission : 'unsupported',
   )
   const [busy, setBusy] = useState(false)
+  const [outcome, setOutcome] = useState<PushOutcome | null>(null)
 
-  async function request(): Promise<void> {
+  async function enable(): Promise<void> {
+    if (account === null) {
+      return
+    }
     setBusy(true)
     try {
-      setPermission(await Notification.requestPermission())
+      const result = await subscribeToPush(account)
+      setOutcome(result)
+      setPermission(Notification.permission)
+
+      if (result.kind === 'disabled') {
+        toast.notify({ kind: 'info', message: t('settings.notifications.disabled') })
+      } else if (result.kind === 'denied') {
+        toast.notify({ kind: 'info', message: t('settings.notifications.denied') })
+      } else if (result.kind === 'failed') {
+        toast.notify({ kind: 'error', message: result.reason })
+      } else if (result.kind === 'subscribed') {
+        toast.notify({ kind: 'success', message: t('settings.notifications.subscribed') })
+      }
+    } catch (error) {
+      fail(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /**
+   * Re-registers an existing subscription without asking for anything.
+   *
+   * The browser's subscription outlives a sign-out, so this is the way to hand
+   * it to the server again — and the only way to find out whether the server has
+   * a VAPID key, which is why it reports the same outcomes as enabling.
+   */
+  async function reRegister(): Promise<void> {
+    if (account === null) {
+      return
+    }
+    setBusy(true)
+    try {
+      const result = await ensurePushRegistered(account)
+      setOutcome(result)
+      if (result.kind === 'disabled') {
+        toast.notify({ kind: 'info', message: t('settings.notifications.disabled') })
+      } else if (result.kind === 'subscribed') {
+        toast.notify({ kind: 'success', message: t('settings.notifications.subscribed') })
+      } else if (result.kind === 'failed') {
+        toast.notify({ kind: 'error', message: result.reason })
+      }
     } catch (error) {
       fail(error)
     } finally {
@@ -113,17 +163,30 @@ export function PushPanel() {
 
   return (
     <SettingsCard title={t('settings.notifications.push')} description={t('settings.notifications.pushHint')}>
-      <SettingsRow label={t('settings.notifications.permission')} description={describe(permission, t)}>
+      <SettingsRow label={t('settings.notifications.permission')} description={stateText(permission, outcome, t)}>
         {permission === 'default' ? (
           <Button
             size="sm"
             loading={busy}
+            disabled={account === null}
             onClick={() => {
-              void request()
+              void enable()
             }}
           >
             <BellRing className="size-4" aria-hidden />
             {t('settings.notifications.ask')}
+          </Button>
+        ) : permission === 'granted' ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={busy}
+            disabled={account === null}
+            onClick={() => {
+              void reRegister()
+            }}
+          >
+            {t('settings.notifications.reRegister')}
           </Button>
         ) : null}
       </SettingsRow>
@@ -135,11 +198,19 @@ function supported(): boolean {
   return typeof Notification !== 'undefined'
 }
 
-/** Every state a permission can be in, in words rather than as a raw string. */
-function describe(
+/** The permission, and what the last attempt at using it produced. */
+function stateText(
   permission: NotificationPermission | 'unsupported',
-  t: (key: ParseKeys) => string,
+  outcome: PushOutcome | null,
+  t: TFunction,
 ): string {
+  if (outcome?.kind === 'disabled') {
+    return t('settings.notifications.disabled')
+  }
+  if (outcome?.kind === 'subscribed') {
+    return t('settings.notifications.subscribed')
+  }
+
   switch (permission) {
     case 'granted':
       return t('settings.notifications.granted')

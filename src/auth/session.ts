@@ -13,6 +13,7 @@ import { useUiStore } from '../state/uiStore'
 import { listAccounts, purgeAccount, saveAccount } from '../storage/accounts'
 import { getSetting, setSetting } from '../storage/settings'
 import type { Account } from '../types'
+import { unsubscribeFromPush } from '../pwa/push'
 import { reset as resetCryptoState } from '../wasm'
 
 /**
@@ -162,6 +163,10 @@ export type { ConnectStep } from '../state/connection'
  * is why the failure is only logged.
  */
 export async function signOutAccount(account: Account): Promise<void> {
+  // Before the session goes: the endpoint needs the token, and a device that has
+  // signed out should stop being woken.
+  await unsubscribeFromPush(account)
+
   try {
     await logoutRequest({ sessionToken: account.sessionToken, deviceNumber: account.deviceNumber })
   } catch (error) {
