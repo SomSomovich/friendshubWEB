@@ -1,11 +1,11 @@
-import { FileText, Image as ImageIcon, Mic, Paperclip, Send, Video, X } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react'
+import { FileText, Image as ImageIcon, Mic, Paperclip, Send, Trash2, Video, X } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useToast } from '../../hooks/useToast'
+import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 import { cn } from '../../utils/cn'
 import { DropdownMenu, type DropdownItem } from '../ui/DropdownMenu'
 
-/** What the attachment menu offers. The pipeline behind it arrives in 4.9. */
+/** What the attachment menu offers. */
 export type AttachmentKind = 'photo' | 'video' | 'file'
 
 export type EditingState = {
@@ -15,7 +15,10 @@ export type EditingState = {
 
 export type MessageComposerProps = {
   onSend: (text: string) => Promise<void>
-  onPickFile: (file: File, kind: AttachmentKind) => void
+  /** Every file the picker returned, on its way to the preview overlay. */
+  onPickFile: (file: File) => void
+  /** A finished voice recording, on its way to the same overlay. */
+  onVoiceRecorded: (blob: Blob, name: string) => void
   /** Non-null replaces the composer with the edit field for that message. */
   editing: EditingState | null
   onCancelEdit: () => void
@@ -28,6 +31,9 @@ export type MessageComposerProps = {
   focusToken: number
 }
 
+/** How far left the finger has to travel to take the recording back. */
+const SWIPE_CANCEL_PX = -60
+
 /** Grows to five lines, then scrolls. Must match `leading-5` below. */
 const LINE_HEIGHT_PX = 20
 const MAX_ROWS = 5
@@ -35,6 +41,7 @@ const MAX_ROWS = 5
 export function MessageComposer({
   onSend,
   onPickFile,
+  onVoiceRecorded,
   editing,
   onCancelEdit,
   onSubmitEdit,
@@ -43,19 +50,19 @@ export function MessageComposer({
   onTyping,
 }: MessageComposerProps) {
   const { t } = useTranslation()
-  const toast = useToast()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const photoRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const recordingToastRef = useRef<string | null>(null)
+  const voice = useVoiceRecorder()
+  /** Where the press started, and whether it has slid far enough to be undone. */
+  const dragRef = useRef<{ x: number; cancel: boolean } | null>(null)
 
   // Seeded from the edit target and never synchronised afterwards: the caller
   // remounts this component when the target changes (its `key` carries the
   // envelope id), which is what refills the field without an effect that would
   // fight the user's typing.
   const [value, setValue] = useState(() => editing?.text ?? '')
-  const [recording, setRecording] = useState(false)
   const [busy, setBusy] = useState(false)
 
   useLayoutEffect(() => {
@@ -105,15 +112,13 @@ export function MessageComposer({
     input?.click()
   }
 
-  function handleFile(kind: AttachmentKind) {
-    return (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0]
-      // Cleared so picking the same file twice still fires a change event.
-      event.target.value = ''
-      if (file !== undefined) {
-        onPickFile(file, kind)
-      }
-    }
+  function handleFile(event: ChangeEvent<HTMLInputElement>): void {
+    // Every file it was given, not just the first: choosing a set of photos is
+    // one gesture, and asking for them one at a time is not the same thing.
+    const files = [...(event.target.files ?? [])]
+    // Cleared so picking the same file twice still fires a change event.
+    event.target.value = ''
+    files.forEach(onPickFile)
   }
 
   const menuItems: DropdownItem[] = [
@@ -122,30 +127,43 @@ export function MessageComposer({
     { id: 'file', label: t('chat.attach.file'), icon: FileText, onSelect: () => { pick('file') } },
   ]
 
-  function startRecording(): void {
-    if (recording) {
-      return
-    }
-    setRecording(true)
-    recordingToastRef.current = toast.notify({
-      kind: 'info',
-      message: t('chat.voice.recording'),
-      // Held open until the finger is lifted; the default timeout would dismiss
-      // a message that is still true.
-      timeoutMs: 60_000,
-    })
+  async function beginRecording(event: PointerEvent<HTMLButtonElement>): Promise<void> {
+    // Captured so lifting the finger anywhere still ends the press, and so a
+    // drag off the button is seen rather than lost.
+    event.currentTarget.setPointerCapture(event.pointerId)
+    dragRef.current = { x: event.clientX, cancel: false }
+    await voice.start()
   }
 
-  function stopRecording(): void {
-    if (!recording) {
+  function trackDrag(event: PointerEvent<HTMLButtonElement>): void {
+    const drag = dragRef.current
+    if (drag === null || drag.cancel) {
       return
     }
-    setRecording(false)
-    if (recordingToastRef.current !== null) {
-      toast.dismiss(recordingToastRef.current)
-      recordingToastRef.current = null
+    // Sliding away from the microphone is the gesture every messenger uses to
+    // take a recording back, and it is the one a thumb can make.
+    if (event.clientX - drag.x < SWIPE_CANCEL_PX) {
+      drag.cancel = true
+      voice.cancel()
     }
-    toast.notify({ kind: 'info', message: t('chat.voice.unavailable') })
+  }
+
+  async function endRecording(): Promise<void> {
+    const drag = dragRef.current
+    dragRef.current = null
+
+    if (drag?.cancel === true) {
+      voice.cancel()
+      return
+    }
+
+    const blob = await voice.finish()
+    if (blob === null) {
+      // Too short, or the microphone never opened. Saying nothing is right: a
+      // mis-tap produced nothing, and an error for one is noise.
+      return
+    }
+    onVoiceRecorded(blob, `voice-${Date.now()}.${extensionFor(blob.type)}`)
   }
 
   return (
@@ -167,7 +185,7 @@ export function MessageComposer({
       )}
 
       <div className="flex items-end gap-1 p-2">
-        {editing === null ? (
+        {editing === null && !voice.recording ? (
           <DropdownMenu
             trigger={<Paperclip className="size-5" aria-hidden />}
             triggerLabel={t('chat.attach.label')}
@@ -176,38 +194,54 @@ export function MessageComposer({
           />
         ) : null}
 
-        <textarea
-          ref={textareaRef}
-          rows={1}
-          value={value}
-          disabled={disabled}
-          onChange={(event) => {
-            setValue(event.target.value)
-            // Only forward: deleting is not typing, and reporting it would keep
-            // the indicator alive while the field empties.
-            if (event.target.value.length > value.length) {
-              onTyping()
-            }
-          }}
-          onKeyDown={(event) => {
-            // Enter sends, Shift+Enter breaks the line. An IME composition is
-            // still typing, so Enter there must not send anything.
-            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-              event.preventDefault()
-              void submit()
-            }
-          }}
-          placeholder={t('chat.composerPlaceholder')}
-          aria-label={t('chat.composerPlaceholder')}
-          style={{ maxHeight: `${LINE_HEIGHT_PX * MAX_ROWS + 16}px` }}
-          className={cn(
-            'min-h-10 min-w-0 flex-1 resize-none rounded-xl border border-border bg-bg px-3 py-2 text-sm leading-5 text-fg',
-            'overflow-y-auto placeholder:text-fg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-          )}
-        />
+        {voice.recording ? (
+          <span className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border border-danger/50 bg-bg px-3 text-sm text-fg">
+            <span className="size-2 shrink-0 animate-pulse rounded-full bg-danger" aria-hidden />
+            <span className="shrink-0 tabular-nums">{formatDuration(voice.seconds)}</span>
+            <span className="truncate text-xs text-fg-muted">{t('chat.voice.recordingHint')}</span>
+            <button
+              type="button"
+              aria-label={t('chat.voice.cancel')}
+              onClick={voice.cancel}
+              className="ml-auto flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-fg-muted hover:bg-bg-hover hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+            >
+              <Trash2 className="size-4" aria-hidden />
+            </button>
+          </span>
+        ) : (
+          <textarea
+            ref={textareaRef}
+            rows={1}
+            value={value}
+            disabled={disabled}
+            onChange={(event) => {
+              setValue(event.target.value)
+              // Only forward: deleting is not typing, and reporting it would keep
+              // the indicator alive while the field empties.
+              if (event.target.value.length > value.length) {
+                onTyping()
+              }
+            }}
+            onKeyDown={(event) => {
+              // Enter sends, Shift+Enter breaks the line. An IME composition is
+              // still typing, so Enter there must not send anything.
+              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                event.preventDefault()
+                void submit()
+              }
+            }}
+            placeholder={t('chat.composerPlaceholder')}
+            aria-label={t('chat.composerPlaceholder')}
+            style={{ maxHeight: `${LINE_HEIGHT_PX * MAX_ROWS + 16}px` }}
+            className={cn(
+              'min-h-10 min-w-0 flex-1 resize-none rounded-xl border border-border bg-bg px-3 py-2 text-sm leading-5 text-fg',
+              'overflow-y-auto placeholder:text-fg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+              'disabled:cursor-not-allowed disabled:opacity-50',
+            )}
+          />
+        )}
 
-        {value.trim().length > 0 ? (
+        {voice.recording ? null : value.trim().length > 0 ? (
           <button
             type="button"
             aria-label={editing === null ? t('chat.send') : t('chat.edit.save')}
@@ -228,21 +262,24 @@ export function MessageComposer({
           <button
             type="button"
             aria-label={t('chat.voice.record')}
-            title={t('chat.voice.record')}
-            aria-pressed={recording}
+            title={t('chat.voice.recordHint')}
+            aria-pressed={voice.recording}
             disabled={disabled}
             onPointerDown={(event) => {
-              // Captured so lifting the finger anywhere still ends the press,
-              // and so a drag off the button does not leave it stuck.
-              event.currentTarget.setPointerCapture(event.pointerId)
-              startRecording()
+              void beginRecording(event)
             }}
-            onPointerUp={stopRecording}
-            onPointerCancel={stopRecording}
+            onPointerMove={trackDrag}
+            onPointerUp={() => {
+              void endRecording()
+            }}
+            onPointerCancel={() => {
+              voice.cancel()
+              dragRef.current = null
+            }}
             className={cn(
               'flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors duration-150',
               'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-              recording
+              voice.recording
                 ? 'bg-danger text-danger-fg'
                 : 'text-fg-muted hover:bg-bg-hover hover:text-fg',
             )}
@@ -256,17 +293,33 @@ export function MessageComposer({
         ref={photoRef}
         type="file"
         accept="image/*"
+        multiple
         className="hidden"
-        onChange={handleFile('photo')}
+        onChange={handleFile}
       />
       <input
         ref={videoRef}
         type="file"
         accept="video/*"
+        multiple
         className="hidden"
-        onChange={handleFile('video')}
+        onChange={handleFile}
       />
-      <input ref={fileRef} type="file" className="hidden" onChange={handleFile('file')} />
+      <input ref={fileRef} type="file" multiple className="hidden" onChange={handleFile} />
     </div>
   )
+}
+
+/** The container a recording came out as, for the file it is named after. */
+function extensionFor(mimeType: string): string {
+  if (mimeType.includes('ogg')) {
+    return 'ogg'
+  }
+  return mimeType.includes('mp4') ? 'm4a' : 'webm'
+}
+
+/** `0:07`, the way a recorder shows it. */
+function formatDuration(seconds: number): string {
+  const minutes = Math.floor(seconds / 60)
+  return `${minutes}:${String(seconds % 60).padStart(2, '0')}`
 }

@@ -96,6 +96,13 @@ export type AccountActions = {
   closeConversation: (conversationId: string) => void
   loadOlderMessages: () => Promise<void>
   sendText: (plaintext: string) => Promise<void>
+  /**
+   * Sends a whole draft — text, replies, attachments.
+   *
+   * `sendText` is the one-field shorthand for it. Nothing here queues: an
+   * attachment has to be uploaded first, which needs a connection by definition.
+   */
+  sendDraft: (draft: MessageDraft) => Promise<void>
   sendToSaved: (plaintext: string) => Promise<void>
   /** Sends whatever was queued while the connection was down. */
   flushOutbox: () => Promise<void>
@@ -236,6 +243,27 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
           })
         } catch (error) {
           set({ loadingMessages: false, error: describe(error) })
+        }
+      },
+
+      async sendDraft(draft) {
+        const { activeConversationId } = get()
+        if (activeConversationId === null) {
+          throw new Error('[state] no conversation is open')
+        }
+
+        set({ sending: true, error: null })
+        try {
+          const record = await sendToOpenConversation(account, activeConversationId, draft, get())
+          await saveMessage(record)
+          set({
+            messages: mergeById([record], get().messages),
+            sending: false,
+            messagesVersion: get().messagesVersion + 1,
+          })
+        } catch (error) {
+          set({ sending: false, error: describe(error) })
+          throw error
         }
       },
 

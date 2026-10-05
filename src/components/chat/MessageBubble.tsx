@@ -2,6 +2,7 @@ import { Check, CheckCheck, Clock, MessageSquareDashed } from 'lucide-react'
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLongPress } from '../../hooks/useLongPress'
+import type { AttachmentMime } from '../../attachments/mime'
 import { useUiStore } from '../../state/uiStore'
 import type { MessageRecord } from '../../storage/db'
 import type { MessageStatus } from '../../types'
@@ -9,6 +10,7 @@ import { formatFullTimestamp, formatMessageTime } from '../../utils/chatTime'
 import { cn } from '../../utils/cn'
 import { countReactions } from '../../utils/reactions'
 import { splitLinks } from '../../utils/urls'
+import { AttachmentView } from './AttachmentView'
 import { MessageReactions } from './MessageReactions'
 
 export type MessageBubbleProps = {
@@ -29,6 +31,8 @@ export type MessageBubbleProps = {
   selfAccountId: string
   onContextMenu: (x: number, y: number) => void
   onToggleReaction: (emoji: string) => void
+  /** Opens one attachment full-screen. */
+  onOpenAttachment: (url: string, mime: AttachmentMime) => void
   registerNode: (envelopeId: string, element: HTMLLIElement | null) => void
 }
 
@@ -42,6 +46,7 @@ export function MessageBubble({
   selfAccountId,
   onContextMenu,
   onToggleReaction,
+  onOpenAttachment,
   registerNode,
 }: MessageBubbleProps) {
   const { t } = useTranslation()
@@ -88,6 +93,30 @@ export function MessageBubble({
             >
               {senderName}
             </button>
+          )}
+
+          {message.attachments.length === 0 ? null : (
+            // A grid because a message can carry several, and three pictures in
+            // a column is a wall rather than a message.
+            <div
+              className={cn(
+                'mb-1 grid gap-1',
+                message.attachments.length === 1
+                  ? 'grid-cols-1'
+                  : message.attachments.length === 2
+                    ? 'grid-cols-2'
+                    : 'grid-cols-3',
+              )}
+            >
+              {message.attachments.map((attachmentId) => (
+                <AttachmentView
+                  key={attachmentId}
+                  accountId={selfAccountId}
+                  attachmentId={attachmentId}
+                  onOpen={onOpenAttachment}
+                />
+              ))}
+            </div>
           )}
 
           {message.plaintext === null ? (

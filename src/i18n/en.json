@@ -220,12 +220,19 @@
       "file": "File",
       "name": "File name",
       "size": "Size",
-      "notYet": "Sending attachments arrives in the next update. For now the file is only shown."
+      "previewTitle": "Sending files",
+      "caption": "Caption",
+      "uncompressed": "Original quality",
+      "remove": "Remove {{name}}",
+      "sizeComparison": "{{from}} → {{to}}",
+      "waitingKey": "Waiting for the decryption key",
+      "unavailable": "The file is unavailable"
     },
     "voice": {
       "record": "Record a voice message",
-      "recording": "Recording…",
-      "unavailable": "Voice messages arrive in the next update."
+      "recordHint": "Hold to record a voice message",
+      "recordingHint": "Release to send, slide left to cancel",
+      "cancel": "Discard the recording"
     },
     "edit": {
       "banner": "Editing a message",

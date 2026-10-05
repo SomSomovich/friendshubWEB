@@ -48,6 +48,10 @@ export async function uploadAttachment(
   conversationId: string,
   bytes: Uint8Array,
   kind: AttachmentKind = 'attachment',
+  contentType: string | null = null,
+  fileName: string | null = null,
+  /** Called after each chunk lands, for a progress bar the user can believe. */
+  onChunkUploaded?: (done: number, total: number) => void,
 ): Promise<UploadedAttachment> {
   const key = await generateAttachmentKey()
   const plan = await recommendChunkSize(account, bytes.length)
@@ -78,6 +82,7 @@ export async function uploadAttachment(
       )
     }
     await putAttachmentChunk(upload.url, chunk)
+    onChunkUploaded?.(upload.chunkIndex + 1, initialised.chunkCount)
   }
 
   await finalizeAttachment(account, initialised.attachmentId)
@@ -91,6 +96,8 @@ export async function uploadAttachment(
     kind,
     keyHex: key.keyHex,
     baseNonceHex: key.baseNonceHex,
+    contentType,
+    fileName,
     localPath: null,
   }
   await saveAttachment(attachment)

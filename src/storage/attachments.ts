@@ -51,6 +51,8 @@ export async function setAttachmentKey(
     kind: 'attachment',
     keyHex: null,
     baseNonceHex: null,
+    contentType: null,
+    fileName: null,
     localPath: null,
   }
 

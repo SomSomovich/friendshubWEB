@@ -14,14 +14,12 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useStore } from 'zustand'
 import { addContact, removeContact } from '../api/contacts'
 import { muteConversation, unmuteConversation } from '../api/conversations'
-import { AttachmentPreviewDialog } from '../components/chat/AttachmentPreviewDialog'
+import { preparePending, releasePending, type PendingAttachment } from '../attachments/prepare'
+import { AttachmentComposer } from '../components/chat/AttachmentComposer'
+import { AttachmentViewer } from '../components/chat/AttachmentViewer'
 import { ChatHeader } from '../components/chat/ChatHeader'
 import { ChatSearchOverlay } from '../components/chat/ChatSearchOverlay'
-import {
-  MessageComposer,
-  type AttachmentKind,
-  type EditingState,
-} from '../components/chat/MessageComposer'
+import { MessageComposer, type EditingState } from '../components/chat/MessageComposer'
 import { MessageList, type MessageListHandle } from '../components/chat/MessageList'
 import { PinnedBanner } from '../components/chat/PinnedBanner'
 import { buildMessageMenuItems, buildReactionOptions } from '../components/chat/messageMenu'
@@ -53,6 +51,8 @@ import {
 } from '../storage/read_state'
 import { getActiveClientOrNull } from '../ws/activeClient'
 import { useUiStore } from '../state/uiStore'
+import type { AttachmentMime } from '../attachments/mime'
+import { uploadAll, type UploadProgress } from '../attachments/send'
 import { nowSeconds } from '../utils/time'
 import { readWatermark } from '../utils/readReceipts'
 import { activeTypers } from '../utils/typing'
@@ -120,7 +120,11 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
   const [pendingDelete, setPendingDelete] = useState<MessageRecord | null>(null)
   const [confirming, setConfirming] = useState<'clear' | 'delete' | null>(null)
   const [muteOpen, setMuteOpen] = useState(false)
-  const [attachment, setAttachment] = useState<{ file: File; kind: AttachmentKind } | null>(null)
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([])
+  const [caption, setCaption] = useState('')
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [viewer, setViewer] = useState<{ url: string; mime: AttachmentMime } | null>(null)
   const [busy, setBusy] = useState(false)
   const [focusToken, setFocusToken] = useState(0)
   /** When typing was last reported here, for the throttle below. */
@@ -313,6 +317,71 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
       return
     }
     setHighlight({ id: envelopeId, token: Date.now() })
+  }
+
+  /** Adds a picked file to the overlay, measuring it once for the size hint. */
+  async function addAttachment(file: File): Promise<void> {
+    try {
+      // Compressed by default: it is what most pictures want, and the checkbox
+      // is right there for the ones that do not.
+      const pending = await preparePending(file, true)
+      setAttachments((current) => [...current, pending])
+    } catch (error) {
+      report(error, 'chat.actionFailed')
+    }
+  }
+
+  /** Adds a finished recording; there is nothing to compress. */
+  function addVoiceNote(blob: Blob, name: string): void {
+    setAttachments((current) => [
+      ...current,
+      { id: crypto.randomUUID(), blob, name, compress: false, previewUrl: null, compressedSize: null },
+    ])
+  }
+
+  function discardAttachments(): void {
+    setAttachments((current) => {
+      current.forEach(releasePending)
+      return []
+    })
+    setCaption('')
+    setUploadError(null)
+    setUploadProgress(null)
+  }
+
+  /**
+   * Uploads what is in the overlay and sends the message that names it.
+   *
+   * Files first and the message second, in that order: the recipients need the
+   * keys before they need the message, or the first tap on a photo is an
+   * attachment nobody can open.
+   */
+  async function sendAttachments(): Promise<void> {
+    if (attachments.length === 0) {
+      return
+    }
+    setUploadError(null)
+
+    try {
+      const attachmentIds = await uploadAll({
+        account,
+        conversationId,
+        files: attachments.map((attachment) => ({
+          blob: attachment.blob,
+          name: attachment.name,
+          compress: attachment.compress,
+        })),
+        caption,
+        onProgress: setUploadProgress,
+      })
+
+      await store.getState().actions.sendDraft({ text: caption.trim(), attachmentIds })
+      discardAttachments()
+    } catch (cause) {
+      console.error('[chat] the attachments were not sent', cause)
+      setUploadError(cause instanceof Error ? cause.message : String(cause))
+      setUploadProgress(null)
+    }
   }
 
   async function send(text: string): Promise<void> {
@@ -647,6 +716,9 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
           onToggleReaction={(message, emoji) => {
             void react(message, emoji)
           }}
+          onOpenAttachment={(url, mime) => {
+            setViewer({ url, mime })
+          }}
         />
       </div>
 
@@ -662,13 +734,52 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
           }}
           onSend={send}
           onSubmitEdit={submitEdit}
-          onPickFile={(file, kind) => {
-            setAttachment({ file, kind })
+          onPickFile={(file) => {
+            void addAttachment(file)
           }}
+          onVoiceRecorded={addVoiceNote}
           disabled={loadingConversation}
           focusToken={focusToken}
         />
       )}
+
+      <AttachmentComposer
+        open={attachments.length > 0}
+        attachments={attachments}
+        caption={caption}
+        onCaptionChange={setCaption}
+        onToggleCompress={(id, compress) => {
+          setAttachments((current) =>
+            current.map((entry) => (entry.id === id ? { ...entry, compress } : entry)),
+          )
+        }}
+        onRemove={(id) => {
+          setAttachments((current) =>
+            current.filter((entry) => {
+              if (entry.id !== id) {
+                return true
+              }
+              releasePending(entry)
+              return false
+            }),
+          )
+        }}
+        progress={uploadProgress}
+        error={uploadError}
+        onSend={() => {
+          void sendAttachments()
+        }}
+        onClose={discardAttachments}
+      />
+
+      <AttachmentViewer
+        open={viewer !== null}
+        url={viewer?.url ?? null}
+        mime={viewer?.mime ?? null}
+        onClose={() => {
+          setViewer(null)
+        }}
+      />
 
       <ContextMenu
         open={menu !== null}
@@ -718,16 +829,6 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
           void chooseMute(choice)
         }}
       />
-
-      {attachment === null ? null : (
-        <AttachmentPreviewDialog
-          file={attachment.file}
-          kind={attachment.kind}
-          onClose={() => {
-            setAttachment(null)
-          }}
-        />
-      )}
 
       <ConfirmDialog
         open={confirming === 'clear'}

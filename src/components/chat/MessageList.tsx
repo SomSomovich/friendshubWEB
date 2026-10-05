@@ -10,6 +10,7 @@ import {
   type Ref,
 } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { AttachmentMime } from '../../attachments/mime'
 import type { MessageRecord } from '../../storage/db'
 import { dayKey, formatDayLabel } from '../../utils/chatTime'
 import { isMessageRead } from '../../utils/readReceipts'
@@ -49,6 +50,7 @@ export type MessageListProps = {
   highlightedId: string | null
   onMessageMenu: (message: MessageRecord, x: number, y: number) => void
   onToggleReaction: (message: MessageRecord, emoji: string) => void
+  onOpenAttachment: (url: string, mime: AttachmentMime) => void
   ref?: Ref<MessageListHandle>
 }
 
@@ -78,6 +80,7 @@ export function MessageList({
   highlightedId,
   onMessageMenu,
   onToggleReaction,
+  onOpenAttachment,
   ref,
 }: MessageListProps) {
   const { t } = useTranslation()
@@ -307,6 +310,7 @@ export function MessageList({
                     onToggleReaction={(emoji) => {
                       onToggleReaction(message, emoji)
                     }}
+                    onOpenAttachment={onOpenAttachment}
                     registerNode={registerNode}
                   />
                 ))}

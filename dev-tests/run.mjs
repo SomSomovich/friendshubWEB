@@ -728,6 +728,50 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
     )
 
     /**
+     * Picking a file, without a file picker.
+     *
+     * A real `File` through a real `DataTransfer` and a real `change` event, so
+     * the composer's own path is what runs — the only thing faked is the dialog
+     * a headless browser cannot show. Nothing is sent: the overlay is the last
+     * step before an upload, which is exactly the part worth looking at.
+     */
+    const pickFile = (doneText) => `(function () {
+      if (document.body.innerText.includes(${JSON.stringify(doneText)})) return true
+      if (window.__pickedFile === true) return false
+      const input = document.querySelector('input[type="file"][accept="image/*"]')
+      if (input === null) return false
+      window.__pickedFile = true
+
+      const canvas = document.createElement('canvas')
+      canvas.width = 8
+      canvas.height = 8
+      const context = canvas.getContext('2d')
+      context.fillStyle = '#fc9003'
+      context.fillRect(0, 0, 8, 8)
+      canvas.toBlob(function (blob) {
+        const file = new File([blob], 'harness.png', { type: 'image/png' })
+        const transfer = new DataTransfer()
+        transfer.items.add(file)
+        input.files = transfer.files
+        input.dispatchEvent(new Event('change', { bubbles: true }))
+      }, 'image/png')
+      return false
+    })()`
+
+    if (chatId !== null) {
+      captures.push({
+        label: 'chat-attachment-dark-ru',
+        route: null,
+        next: `/app/chat/${chatId}`,
+        theme: 'dark',
+        lang: 'ru',
+        size: '1280,800',
+        ready: pickFile('Отправка файлов'),
+        expect: ['Отправка файлов', 'harness.png', 'Без сжатия', 'Подпись', 'Убрать'],
+      })
+    }
+
+    /**
      * The notices the shell owns.
      *
      * Both need something the page cannot do by itself: the offline strip reads

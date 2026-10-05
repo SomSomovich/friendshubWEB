@@ -31,6 +31,8 @@ import {
 } from '../src/storage/messages'
 import { listPinned, pinMessage, unpinMessage } from '../src/storage/pinned'
 import { getSetting, setSetting } from '../src/storage/settings'
+import { detectMime } from '../src/attachments/mime'
+import { displayName } from '../src/attachments/display'
 import { encodePayload, parseKnownPayload } from '../src/crypto/payloads'
 import { hexToUtf8 } from '../src/utils/hex'
 import { isMessageRead, readWatermark } from '../src/utils/readReceipts'
@@ -405,6 +407,53 @@ async function runWriteChecks(): Promise<void> {
     'own messages are never unread',
     (await countIncomingAfter(ACCOUNT_A, CONV_A3, 0)) === 1,
     `${await countIncomingAfter(ACCOUNT_A, CONV_A3, 0)} counted`,
+  )
+
+  // --- what a downloaded file turns out to be ---
+  check(
+    'a WebP is recognised by its RIFF container and its form',
+    detectMime(new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50])).type ===
+      'image/webp',
+  )
+  check(
+    'a RIFF container that is not WebP is not claimed to be',
+    detectMime(new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x41, 0x56, 0x49, 0x20])).family ===
+      'file',
+  )
+  check(
+    'a PNG and a JPEG are told apart',
+    detectMime(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])).family === 'image' &&
+      detectMime(new Uint8Array([0xff, 0xd8, 0xff, 0xe0])).type === 'image/jpeg',
+  )
+  check(
+    'a PDF is a file rather than media',
+    detectMime(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])).family === 'file',
+  )
+
+  // The one case magic numbers cannot settle: the same container, two meanings.
+  const ebml = [0x1a, 0x45, 0xdf, 0xa3]
+  check(
+    'a WebM with a video track is a video',
+    detectMime(new Uint8Array([...ebml, 0, 0, 0, 0, 0x83, 0x81, 0x01, 0, 0])).family === 'video',
+  )
+  check(
+    'and one with only an audio track is a voice note',
+    detectMime(new Uint8Array([...ebml, 0, 0, 0, 0, 0x83, 0x81, 0x02, 0, 0])).type === 'audio/webm',
+  )
+  check(
+    'anything unrecognised is a file, not a guess',
+    detectMime(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])).family === 'file',
+  )
+
+  const unknown = { type: 'application/octet-stream', family: 'file' as const }
+  check(
+    'a received file with no name gets one with the right extension',
+    displayName(null, 'abcdef1234567890', unknown) === 'file-abcdef12',
+  )
+  check(
+    'and one the sender named keeps its name',
+    displayName('report.pdf', 'abcdef1234567890', { type: 'application/pdf', family: 'file' }) ===
+      'report.pdf',
   )
 
   // --- read receipts ---
