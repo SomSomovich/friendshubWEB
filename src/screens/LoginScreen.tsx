@@ -7,7 +7,7 @@ import { Input } from '../components/ui/Input'
 import { ApiError } from '../api/errors'
 import { persistSession, startLogin, storeChallenge } from '../auth/session'
 import { useToast } from '../hooks/useToast'
-import { ROUTES } from '../router/paths'
+import { ROUTES, isAddingAccount, withAddAccount } from '../router/paths'
 import { cn } from '../utils/cn'
 
 type RedirectState = { from?: string } | null
@@ -23,7 +23,7 @@ export function LoginScreen() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const addingAccount = new URLSearchParams(location.search).get('add') === '1'
+  const addingAccount = isAddingAccount(location.search)
   const from = (location.state as RedirectState)?.from
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -42,7 +42,9 @@ export function LoginScreen() {
 
       if (result.kind === 'totp_required') {
         storeChallenge({ fhNumber: trimmed, challengeToken: result.challengeToken })
-        void navigate(ROUTES.twoFactor)
+        // Carries `add` with it: a second account behind 2FA must not be dropped
+        // on the conversation list half way through its own sign-in.
+        void navigate(withAddAccount(ROUTES.twoFactor, location.search))
         return
       }
 
@@ -105,7 +107,10 @@ export function LoginScreen() {
         </Button>
 
         <div className="flex flex-col gap-2 text-center text-xs text-fg-muted">
-          <Link to={ROUTES.register} className={cn('font-medium text-accent hover:underline')}>
+          <Link
+            to={withAddAccount(ROUTES.register, location.search)}
+            className={cn('font-medium text-accent hover:underline')}
+          >
             {t('auth.toRegister')}
           </Link>
           <Link to={ROUTES.landing} className="hover:text-fg">

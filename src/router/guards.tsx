@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Spinner } from '../components/ui/Spinner'
 import { useUiStore } from '../state/uiStore'
-import { ROUTES } from './paths'
+import { ROUTES, isAddingAccount } from './paths'
 
 /**
  * Route guards.
@@ -51,8 +51,7 @@ export function RequireGuest() {
     return <SessionPending />
   }
 
-  const addingAnotherAccount = new URLSearchParams(location.search).get('add') === '1'
-  if (activeAccountId !== null && !addingAnotherAccount) {
+  if (activeAccountId !== null && !isAddingAccount(location.search)) {
     return <Navigate to={ROUTES.app} replace />
   }
   return <Outlet />

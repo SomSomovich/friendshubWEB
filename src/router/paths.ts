@@ -43,13 +43,37 @@ export function settingsPath(section: SettingsSection): string {
 export const CHAT_ROUTE_PATTERN = 'chat/:id'
 
 /**
- * Login reached from inside the app, to add a second account.
+ * The query flag that lets a signed-in visitor reach the sign-in screens.
  *
- * The guest guard would otherwise bounce a signed-in visitor straight back into
- * the app, so the entry point marks itself.
+ * The guest guard turns a signed-in visitor away from every one of them, so
+ * adding a second account has to announce itself — and the announcement has to
+ * survive every hop of the flow: login, registration, 2FA, and back again.
+ *
+ * A link that forgets it does not fail loudly. It silently drops the visitor on
+ * the conversation list, which is exactly what the "create an account" link on
+ * the sign-in screen used to do.
  */
+export const ADD_ACCOUNT_PARAM = 'add'
+
+/** Whether `search` — a `location.search` string — says an account is being added. */
+export function isAddingAccount(search: string): boolean {
+  return new URLSearchParams(search).get(ADD_ACCOUNT_PARAM) === '1'
+}
+
+/**
+ * Carries that flag from one guest screen to the next.
+ *
+ * Every `to` and every `navigate` inside the sign-in flow goes through here, so
+ * the parameter is spelled out in exactly one place and a new link cannot forget
+ * it by being written the obvious way.
+ */
+export function withAddAccount(to: string, search: string): string {
+  return isAddingAccount(search) ? `${to}?${ADD_ACCOUNT_PARAM}=1` : to
+}
+
+/** Login reached from inside the app, to add a second account. */
 export function addAccountPath(): string {
-  return `${ROUTES.login}?add=1`
+  return withAddAccount(ROUTES.login, `?${ADD_ACCOUNT_PARAM}=1`)
 }
 
 export function botPath(botId: string): string {

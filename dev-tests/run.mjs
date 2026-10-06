@@ -720,7 +720,41 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
       })
     }
 
+    /**
+     * Adding a second account, from the sign-in screen onwards.
+     *
+     * The regression this exists for: every screen of the sign-in flow is behind
+     * a guard that turns a signed-in visitor away, and the one thing that lets
+     * them through is `?add=1`. A link that dropped it did not fail loudly — it
+     * silently put the visitor back on the conversation list, which is what the
+     * "create an account" link used to do. So the check is end to end: start
+     * where the account switcher sends you, press that link, and require the
+     * registration form to be what comes up.
+     *
+     * The marker is the password rule, not the title or the button: the sign-in
+     * screen's "create an account" link and the registration screen's submit
+     * button carry the same words, so neither of those tells the two screens
+     * apart.
+     */
+    const addAccountProbe = `(function () {
+      if (document.body.innerText.includes('Минимум 8 символов')) return true
+      const link = [...document.querySelectorAll('a')].find((a) => a.textContent.trim() === 'Создать аккаунт')
+      if (link === undefined) return false
+      link.click()
+      return false
+    })()`
+
     captures.push(
+      {
+        label: 'add-account-dark-ru',
+        route: null,
+        next: '/login?add=1',
+        theme: 'dark',
+        lang: 'ru',
+        size: '1280,800',
+        ready: addAccountProbe,
+        expect: ['Регистрация', 'Минимум 8 символов'],
+      },
       {
         label: 'search-nothing-light-en',
         route: null,

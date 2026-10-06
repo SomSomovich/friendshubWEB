@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/errors'
 import { persistSession, registerAndStartLogin } from '../auth/session'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { useToast } from '../hooks/useToast'
-import { ROUTES } from '../router/paths'
+import { ROUTES, withAddAccount } from '../router/paths'
 
 /** The API accepts 8..128 characters; the client refuses anything shorter first. */
 const MIN_PASSWORD_LENGTH = 8
@@ -14,6 +14,7 @@ const MIN_PASSWORD_LENGTH = 8
 export function RegisterScreen() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const location = useLocation()
   const toast = useToast()
 
   const [password, setPassword] = useState('')
@@ -95,7 +96,10 @@ export function RegisterScreen() {
         </Button>
 
         <div className="flex flex-col gap-2 text-center text-xs text-fg-muted">
-          <Link to={ROUTES.login} className="font-medium text-accent hover:underline">
+          <Link
+            to={withAddAccount(ROUTES.login, location.search)}
+            className="font-medium text-accent hover:underline"
+          >
             {t('auth.toLogin')}
           </Link>
           <Link to={ROUTES.landing} className="hover:text-fg">

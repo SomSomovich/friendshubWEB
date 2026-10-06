@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/errors'
 import { clearChallenge, persistSession, readChallenge, startLoginWithTotp } from '../auth/session'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { useToast } from '../hooks/useToast'
-import { ROUTES } from '../router/paths'
+import { ROUTES, withAddAccount } from '../router/paths'
 
 /** TOTP is six digits; a backup code is ten characters. */
 const TOTP_LENGTH = 6
@@ -15,6 +15,7 @@ const BACKUP_CODE_PATTERN = /^[A-Za-z0-9-]{6,14}$/
 export function TwoFactorScreen() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const location = useLocation()
   const toast = useToast()
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -28,11 +29,13 @@ export function TwoFactorScreen() {
   // challenge expired, or the route was opened directly.
   useEffect(() => {
     if (challenge === null) {
-      void navigate(ROUTES.login, { replace: true })
+      // Back to sign-in with `add` intact, so a half-finished second account
+      // does not end up on the conversation list of the first one.
+      void navigate(withAddAccount(ROUTES.login, location.search), { replace: true })
       return
     }
     inputRef.current?.focus()
-  }, [challenge, navigate])
+  }, [challenge, navigate, location.search])
 
   if (challenge === null) {
     return null
@@ -129,7 +132,7 @@ export function TwoFactorScreen() {
             {backupMode ? t('auth.useTotp') : t('auth.useBackupCode')}
           </button>
           <Link
-            to={ROUTES.login}
+            to={withAddAccount(ROUTES.login, location.search)}
             onClick={() => {
               clearChallenge()
             }}
