@@ -14,6 +14,14 @@ export type ChatHeaderProps = {
   onBack: () => void
   searchOpen: boolean
   onToggleSearch: () => void
+  /**
+   * False for a group, a channel or Saved Messages.
+   *
+   * Call signalling is pairwise — one envelope per device of *one* peer — so
+   * there is nothing to send for a conversation with many members, and a button
+   * that could only ever apologise is worse than no button.
+   */
+  canCall: boolean
   onStartCall: (withVideo: boolean) => void
   menuItems: DropdownItem[]
 }
@@ -33,6 +41,7 @@ export function ChatHeader({
   onBack,
   searchOpen,
   onToggleSearch,
+  canCall,
   onStartCall,
   menuItems,
 }: ChatHeaderProps) {
@@ -75,20 +84,24 @@ export function ChatHeader({
         onClick={onToggleSearch}
         icon={<Search className="size-5" aria-hidden />}
       />
-      <IconButton
-        label={t('chat.call.video')}
-        onClick={() => {
-          onStartCall(true)
-        }}
-        icon={<Video className="size-5" aria-hidden />}
-      />
-      <IconButton
-        label={t('chat.call.audio')}
-        onClick={() => {
-          onStartCall(false)
-        }}
-        icon={<Phone className="size-5" aria-hidden />}
-      />
+      {canCall ? (
+        <>
+          <IconButton
+            label={t('call.video')}
+            onClick={() => {
+              onStartCall(true)
+            }}
+            icon={<Video className="size-5" aria-hidden />}
+          />
+          <IconButton
+            label={t('call.audio')}
+            onClick={() => {
+              onStartCall(false)
+            }}
+            icon={<Phone className="size-5" aria-hidden />}
+          />
+        </>
+      ) : null}
 
       <DropdownMenu
         trigger={<MoreVertical className="size-5" aria-hidden />}

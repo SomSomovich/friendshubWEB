@@ -115,6 +115,12 @@ export async function capturePage(options) {
       '--no-sandbox',
       '--no-first-run',
       '--no-default-browser-check',
+      // A headless browser has neither camera nor microphone, so `getUserMedia`
+      // rejects before any screen that calls it can be captured. These two give
+      // it a synthetic device and pre-accept the prompt, which is what makes the
+      // call screen capturable at all.
+      '--use-fake-device-for-media-stream',
+      '--use-fake-ui-for-media-stream',
       `--remote-debugging-port=${debugPort}`,
       `--user-data-dir=${profileDir}`,
       `--window-size=${windowSize}`,

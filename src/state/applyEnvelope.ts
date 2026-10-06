@@ -1,4 +1,4 @@
-import type { EditPayload, MessagePayload, ReactionPayload } from '../crypto/payloads'
+import type { CallPayload, EditPayload, MessagePayload, ReactionPayload } from '../crypto/payloads'
 import { buildMessageRecord, handleEnvelope } from '../crypto/receive'
 import type { MessageRecord } from '../storage/db'
 import {
@@ -29,6 +29,15 @@ export type EnvelopeApplyContext = {
   setError: (message: string) => void
   /** Called once a message row has been written. */
   onMessageStored: () => void
+  /**
+   * A decrypted call signalling frame.
+   *
+   * Handled through a callback rather than by importing the call layer here,
+   * because a call is not conversation state: it outlives the open window and
+   * has its own store. `payload` is `null` when a peer sent something this
+   * client cannot read, and the call layer decides what to do about that.
+   */
+  onCallSignal: (envelope: Envelope, payload: CallPayload | null) => void
   /** Acknowledges the envelope; called after the message is stored. */
   ack: (envelopeId: string) => Promise<void>
 }
@@ -58,9 +67,10 @@ export async function applyReceivedEnvelope(
         await applyReaction(received.payload, envelope.senderAccountId, envelope.conversationId, context)
         break
       case 'call':
-        // WebRTC signalling belongs to the call layer, which subscribes to the
-        // socket itself; the store has nothing to do with an offer.
-        console.info('[state] call signalling envelope received')
+        // WebRTC signalling is not conversation state: the call layer owns it,
+        // and it is reached through the context rather than imported, so this
+        // module stays free of the peer connection and its store.
+        context.onCallSignal(envelope, received.payload)
         break
       case 'sender_key':
       case 'attachment_key':

@@ -27,16 +27,6 @@ import {
  * record. See `preferences.ts` for why both.
  */
 
-export type CallStatus = 'idle' | 'ringing' | 'active' | 'ended'
-
-export type CallState = {
-  callId: string | null
-  peerAccountId: string | null
-  status: CallStatus
-  /** Audio-only or video, so the call screen knows which controls to show. */
-  withVideo: boolean
-}
-
 export type UiState = {
   theme: Theme
   language: Language
@@ -45,7 +35,6 @@ export type UiState = {
   sessionReady: boolean
   /** Mobile sidebar; on desktop the list is always visible. */
   sidebarOpen: boolean
-  callState: CallState
   /**
    * Whose profile the modal is showing.
    *
@@ -71,18 +60,9 @@ export type UiState = {
   setActiveAccount: (accountId: string | null) => void
   setSessionReady: (ready: boolean) => void
   setSidebarOpen: (open: boolean) => void
-  setCallState: (state: CallState) => void
-  clearCall: () => void
   openProfile: (accountId: string) => void
   closeProfile: () => void
   bumpAccountRevision: () => void
-}
-
-const IDLE_CALL: CallState = {
-  callId: null,
-  peerAccountId: null,
-  status: 'idle',
-  withVideo: false,
 }
 
 /** The theme the bootstrap script in index.html already applied to the document. */
@@ -101,7 +81,6 @@ export const useUiStore = create<UiState>((set, get) => ({
   activeAccountId: null,
   sessionReady: false,
   sidebarOpen: false,
-  callState: IDLE_CALL,
   profileAccountId: null,
   accountRevision: 0,
 
@@ -138,14 +117,6 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   setSidebarOpen: (open) => {
     set({ sidebarOpen: open })
-  },
-
-  setCallState: (state) => {
-    set({ callState: state })
-  },
-
-  clearCall: () => {
-    set({ callState: IDLE_CALL })
   },
 
   openProfile: (accountId) => {

@@ -192,11 +192,6 @@
       "reactWith": "React with {{emoji}}",
       "toggle": "{{emoji}}, {{n}} reactions"
     },
-    "call": {
-      "audio": "Audio call",
-      "video": "Video call",
-      "notYet": "Calls arrive in a later update."
-    },
     "contact": {
       "add": "Add to friends",
       "remove": "Remove from friends",
@@ -597,5 +592,36 @@
     "empty": "No messages yet",
     "emptyHint": "Say something to the bot.",
     "placeholder": "Message the bot"
+  },
+  "call": {
+    "incoming_from": "Incoming call from {{name}}",
+    "inProgress": "Call with {{name}}",
+    "accept": "Accept",
+    "decline": "Decline",
+    "audio": "Audio call",
+    "video": "Video call",
+    "end": "End call",
+    "speaker_on": "Speaker on",
+    "speaker_off": "Speaker off",
+    "camera_switch": "Switch camera",
+    "video_on": "Turn camera on",
+    "video_off": "Turn camera off",
+    "rejected": "Call declined",
+    "connection_lost": "Connection lost",
+    "duration": "Call duration",
+    "calling": "Calling…",
+    "connecting": "Connecting…",
+    "unknownPeer": "Unknown caller",
+    "yourVideo": "Your video",
+    "busy": "Another call is already in progress.",
+    "noConnection": "Not connected — a call cannot be sent.",
+    "noDevice": "The other person has no device that could take the call.",
+    "mediaError": "Microphone or camera access was denied.",
+    "iceError": "Could not get the connection settings. Try again later.",
+    "startFailed": "The call could not be started.",
+    "answerFailed": "The call could not be answered.",
+    "connectionFailed": "The connection could not be established.",
+    "noOtherCamera": "No other camera was found.",
+    "cameraFailed": "The camera could not be switched."
   }
 }

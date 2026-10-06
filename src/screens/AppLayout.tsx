@@ -1,4 +1,5 @@
 import { Outlet, useMatch } from 'react-router-dom'
+import { CallOverlay } from '../components/call/CallOverlay'
 import { AppSidebar } from '../components/layout/AppSidebar'
 import { UserProfileModal } from '../components/profile/UserProfileModal'
 import { InstallBanner } from '../components/pwa/InstallBanner'
@@ -53,6 +54,11 @@ export function AppLayout() {
       {/* One dialog for every avatar in the app; see the component's note. */}
       <UserProfileModal />
       <PushPrompt />
+
+      {/* Above every screen in the shell, because a call is not a screen's
+          property: it can start from a header, a menu or a profile, and it has
+          to be visible whichever of them the user is on. */}
+      <CallOverlay />
     </div>
   )
 }

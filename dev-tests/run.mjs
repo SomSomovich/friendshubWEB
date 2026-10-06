@@ -44,7 +44,13 @@ const BROWSERS = [
   'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
 ]
 
-/** Flags shared by every launch. */
+/**
+ * Flags shared by the launches that go through `launchAndCollect` and the
+ * one-shot `--dump-dom`/`--screenshot` runs.
+ *
+ * Not the screenshot path: `capturePage` in `driver.mjs` builds its own
+ * argument list, and anything it needs has to go there.
+ */
 const EDGE_FLAGS = [
   '--headless=new',
   '--disable-gpu',
@@ -768,6 +774,52 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
         size: '1280,800',
         ready: pickFile('Отправка файлов'),
         expect: ['Отправка файлов', 'harness.png', 'Без сжатия', 'Подпись', 'Убрать'],
+      })
+    }
+
+    /**
+     * Pressing the video-call button in the chat header.
+     *
+     * A live WebRTC session cannot be established in a headless browser — there
+     * is no second peer, and the ICE checks have nothing to succeed against — so
+     * what this capture proves is the part that *can* be automated: the call
+     * screen replaces the chat, its controls are all present, and the status
+     * line says it is calling. The media path itself is a manual test; see
+     * README_CALLS.md.
+     *
+     * The button is addressed by its accessible name, which is also the only
+     * name it has — the header's call controls are icon-only.
+     */
+    const pressCallButton = (label) => {
+      const selector = JSON.stringify(`button[aria-label="${label}"]`)
+      return `(function () {
+      const overlay = document.querySelector('[data-call-overlay]')
+      if (overlay === null) {
+        const button = document.querySelector(${selector})
+        if (button === null) return false
+        button.click()
+        return false
+      }
+      // The overlay is up from the click; the media (or the reason there is
+      // none) arrives a moment later, and a screenshot of the first frame would
+      // show neither the local preview nor the failure.
+      return overlay.querySelector('video, [role="alert"]') !== null
+    })()`
+    }
+
+    if (chatId !== null) {
+      captures.push({
+        label: 'call-outgoing-dark-ru',
+        route: null,
+        next: `/app/chat/${chatId}`,
+        seedChat: chatId,
+        theme: 'dark',
+        lang: 'ru',
+        size: '1280,800',
+        // The call screen is up from the moment the button is pressed, before
+        // any media is acquired, which is exactly what makes this capturable.
+        ready: pressCallButton('Видеозвонок'),
+        expect: ['Завершить', 'Динамик', 'Вызов'],
       })
     }
 

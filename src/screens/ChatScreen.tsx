@@ -14,6 +14,7 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useStore } from 'zustand'
 import { addContact, removeContact } from '../api/contacts'
 import { muteConversation, unmuteConversation } from '../api/conversations'
+import { startCall } from '../calls/manager'
 import { preparePending, releasePending, type PendingAttachment } from '../attachments/prepare'
 import { AttachmentComposer } from '../components/chat/AttachmentComposer'
 import { AttachmentViewer } from '../components/chat/AttachmentViewer'
@@ -309,6 +310,29 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
     toast.notify({ kind: 'error', message: message.length > 0 ? message : t(fallbackKey) })
   }
 
+  /**
+   * Starts a call to the other member of this conversation.
+   *
+   * The call manager reports its own failures on the call screen, so nothing is
+   * caught here — the only thing this has to decide is whether there is a peer
+   * to call at all, which for a direct chat is a question the conversation
+   * lookup has already answered.
+   */
+  function beginCall(withVideo: boolean): void {
+    if (peerAccountId === null) {
+      toast.notify({ kind: 'error', message: t('call.startFailed') })
+      return
+    }
+    void startCall(account, {
+      peerAccountId,
+      // The header's title, which is already the contact name or the profile
+      // name: the callee is told who is calling by the profile read instead.
+      peerName: title,
+      conversationId,
+      withVideo,
+    })
+  }
+
   /** Scrolls to a message and outlines it briefly. */
   function jumpTo(envelopeId: string): void {
     const found = listRef.current?.scrollToMessage(envelopeId) ?? false
@@ -545,7 +569,7 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
 
   function headerMenuItems(): DropdownItem[] {
     const kind = conversation?.kind ?? null
-    const withCalls = kind === 'direct' || kind === 'group'
+    const withCalls = kind === 'direct'
     const muted = conversation?.mutedUntil !== null && conversation?.mutedUntil !== undefined
 
     return [
@@ -553,18 +577,18 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
         ? [
             {
               id: 'audio-call',
-              label: t('chat.call.audio'),
+              label: t('call.audio'),
               icon: Phone,
               onSelect: () => {
-                toast.notify({ kind: 'info', message: t('chat.call.notYet') })
+                beginCall(false)
               },
             },
             {
               id: 'video-call',
-              label: t('chat.call.video'),
+              label: t('call.video'),
               icon: Video,
               onSelect: () => {
-                toast.notify({ kind: 'info', message: t('chat.call.notYet') })
+                beginCall(true)
               },
             },
           ]
@@ -662,9 +686,8 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
           }
           setSearchOpen(true)
         }}
-        onStartCall={() => {
-          toast.notify({ kind: 'info', message: t('chat.call.notYet') })
-        }}
+        canCall={conversation?.kind === 'direct'}
+        onStartCall={beginCall}
         menuItems={headerMenuItems()}
       />
 

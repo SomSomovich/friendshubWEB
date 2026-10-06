@@ -14,6 +14,7 @@ import { avatarImageUrl } from '../../api/avatars'
 import { addContact, blockAccount, removeContact, unblockAccount } from '../../api/contacts'
 import { createDirectConversation } from '../../api/conversations'
 import { getAccountProfile, type PublicProfile } from '../../api/profile'
+import { startCall } from '../../calls/manager'
 import { useActionReporter } from '../../hooks/useActionReporter'
 import { useActiveAccount } from '../../hooks/useActiveAccount'
 import { useToast } from '../../hooks/useToast'
@@ -113,6 +114,28 @@ export function UserProfileModal() {
     } finally {
       setBusy(false)
     }
+  }
+
+  /**
+   * Calls this person without opening a chat first.
+   *
+   * No conversation id: a call does not need one, and making the user open the
+   * chat first would create a conversation just to place a call neither side
+   * may want to keep. The modal closes so the full-screen call is not sitting
+   * on top of it.
+   */
+  function call(withVideo: boolean): void {
+    const current = accountId === null ? undefined : getExistingAccountStore(accountId)?.getState().account
+    if (current === undefined || profile === null) {
+      return
+    }
+    closeProfile()
+    void startCall(current, {
+      peerAccountId: profile.id,
+      peerName: profile.username,
+      conversationId: null,
+      withVideo,
+    })
   }
 
   async function toggleContact(): Promise<void> {
@@ -241,20 +264,20 @@ export function UserProfileModal() {
             <Button
               variant="secondary"
               onClick={() => {
-                toast.notify({ kind: 'info', message: t('chat.call.notYet') })
+                call(false)
               }}
             >
               <Phone className="size-4" aria-hidden />
-              {t('chat.call.audio')}
+              {t('call.audio')}
             </Button>
             <Button
               variant="secondary"
               onClick={() => {
-                toast.notify({ kind: 'info', message: t('chat.call.notYet') })
+                call(true)
               }}
             >
               <Video className="size-4" aria-hidden />
-              {t('chat.call.video')}
+              {t('call.video')}
             </Button>
           </div>
 

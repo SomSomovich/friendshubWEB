@@ -1,5 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { listConversations } from '../api/conversations'
+import { handleCallSignal } from '../calls/incoming'
 import {
   buildLocalMessageRecord,
   resolveDirectPeer,
@@ -410,6 +411,11 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
           },
           onMessageStored: () => {
             set({ messagesVersion: get().messagesVersion + 1 })
+          },
+          onCallSignal: (envelope, payload) => {
+            // Synchronous and non-throwing: the call layer starts whatever
+            // asynchronous work a signal needs and reports its own failures.
+            handleCallSignal(account, envelope, payload)
           },
           ack: async (envelopeId) => {
             // Acknowledged only after the message is stored: a crash in between
