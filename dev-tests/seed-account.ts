@@ -14,6 +14,7 @@ import { applyDocumentLanguage, isLanguage, persistLanguage } from '../src/i18n/
 import { saveAccount } from '../src/storage/accounts'
 import type { MessageRecord } from '../src/storage/db'
 import { saveMessages } from '../src/storage/messages'
+import { markConversationUnread } from '../src/storage/read_state'
 import { pinMessage } from '../src/storage/pinned'
 import { applyTheme, isTheme, persistTheme } from '../src/theme/theme'
 
@@ -94,7 +95,12 @@ async function main(): Promise<void> {
   step = 'messages'
   const seedChat = params.get('seedChat')
   if (seedChat !== null) {
-    await seedConversation(me.id, seedChat)
+    // `seedUnread` clears the read marker for the seeded conversation, so a
+    // capture can depend on there being something unread. The browser profile —
+    // and therefore IndexedDB — is reused between runs, so without this a
+    // marker written by an earlier run would make the state depend on run order
+    // and the check would quietly pass for the wrong reason.
+    await seedConversation(me.id, seedChat, params.get('seedUnread') === '1')
   }
 
   step = 'done'
@@ -118,7 +124,11 @@ async function main(): Promise<void> {
  * transcript, the day separators, the status icons, the reactions and the pinned
  * banner render from the shape the receive path actually writes.
  */
-async function seedConversation(accountId: string, conversationId: string): Promise<void> {
+async function seedConversation(
+  accountId: string,
+  conversationId: string,
+  unread = false,
+): Promise<void> {
   const minute = 60
   const hour = 3_600
   const day = 24 * hour
@@ -182,6 +192,12 @@ async function seedConversation(accountId: string, conversationId: string): Prom
 
   await saveMessages(messages)
   await pinMessage(accountId, conversationId, 'seed-msg-3', 'seed-3')
+
+  if (unread) {
+    // Deleting the marker means "never read", which makes every incoming
+    // message count — the state this conversation is being seeded to be in.
+    await markConversationUnread(accountId, conversationId)
+  }
 }
 
 /**

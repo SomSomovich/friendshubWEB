@@ -15,7 +15,7 @@ import { useToast } from '../../hooks/useToast'
 import { ROUTES, chatPath } from '../../router/paths'
 import { requireAccountStore } from '../../state/accountRegistry'
 import { deleteConversationLocally } from '../../storage/conversations'
-import { hideConversation, markConversationRead } from '../../storage/read_state'
+import { hideConversation } from '../../storage/read_state'
 import type { Account } from '../../types'
 import { Button } from '../ui/Button'
 import { ContextMenu } from '../ui/ContextMenu'
@@ -63,9 +63,9 @@ export function ChatList({ account, query }: ChatListProps) {
   }
 
   function openRow(row: ChatListRowData): void {
-    // Opening a conversation is what marks it read; the badge already reflects
-    // the local state, so it clears as the messages are seen.
-    void markConversationRead(account.id, row.conversation.id)
+    // Opening a conversation is what marks it read, and the store action tells
+    // the list so the badge this row is drawing clears.
+    void requireAccountStore(account.id).getState().actions.markRead(row.conversation.id)
     void navigate(chatPath(row.conversation.id))
   }
 
@@ -96,7 +96,7 @@ export function ChatList({ account, query }: ChatListProps) {
         label: t('chatList.menu.markRead'),
         icon: Check,
         onSelect: () => {
-          void markConversationRead(account.id, row.conversation.id).then(reload)
+          void requireAccountStore(account.id).getState().actions.markRead(row.conversation.id)
         },
       },
       {

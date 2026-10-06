@@ -23,7 +23,14 @@ export function ChatListRow({ row, active, onOpen, onContextMenu }: ChatListRowP
   const timestamp =
     row.at === null ? null : formatChatTimestamp(row.at, i18n.language, t('chatList.yesterday'))
 
-  const badge = row.unread > 0 ? <Badge count={row.unread} className="ml-auto" /> : null
+  const badge =
+    row.unread > 0 ? (
+      <Badge
+        count={row.unread}
+        label={t('chatList.unread', { count: row.unread })}
+        className="ml-auto"
+      />
+    ) : null
   // A local binding, so the narrowing survives into the click handler below.
   const peerAccountId = row.peerAccountId
 

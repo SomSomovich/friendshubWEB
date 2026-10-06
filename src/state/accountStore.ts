@@ -14,7 +14,7 @@ import { SAVED_PAGE_SIZE, loadSavedHistory } from '../crypto/saved'
 import { saveAccount } from '../storage/accounts'
 import { listConversations as readConversations, saveConversations } from '../storage/conversations'
 import type { ConversationRecord, MessageRecord } from '../storage/db'
-import { loadHistoryCursors } from '../storage/read_state'
+import { loadHistoryCursors, markConversationRead } from '../storage/read_state'
 import {
   deleteMessage,
   getMessages,
@@ -117,6 +117,16 @@ export type AccountActions = {
   applyEnvelope: (envelope: Envelope) => Promise<void>
   /** Records the server's stamp for envelopes this device uploaded. */
   applyReceipt: (envelopeIds: string[], serverTimestamps: number[]) => Promise<void>
+  /**
+   * Moves this device's read marker in a conversation, and tells the list.
+   *
+   * A row's unread badge is counted in IndexedDB against that marker, so moving
+   * it changes a row even though no message was written — which is why this has
+   * to bump the same counter a new message does. Without that the badge sits
+   * there until something else happens to refresh the list, which is exactly
+   * what made "open the conversation and read it" leave a "1" behind.
+   */
+  markRead: (conversationId: string) => Promise<void>
   setPresence: (event: PresenceEvent) => void
   /** Records that `accountId` is typing in a conversation, for a few seconds. */
   setTyping: (conversationId: string, accountId: string) => void
@@ -454,6 +464,18 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
             return serverTimestamp === undefined ? message : { ...message, serverTimestamp }
           }),
         })
+      },
+
+      async markRead(conversationId) {
+        try {
+          await markConversationRead(account.id, conversationId)
+        } catch (error) {
+          // Bookkeeping, and nothing the caller could do about it: a marker that
+          // could not be saved costs a badge until the next write, and an
+          // unhandled rejection would cost a console error nobody reads.
+          console.warn('[state] the read marker could not be saved', error)
+        }
+        set({ messagesVersion: get().messagesVersion + 1 })
       },
 
       setPresence(event) {

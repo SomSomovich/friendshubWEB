@@ -812,6 +812,133 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
     }
 
     /**
+     * The unread badge of the conversation that is open on screen.
+     *
+     * Opening a conversation has to clear its badge, and the row is assembled
+     * from a marker read out of IndexedDB — so the assertion is not that the
+     * messages are on screen (they plainly are) but that the row no longer
+     * claims there is something unread. The badge is found by its accessible
+     * name, which is the only stable handle a bare counter has.
+     *
+     * The outcome goes into a `data-` attribute on `<html>` rather than into
+     * `document.title`: the dump is `outerHTML`, attributes survive it, and the
+     * title is the app's to own.
+     */
+    const unreadProbe = `(function () {
+      if (window.__unreadProbe === undefined) window.__unreadProbe = { step: 'look', since: 0 }
+      const state = window.__unreadProbe
+      const row = [...document.querySelectorAll('li')]
+        .find((li) => li.textContent.includes('Тестовый собеседник'))
+      if (row === undefined) return false
+      const badge = row.querySelector('[aria-label^="Непрочитанных"]')
+
+      // The badge has to be *seen* before the conversation is opened: a check
+      // that passes because there was nothing to clear says nothing at all.
+      if (state.step === 'look') {
+        if (badge === null) {
+          if (state.since === 0) state.since = Date.now()
+          if (Date.now() - state.since > 8000) {
+            document.documentElement.dataset.probe = 'unread=never-appeared'
+            return true
+          }
+          return false
+        }
+        state.seen = badge.textContent.trim()
+        state.step = 'opened'
+        row.querySelector('[role="button"]').click()
+        return false
+      }
+
+      document.documentElement.dataset.probe = badge === null
+        ? 'unread=cleared'
+        : 'unread=still-' + badge.textContent.trim() + '-of-' + state.seen
+      return badge === null
+    })()`
+
+    /**
+     * Holding the microphone and letting go.
+     *
+     * The press is dispatched as a real `PointerEvent` on the button, held past
+     * the recorder's half-second minimum, then released on the button *as it is
+     * then* — which is the whole point. A release only reaches the composer if
+     * the button it was pressed on is still there to receive it.
+     *
+     * What comes out is written to the same `data-probe` attribute, because
+     * there are three different ways this can end and the capture should say
+     * which one happened.
+     */
+    const voiceProbe = `(function () {
+      if (window.__voiceProbe === undefined) window.__voiceProbe = { step: 'press', at: 0 }
+      const state = window.__voiceProbe
+      const mic = () => document.querySelector('button[aria-label="Записать голосовое сообщение"]')
+      const recording = () => document.body.innerText.includes('Отпустите')
+      const overlay = () => document.body.innerText.includes('Отправка файлов')
+
+      if (state.step === 'press') {
+        const button = mic()
+        if (button === null || button.disabled) return false
+        button.dispatchEvent(new PointerEvent('pointerdown', {
+          bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', isPrimary: true,
+          clientX: 40, clientY: 40,
+        }))
+        state.step = 'hold'
+        state.at = Date.now()
+        return false
+      }
+
+      if (state.step === 'hold') {
+        if (!recording() || Date.now() - state.at < 1200) return false
+        const held = mic()
+        if (held === null) {
+          document.documentElement.dataset.probe = 'voice=mic-unmounted'
+          return true
+        }
+        held.dispatchEvent(new PointerEvent('pointerup', {
+          bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', isPrimary: true,
+          clientX: 40, clientY: 40,
+        }))
+        state.step = 'released'
+        state.at = Date.now()
+        return false
+      }
+
+      if (recording() && Date.now() - state.at < 3000) return false
+      document.documentElement.dataset.probe =
+        'voice=' + (recording() ? 'stuck' : 'released') + '-' + (overlay() ? 'sent' : 'nosend')
+      return true
+    })()`
+
+    if (chatId !== null) {
+      captures.push(
+        {
+          label: 'chat-unread-cleared-dark-ru',
+          route: null,
+          next: '/app',
+          seedChat: chatId,
+          // The conversation has to start unread, or the check has nothing to
+          // clear and would pass whatever the code did.
+          seedUnread: true,
+          theme: 'dark',
+          lang: 'ru',
+          size: '1280,800',
+          ready: unreadProbe,
+          expect: ['unread=cleared'],
+        },
+        {
+          label: 'voice-recording-dark-ru',
+          route: null,
+          next: `/app/chat/${chatId}`,
+          seedChat: chatId,
+          theme: 'dark',
+          lang: 'ru',
+          size: '1280,800',
+          ready: voiceProbe,
+          expect: ['voice=released-sent'],
+        },
+      )
+    }
+
+    /**
      * Pressing the video-call button in the chat header.
      *
      * A live WebRTC session cannot be established in a headless browser — there
@@ -1014,6 +1141,9 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
       })
       if (capture.seedChat !== undefined) {
         seedParams.set('seedChat', capture.seedChat)
+      }
+      if (capture.seedUnread === true) {
+        seedParams.set('seedUnread', '1')
       }
       const targetUrl =
         capture.route === null

@@ -57,6 +57,8 @@ export function MessageComposer({
   const voice = useVoiceRecorder()
   /** Where the press started, and whether it has slid far enough to be undone. */
   const dragRef = useRef<{ x: number; cancel: boolean } | null>(null)
+  /** True between the press and the release, across the microphone's own delay. */
+  const pressingRef = useRef(false)
 
   // Seeded from the edit target and never synchronised afterwards: the caller
   // remounts this component when the target changes (its `key` carries the
@@ -129,10 +131,29 @@ export function MessageComposer({
 
   async function beginRecording(event: PointerEvent<HTMLButtonElement>): Promise<void> {
     // Captured so lifting the finger anywhere still ends the press, and so a
-    // drag off the button is seen rather than lost.
-    event.currentTarget.setPointerCapture(event.pointerId)
+    // drag off the button is seen rather than lost. Guarded because the pointer
+    // can already be gone — a capture request against a pointer the browser has
+    // released throws, and that throw used to abort the recording before it
+    // started, leaving the press doing nothing at all.
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch (error) {
+      console.warn('[voice] the pointer could not be captured for the recording', error)
+    }
+
+    pressingRef.current = true
     dragRef.current = { x: event.clientX, cancel: false }
     await voice.start()
+
+    // The finger may already be up. Opening the microphone is not instant, and
+    // the first time it is a permission prompt, which is not instant at all —
+    // the release ran while there was still no recorder for it to stop. What
+    // was captured in the meantime is discarded rather than sent: nobody heard
+    // themselves record it.
+    if (!pressingRef.current) {
+      voice.cancel()
+      dragRef.current = null
+    }
   }
 
   function trackDrag(event: PointerEvent<HTMLButtonElement>): void {
@@ -149,6 +170,7 @@ export function MessageComposer({
   }
 
   async function endRecording(): Promise<void> {
+    pressingRef.current = false
     const drag = dragRef.current
     dragRef.current = null
 
@@ -241,7 +263,11 @@ export function MessageComposer({
           />
         )}
 
-        {voice.recording ? null : value.trim().length > 0 ? (
+        {/* The microphone stays mounted for the whole press, which is the hinge
+            of the gesture: it holds the pointer capture, and unmounting it the
+            moment the recorder starts was what swallowed the release and left
+            the recording running with nothing but the bin to stop it. */}
+        {value.trim().length > 0 && !voice.recording ? (
           <button
             type="button"
             aria-label={editing === null ? t('chat.send') : t('chat.edit.save')}
@@ -273,6 +299,7 @@ export function MessageComposer({
               void endRecording()
             }}
             onPointerCancel={() => {
+              pressingRef.current = false
               voice.cancel()
               dragRef.current = null
             }}

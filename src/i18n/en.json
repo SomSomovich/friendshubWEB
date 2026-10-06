@@ -255,6 +255,7 @@
     "empty": "No chats yet",
     "emptyHint": "Start by searching for someone, or create a group.",
     "errorTitle": "The conversation list could not be loaded",
+    "unread": "{{count}} unread",
     "noResults": "Nothing found",
     "noResultsHint": "Nothing matches “{{query}}”.",
     "saved": "Saved Messages",

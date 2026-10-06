@@ -47,6 +47,24 @@ export function useReadReceipts(
     }
   }, [account, conversationId, store])
 
+  /**
+   * This device's own read marker, moved the moment a message is seen.
+   *
+   * It is the marker the chat list counts a row's badge against, so it has to
+   * move when the message is *read*, not when the server is told — a row that
+   * keeps its badge for the conversation open on screen is showing something
+   * untrue, and anything that arrives while the reader is looking has been read
+   * by any reasonable definition.
+   *
+   * Separate from the report below, which is debounced because it is a request.
+   */
+  useEffect(() => {
+    if (newestIncomingAt === null || document.visibilityState !== 'visible') {
+      return
+    }
+    void store.getState().actions.markRead(conversationId)
+  }, [store, conversationId, newestIncomingAt])
+
   useEffect(() => {
     if (newestIncomingAt === null || document.visibilityState !== 'visible') {
       return

@@ -6,6 +6,13 @@ export type BadgeProps = {
   children?: ReactNode
   /** Caps the counter at "99+". */
   count?: number
+  /**
+   * What the number means, for a screen reader.
+   *
+   * A bare "3" beside a conversation is a number with nothing to attach it to —
+   * three what? The caller knows, so the caller says.
+   */
+  label?: string
   className?: string
 }
 
@@ -13,11 +20,12 @@ export type BadgeProps = {
  * The unread counter. `count` is separate from `children` so the cap does not
  * have to be re-implemented at every call site.
  */
-export function Badge({ children, count, className }: BadgeProps) {
+export function Badge({ children, count, label, className }: BadgeProps) {
   const text = count === undefined ? children : count > 99 ? '99+' : String(count)
 
   return (
     <span
+      aria-label={label}
       className={cn(
         'inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 py-0.5 text-[11px] leading-none font-semibold text-accent-fg tabular-nums',
         className,

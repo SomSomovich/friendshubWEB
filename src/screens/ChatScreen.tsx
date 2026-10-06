@@ -46,7 +46,6 @@ import { clearConversationHistory, deleteConversationLocally } from '../storage/
 import type { MessageRecord } from '../storage/db'
 import {
   hideConversation,
-  markConversationRead,
   setHistoryCursor,
   setPinnedBannerHidden,
 } from '../storage/read_state'
@@ -156,7 +155,10 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
   useEffect(() => {
     void store.getState().actions.openConversation(conversationId)
     // Opening a conversation is what marks it read, including through a link.
-    void markConversationRead(account.id, conversationId)
+    // Through the store, not the storage layer directly: the list is still
+    // showing this conversation's row, and it has to be told the badge it drew
+    // from the old marker is no longer true.
+    void store.getState().actions.markRead(conversationId)
     return () => {
       store.getState().actions.closeConversation(conversationId)
     }
