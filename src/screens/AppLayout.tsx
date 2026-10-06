@@ -1,5 +1,6 @@
 import { Outlet, useMatch } from 'react-router-dom'
 import { CallOverlay } from '../components/call/CallOverlay'
+import { ScreenBoundary } from '../components/ErrorBoundary'
 import { AppSidebar } from '../components/layout/AppSidebar'
 import { UserProfileModal } from '../components/profile/UserProfileModal'
 import { InstallBanner } from '../components/pwa/InstallBanner'
@@ -38,14 +39,23 @@ export function AppLayout() {
         <div
           className={cn(
             'w-full min-w-0 flex-col md:flex md:w-80 md:shrink-0',
-            onIndex ? 'flex' : 'hidden',
+            // Below `md` this panel *is* the screen, so it slides in like one.
+            // From `md` up it is a fixed column that never moves, and an
+            // animation there would be motion for its own sake.
+            onIndex ? 'flex animate-fh-drawer md:animate-none' : 'hidden',
           )}
         >
-          <AppSidebar />
+          {/* Its own boundary: a row that cannot be assembled must not take the
+              open conversation down with it. */}
+          <ScreenBoundary scope="conversation list" resetOnNavigation={false}>
+            <AppSidebar />
+          </ScreenBoundary>
         </div>
 
         <main className={cn('min-w-0 flex-1 flex-col md:flex', onIndex ? 'hidden' : 'flex')}>
-          <Outlet />
+          <ScreenBoundary scope="screen">
+            <Outlet />
+          </ScreenBoundary>
         </main>
       </div>
 
@@ -57,8 +67,11 @@ export function AppLayout() {
 
       {/* Above every screen in the shell, because a call is not a screen's
           property: it can start from a header, a menu or a profile, and it has
-          to be visible whichever of them the user is on. */}
-      <CallOverlay />
+          to be visible whichever of them the user is on. Its own boundary, so a
+          call that cannot be drawn costs the call and not the app. */}
+      <ScreenBoundary scope="call overlay" resetOnNavigation={false}>
+        <CallOverlay />
+      </ScreenBoundary>
     </div>
   )
 }

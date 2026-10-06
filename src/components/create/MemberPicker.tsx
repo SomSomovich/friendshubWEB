@@ -5,7 +5,7 @@ import { avatarImageUrl } from '../../api/avatars'
 import type { Contact } from '../../api/contacts'
 import { cn } from '../../utils/cn'
 import { Avatar } from '../ui/Avatar'
-import { Spinner } from '../ui/Spinner'
+import { PanelSkeleton } from '../settings/PanelSkeleton'
 
 export type MemberPickerProps = {
   contacts: Contact[]
@@ -93,9 +93,7 @@ export function MemberPicker({ contacts, loading, selected, onToggle }: MemberPi
         // Not the empty message: saying "no contacts yet" before the list has
         // been read would be wrong, and the reader would have no reason to
         // doubt it.
-        <div className="flex justify-center py-6">
-          <Spinner className="size-4 text-fg-muted" />
-        </div>
+        <PanelSkeleton rows={3} />
       ) : contacts.length === 0 ? (
         <p className="text-xs text-pretty text-fg-muted">{t('create.noContacts')}</p>
       ) : matches.length === 0 ? (

@@ -5,7 +5,7 @@ import type { ChatSearch } from '../../hooks/useChatSearch'
 import type { MessageRecord } from '../../storage/db'
 import { formatFullTimestamp } from '../../utils/chatTime'
 import { cn } from '../../utils/cn'
-import { Spinner } from '../ui/Spinner'
+import { PanelSkeleton } from '../settings/PanelSkeleton'
 
 export type ChatSearchOverlayProps = {
   search: ChatSearch
@@ -117,9 +117,7 @@ export function ChatSearchOverlay({
         {!hasQuery ? (
           <p className="px-4 py-6 text-center text-xs text-fg-muted">{t('chat.search.hint')}</p>
         ) : search.searching ? (
-          <div className="flex justify-center py-6">
-            <Spinner className="size-4 text-fg-muted" />
-          </div>
+          <PanelSkeleton rows={3} />
         ) : search.results.length === 0 ? (
           <p className="px-4 py-6 text-center text-xs text-fg-muted">{t('chat.search.empty')}</p>
         ) : (

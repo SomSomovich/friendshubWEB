@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { Avatar } from '../ui/Avatar'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
-import { Spinner } from '../ui/Spinner'
+import { PanelSkeleton } from '../settings/PanelSkeleton'
 import { useToast } from '../../hooks/useToast'
 import { addAccountPath } from '../../router/paths'
 import { useUiStore } from '../../state/uiStore'
@@ -86,11 +86,7 @@ export function SwitchAccountModal({ open, onClose }: SwitchAccountModalProps) {
         ) : null
       }
     >
-      {accounts === null && error === null ? (
-        <div className="flex justify-center py-6">
-          <Spinner className="text-fg-muted" />
-        </div>
-      ) : null}
+      {accounts === null && error === null ? <PanelSkeleton rows={3} /> : null}
 
       {error !== null ? (
         <p role="alert" className="text-sm text-danger">

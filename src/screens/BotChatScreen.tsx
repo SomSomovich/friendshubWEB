@@ -7,7 +7,7 @@ import { getBotInfo, listBotMessages, sendBotMessage, type BotMessage } from '..
 import { ScreenHeader } from '../components/layout/ScreenHeader'
 import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/EmptyState'
-import { Spinner } from '../components/ui/Spinner'
+import { PanelSkeleton } from '../components/settings/PanelSkeleton'
 import { useActionReporter } from '../hooks/useActionReporter'
 import { useActiveAccount } from '../hooks/useActiveAccount'
 import { ROUTES } from '../router/paths'
@@ -114,9 +114,7 @@ function BotThread({ account, botId }: { account: Account; botId: string }) {
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {loading ? (
-          <div className="flex justify-center py-8">
-            <Spinner className="text-fg-muted" />
-          </div>
+          <PanelSkeleton rows={4} />
         ) : messages.length === 0 ? (
           <EmptyState icon={Bot} title={t('bots.empty')} description={t('bots.emptyHint')} />
         ) : (

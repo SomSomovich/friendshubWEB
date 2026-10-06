@@ -21,7 +21,10 @@ import { useToast } from '../../hooks/useToast'
 import { readInvisibleMirror, writeInvisibleMirror } from '../../storage/app_settings'
 import type { Account } from '../../types'
 import { Button } from '../ui/Button'
-import { Spinner } from '../ui/Spinner'
+import { PanelError } from './PanelError'
+import { PanelSkeleton } from './PanelSkeleton'
+import { describeCause } from '../../utils/errors'
+import { Skeleton } from '../ui/Skeleton'
 import { SettingsCard, SettingsChoice, SettingsRow, SettingsToggle } from './Section'
 
 /**
@@ -73,7 +76,7 @@ export function InvisiblePanel({ account }: { account: Account }) {
     <SettingsCard title={t('settings.privacy.invisible')} description={t('settings.privacy.invisibleHint')}>
       <SettingsRow label={t('settings.privacy.invisible')} description={t('settings.privacy.invisibleNote')}>
         {enabled === null ? (
-          <Spinner className="size-4 text-fg-muted" />
+          <Skeleton className="h-6 w-10 rounded-full" />
         ) : (
           <SettingsToggle
             label={t('settings.privacy.invisible')}
@@ -101,6 +104,7 @@ export function PresenceExceptionsPanel({ account }: { account: Account }) {
   const fail = useActionReporter('privacy')
 
   const [exceptions, setExceptions] = useState<PresenceException[] | null>(null)
+  const [exceptionsError, setExceptionsError] = useState<string | null>(null)
   const [contacts, setContacts] = useState<Contact[]>([])
   const [target, setTarget] = useState('')
   const [kind, setKind] = useState<PresenceExceptionKind>('always_visible')
@@ -124,6 +128,7 @@ export function PresenceExceptionsPanel({ account }: { account: Account }) {
       })
       .catch((error: unknown) => {
         if (!cancelled) {
+          setExceptionsError(describeCause(error))
           fail(error)
         }
       })
@@ -167,10 +172,17 @@ export function PresenceExceptionsPanel({ account }: { account: Account }) {
 
   return (
     <SettingsCard title={t('settings.privacy.exceptions')} description={t('settings.privacy.exceptionsHint')}>
-      {exceptions === null ? (
-        <div className="flex justify-center py-4">
-          <Spinner className="size-4 text-fg-muted" />
-        </div>
+      {exceptionsError !== null ? (
+        <PanelError
+          message={exceptionsError}
+          onRetry={() => {
+            setExceptionsError(null)
+            setExceptions(null)
+            setRevision((value) => value + 1)
+          }}
+        />
+      ) : exceptions === null ? (
+        <PanelSkeleton />
       ) : exceptions.length === 0 ? (
         <p className="text-xs text-fg-muted">{t('settings.privacy.noExceptions')}</p>
       ) : (
@@ -258,6 +270,7 @@ export function BlockedPanel({ account }: { account: Account }) {
   const fail = useActionReporter('privacy')
 
   const [blocked, setBlocked] = useState<BlockedAccount[] | null>(null)
+  const [blockedError, setBlockedError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [revision, setRevision] = useState(0)
 
@@ -272,6 +285,7 @@ export function BlockedPanel({ account }: { account: Account }) {
       })
       .catch((error: unknown) => {
         if (!cancelled) {
+          setBlockedError(describeCause(error))
           fail(error)
         }
       })
@@ -296,10 +310,17 @@ export function BlockedPanel({ account }: { account: Account }) {
 
   return (
     <SettingsCard title={t('settings.privacy.blocked')} description={t('settings.privacy.blockedHint')}>
-      {blocked === null ? (
-        <div className="flex justify-center py-4">
-          <Spinner className="size-4 text-fg-muted" />
-        </div>
+      {blockedError !== null ? (
+        <PanelError
+          message={blockedError}
+          onRetry={() => {
+            setBlockedError(null)
+            setBlocked(null)
+            setRevision((value) => value + 1)
+          }}
+        />
+      ) : blocked === null ? (
+        <PanelSkeleton />
       ) : blocked.length === 0 ? (
         <p className="text-xs text-fg-muted">{t('settings.privacy.noBlocked')}</p>
       ) : (

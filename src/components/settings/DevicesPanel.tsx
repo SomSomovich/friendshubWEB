@@ -6,9 +6,11 @@ import { useActionReporter } from '../../hooks/useActionReporter'
 import { useToast } from '../../hooks/useToast'
 import type { Account } from '../../types'
 import { formatFullTimestamp } from '../../utils/chatTime'
+import { describeCause } from '../../utils/errors'
 import { nowSeconds } from '../../utils/time'
 import { Button } from '../ui/Button'
-import { Spinner } from '../ui/Spinner'
+import { PanelError } from './PanelError'
+import { PanelSkeleton } from './PanelSkeleton'
 import { SettingsCard } from './Section'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 
@@ -32,6 +34,7 @@ export function DevicesPanel({ account }: { account: Account }) {
   const fail = useActionReporter('devices')
 
   const [devices, setDevices] = useState<OwnDevice[] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [pending, setPending] = useState<OwnDevice | null>(null)
   const [revision, setRevision] = useState(0)
@@ -49,6 +52,7 @@ export function DevicesPanel({ account }: { account: Account }) {
       })
       .catch((error: unknown) => {
         if (!cancelled) {
+          setLoadError(describeCause(error))
           fail(error)
         }
       })
@@ -88,10 +92,17 @@ export function DevicesPanel({ account }: { account: Account }) {
 
   return (
     <SettingsCard title={t('settings.security.devices')} description={t('settings.security.devicesHint')}>
-      {devices === null ? (
-        <div className="flex justify-center py-4">
-          <Spinner className="size-4 text-fg-muted" />
-        </div>
+      {loadError !== null ? (
+        <PanelError
+          message={loadError}
+          onRetry={() => {
+            setLoadError(null)
+            setDevices(null)
+            setRevision((value) => value + 1)
+          }}
+        />
+      ) : devices === null ? (
+        <PanelSkeleton />
       ) : (
         <ul className="flex flex-col gap-2">
           {devices.map((device) => {

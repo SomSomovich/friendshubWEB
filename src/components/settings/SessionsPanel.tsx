@@ -6,9 +6,11 @@ import { useActionReporter } from '../../hooks/useActionReporter'
 import { useToast } from '../../hooks/useToast'
 import type { Account } from '../../types'
 import { formatFullTimestamp } from '../../utils/chatTime'
+import { describeCause } from '../../utils/errors'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
-import { Spinner } from '../ui/Spinner'
+import { PanelError } from './PanelError'
+import { PanelSkeleton } from './PanelSkeleton'
 import { SettingsCard } from './Section'
 
 /** Sessions of this account, and the two ways to end them. */
@@ -18,6 +20,7 @@ export function SessionsPanel({ account }: { account: Account }) {
   const fail = useActionReporter('sessions')
 
   const [sessions, setSessions] = useState<SessionInfo[] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [confirmAll, setConfirmAll] = useState(false)
   const [revision, setRevision] = useState(0)
@@ -35,6 +38,7 @@ export function SessionsPanel({ account }: { account: Account }) {
       })
       .catch((error: unknown) => {
         if (!cancelled) {
+          setLoadError(describeCause(error))
           fail(error)
         }
       })
@@ -78,10 +82,17 @@ export function SessionsPanel({ account }: { account: Account }) {
 
   return (
     <SettingsCard title={t('settings.security.sessions')} description={t('settings.security.sessionsHint')}>
-      {sessions === null ? (
-        <div className="flex justify-center py-4">
-          <Spinner className="size-4 text-fg-muted" />
-        </div>
+      {loadError !== null ? (
+        <PanelError
+          message={loadError}
+          onRetry={() => {
+            setLoadError(null)
+            setSessions(null)
+            setRevision((value) => value + 1)
+          }}
+        />
+      ) : sessions === null ? (
+        <PanelSkeleton />
       ) : (
         <ul className="flex flex-col gap-2">
           {sessions.map((session) => (

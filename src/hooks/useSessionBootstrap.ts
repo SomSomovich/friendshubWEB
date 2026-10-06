@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { installSessionExpiryWatcher } from '../auth/sessionExpiry'
 import { getAccountStore } from '../state/accountRegistry'
 import { ACTIVE_ACCOUNT_PREFERENCE_KEY } from '../state/preferences'
 import { useUiStore } from '../state/uiStore'
@@ -16,6 +17,10 @@ import { readPreference } from '../utils/browserStorage'
 export function useSessionBootstrap(): void {
   const setActiveAccount = useUiStore((state) => state.setActiveAccount)
   const setSessionReady = useUiStore((state) => state.setSessionReady)
+
+  // A rejected token has to reach the app even when no socket is open to say so,
+  // which is what the HTTP layer reports through this listener.
+  useEffect(() => installSessionExpiryWatcher(), [])
 
   useEffect(() => {
     let cancelled = false

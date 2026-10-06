@@ -8,6 +8,7 @@ import type { MessageRecord } from '../../storage/db'
 import type { MessageStatus } from '../../types'
 import { formatFullTimestamp, formatMessageTime } from '../../utils/chatTime'
 import { cn } from '../../utils/cn'
+import { nowSeconds } from '../../utils/time'
 import { countReactions } from '../../utils/reactions'
 import { splitLinks } from '../../utils/urls'
 import { AttachmentView } from './AttachmentView'
@@ -68,7 +69,14 @@ export function MessageBubble({
   return (
     <li
       ref={setRef}
-      className={cn('flex px-1', own ? 'justify-end' : 'justify-start')}
+      className={cn(
+        'flex px-1',
+        own ? 'justify-end' : 'justify-start',
+        // Only a message that has just arrived animates in. The signal is when
+        // *this device* stored it, not the sender's clock: a peer whose clock is
+        // ten minutes fast would otherwise send messages that never moved.
+        arrivalClass(message.decryptedAt, own),
+      )}
     >
       <div className={cn('flex max-w-[85%] flex-col sm:max-w-[70%]', own ? 'items-end' : 'items-start')}>
         <div
@@ -205,4 +213,21 @@ function StatusIcon({ status, label }: { status: MessageStatus; label: string })
       <Icon className="size-3.5" aria-hidden />
     </span>
   )
+}
+
+/**
+ * How long after it was stored a message is still treated as arriving.
+ *
+ * The window only has to outlast the animation. Past it the class is dropped,
+ * which does not restart anything — removing an animation name from an element
+ * that already finished it is a no-op.
+ */
+const ARRIVAL_WINDOW_SECONDS = 5
+
+function arrivalClass(storedAt: number | null, own: boolean): string | false {
+  // A null is a row from before the field existed, which is never "just now".
+  if (storedAt === null || nowSeconds() - storedAt >= ARRIVAL_WINDOW_SECONDS) {
+    return false
+  }
+  return own ? 'animate-fh-message-own' : 'animate-fh-message-other'
 }

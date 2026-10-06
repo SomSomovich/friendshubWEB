@@ -1,6 +1,9 @@
 import type { StoreApi } from 'zustand/vanilla'
 import { getConversationReads } from '../api/conversations'
+import { isDeadSessionCode, reportSessionExpired } from '../auth/sessionExpiry'
+import { i18n } from '../i18n'
 import { announceIncoming } from '../pwa/notify'
+import { useToastStore, type ToastKind } from './toastStore'
 import { getMessage } from '../storage/messages'
 import type { Account, Envelope } from '../types'
 import type { WsClient } from '../ws/client'
@@ -76,10 +79,40 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     })
   })
 
+  const detachFatal = client.on('fatal', ({ code }) => {
+    // The one fatal case worth acting on: a session that will never work again.
+    // Everything else — a protocol mismatch, a flood — is a broken connection,
+    // and the socket's own reconnect loop is the right answer to it.
+    if (isDeadSessionCode(code)) {
+      void reportSessionExpired(account)
+    }
+  })
+
+  /**
+   * Whether this socket has ever completed a handshake.
+   *
+   * The distinction is what makes the two notices honest: a first connection
+   * that never came up is already reported by the offline banner, and calling it
+   * "restored" afterwards would be a lie about a connection that never existed.
+   */
+  let hasConnected = false
+  const detachDisconnected = client.on('disconnected', ({ final }) => {
+    // A deliberate close is a sign-out or an account switch, not a failure.
+    if (final) {
+      return
+    }
+    pushToast('error', i18n.t('app.connectionLost'))
+  })
+
   // A connection is the moment the queue from the last disconnection can go out,
   // and one of the two moments a conversation's pins can have changed without
   // this device noticing. The other is opening the conversation.
   const detachConnected = client.on('connected', () => {
+    if (hasConnected) {
+      pushToast('success', i18n.t('app.connectionRestored'))
+    }
+    hasConnected = true
+
     void store
       .getState()
       .actions.flushOutbox()
@@ -115,7 +148,14 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     detachReadReceipt()
     detachBotMessage()
     detachConnected()
+    detachDisconnected()
+    detachFatal()
   }
+}
+
+/** A toast raised from the socket layer; see `src/state/toastStore.ts`. */
+function pushToast(kind: ToastKind, message: string): void {
+  useToastStore.getState().push({ kind, message })
 }
 
 /**

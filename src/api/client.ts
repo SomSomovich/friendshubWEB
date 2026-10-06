@@ -1,4 +1,5 @@
 import type { Account } from '../types'
+import { announceSessionExpired } from '../auth/sessionEvents'
 import { asBinaryPayload } from '../utils/bytes'
 import { readEnvVar } from '../utils/env'
 import { camelizeKeys } from './case'
@@ -104,6 +105,13 @@ export async function request<T>(
     }
 
     if (!response.ok) {
+      if (response.status === 401) {
+        // A session can be revoked from another device, and REST is often the
+        // first to notice — the socket may not be open, or may not have been
+        // told. The event carries the token so the handler can find the account
+        // without this module knowing anything about accounts.
+        announceSessionExpired(options.token ?? options.account?.sessionToken ?? null)
+      }
       throw await toApiError(response)
     }
 

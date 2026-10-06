@@ -13,7 +13,7 @@ import { requireAccountStore } from '../../state/accountRegistry'
 import { useUiStore } from '../../state/uiStore'
 import type { Account } from '../../types'
 import { Avatar } from '../ui/Avatar'
-import { Spinner } from '../ui/Spinner'
+import { PanelSkeleton } from '../settings/PanelSkeleton'
 
 export type SearchResultsProps = {
   account: Account
@@ -90,9 +90,7 @@ export function SearchResults({ account, query, knownConversationIds }: SearchRe
   }
   if (searching) {
     return (
-      <div className="flex justify-center py-4">
-        <Spinner className="size-4 text-fg-muted" />
-      </div>
+      <PanelSkeleton rows={2} />
     )
   }
 

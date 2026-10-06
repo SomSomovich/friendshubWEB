@@ -14,7 +14,7 @@ import {
 import type { Account } from '../../types'
 import { NOTIFICATION_SOUNDS, playNotificationSound } from '../../utils/notificationSound'
 import { Button } from '../ui/Button'
-import { Spinner } from '../ui/Spinner'
+import { PanelSkeleton } from './PanelSkeleton'
 import { SettingsCard, SettingsChoice, SettingsRow, SettingsToggle } from './Section'
 
 /** Message sounds: whether one plays, and which. */
@@ -49,9 +49,7 @@ export function SoundPanel({ account }: { account: Account }) {
   if (prefs === null) {
     return (
       <SettingsCard title={t('settings.notifications.sound')}>
-        <div className="flex justify-center py-4">
-          <Spinner className="size-4 text-fg-muted" />
-        </div>
+        <PanelSkeleton />
       </SettingsCard>
     )
   }

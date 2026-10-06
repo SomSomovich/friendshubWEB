@@ -10,7 +10,15 @@
     "hidePassword": "Hide password",
     "pendingBadge": "Not implemented yet",
     "copied": "Copied",
-    "copyFailed": "Could not copy"
+    "copyFailed": "Could not copy",
+    "retry": "Retry",
+    "reload": "Reload"
+  },
+  "errors": {
+    "title": "Something went wrong",
+    "description": "This screen could not be rendered. Nothing has been lost — try again, or reload the page.",
+    "retry": "Try again",
+    "reload": "Reload the page"
   },
   "landing": {
     "login": "Sign in",
@@ -119,6 +127,7 @@
     "twoFactorBackupHint": "Enter one of your backup codes. Each works once.",
     "useBackupCode": "Use a backup code",
     "useTotp": "Use an app code",
+    "sessionExpired": "Your session has expired — please sign in again.",
     "errors": {
       "emptyFields": "Fill in both the FH number and the password.",
       "invalidCredentials": "Wrong FH number, password or device.",
@@ -133,7 +142,9 @@
   },
   "app": {
     "chatIndexEmpty": "Pick a chat to start messaging",
-    "chatIndexHint": "Or start a new conversation from the menu on the left."
+    "chatIndexHint": "Or start a new conversation from the menu on the left.",
+    "connectionLost": "Connection lost — messages will be sent later.",
+    "connectionRestored": "Connection restored"
   },
   "chat": {
     "title": "Chat",
@@ -243,6 +254,7 @@
     "searchPlaceholder": "Search",
     "empty": "No chats yet",
     "emptyHint": "Start by searching for someone, or create a group.",
+    "errorTitle": "The conversation list could not be loaded",
     "noResults": "Nothing found",
     "noResultsHint": "Nothing matches “{{query}}”.",
     "saved": "Saved Messages",

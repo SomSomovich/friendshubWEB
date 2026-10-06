@@ -24,7 +24,7 @@ import { useUiStore } from '../../state/uiStore'
 import { Avatar } from '../ui/Avatar'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
-import { Spinner } from '../ui/Spinner'
+import { Skeleton } from '../ui/Skeleton'
 
 /** The profile being shown, tagged with whose it is. */
 type Loaded = {
@@ -228,8 +228,15 @@ export function UserProfileModal() {
       }
     >
       {profile === null ? (
-        <div className="flex justify-center py-6">
-          <Spinner className="text-fg-muted" />
+        <div role="status" aria-label={t('common.loading')} className="flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <Skeleton className="size-20 shrink-0 rounded-full" />
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <Skeleton className="h-4 w-2/5" />
+              <Skeleton className="h-3 w-1/4" />
+            </div>
+          </div>
+          <Skeleton className="h-10 w-full rounded-lg" />
         </div>
       ) : (
         <div className="flex flex-col gap-4">

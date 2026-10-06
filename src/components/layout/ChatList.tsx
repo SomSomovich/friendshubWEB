@@ -1,7 +1,7 @@
-import { Archive, ArchiveRestore, Check, MessageSquare, VolumeX, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Check, CloudOff, MessageSquare, VolumeX, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ParseKeys, TFunction } from 'i18next'
+import type { TFunction } from 'i18next'
 import { useMatch, useNavigate } from 'react-router-dom'
 import {
   archiveConversation,
@@ -17,24 +17,15 @@ import { requireAccountStore } from '../../state/accountRegistry'
 import { deleteConversationLocally } from '../../storage/conversations'
 import { hideConversation, markConversationRead } from '../../storage/read_state'
 import type { Account } from '../../types'
-import { cn } from '../../utils/cn'
+import { Button } from '../ui/Button'
 import { ContextMenu } from '../ui/ContextMenu'
 import type { DropdownItem } from '../ui/DropdownMenu'
 import { EmptyState } from '../ui/EmptyState'
+import { ChatListFilters, type ChatListFilter } from './ChatListFilters'
+import { ChatListSkeleton } from './ChatListSkeleton'
 import { SearchResults } from './SearchResults'
-import { Spinner } from '../ui/Spinner'
 import { ChatListRow } from './ChatListRow'
 import { MuteDialog, type MuteChoice } from './MuteDialog'
-
-export type ChatListFilter = 'all' | 'direct' | 'group' | 'channel' | 'saved'
-
-const FILTERS: Array<{ id: ChatListFilter; labelKey: ParseKeys }> = [
-  { id: 'all', labelKey: 'chatList.filters.all' },
-  { id: 'direct', labelKey: 'chatList.filters.direct' },
-  { id: 'group', labelKey: 'chatList.filters.group' },
-  { id: 'channel', labelKey: 'chatList.filters.channel' },
-  { id: 'saved', labelKey: 'chatList.filters.saved' },
-]
 
 export type ChatListProps = {
   account: Account
@@ -158,50 +149,32 @@ export function ChatList({ account, query }: ChatListProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div
-        role="tablist"
-        aria-label={t('chatList.filtersLabel')}
-        className="no-scrollbar flex shrink-0 gap-1 overflow-x-auto border-b border-border px-2 py-2"
-      >
-        {FILTERS.map((entry) => {
-          const isActive = entry.id === filter
-          const unread = unreadByFilter[entry.id]
-          return (
-            <button
-              key={entry.id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => {
-                setFilter(entry.id)
-              }}
-              className={cn(
-                'flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors duration-150',
-                'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent',
-                isActive ? 'bg-accent text-accent-fg' : 'text-fg-muted hover:bg-bg-hover hover:text-fg',
-              )}
-            >
-              {t(entry.labelKey)}
-              {unread > 0 ? (
-                <span
-                  className={cn(
-                    'rounded-full px-1.5 text-[10px] tabular-nums',
-                    isActive ? 'bg-accent-fg/20' : 'bg-accent text-accent-fg',
-                  )}
-                >
-                  {unread > 99 ? '99+' : unread}
-                </span>
-              ) : null}
-            </button>
-          )
-        })}
-      </div>
+      <ChatListFilters value={filter} onChange={setFilter} unread={unreadByFilter} />
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {loading && rows.length === 0 ? (
-          <div className="flex justify-center py-8">
-            <Spinner className="text-fg-muted" />
-          </div>
+          <ChatListSkeleton />
+        ) : visible.length === 0 && error !== null ? (
+          // A failure to read the list is its own state, not an empty one: the
+          // reader has to be told the difference between "nothing here" and
+          // "we could not find out".
+          <EmptyState
+            icon={CloudOff}
+            title={t('chatList.errorTitle')}
+            description={error}
+            action={
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  refreshConversations()
+                  reload()
+                }}
+              >
+                {t('common.retry')}
+              </Button>
+            }
+          />
         ) : visible.length === 0 ? (
           // With a query worth sending to the server, the local empty state is
           // withheld: the search section below is the answer, and "ничего не

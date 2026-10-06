@@ -14,7 +14,7 @@ import { cn } from '../../utils/cn'
 import { Avatar } from '../ui/Avatar'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
-import { Spinner } from '../ui/Spinner'
+import { PanelSkeleton } from './PanelSkeleton'
 import { SettingsCard } from './Section'
 
 /** The multi-account model allows five per browser tab (brief §8). */
@@ -82,9 +82,7 @@ export function AccountsPanel() {
   return (
     <SettingsCard title={t('settings.accounts.title')} description={t('settings.accounts.hint')}>
       {accounts === null ? (
-        <div className="flex justify-center py-4">
-          <Spinner className="size-4 text-fg-muted" />
-        </div>
+        <PanelSkeleton />
       ) : (
         <ul className="flex flex-col gap-2">
           {accounts.map((account) => {

@@ -66,11 +66,50 @@ html[data-theme='light'] {
 @keyframes fh-scale-in {
   from {
     opacity: 0;
-    transform: scale(0.96);
+    transform: scale(0.95);
   }
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/*
+ * A message arriving. Own messages come in from the side they are drawn on, so
+ * the motion agrees with where the bubble already is rather than crossing the
+ * screen to reach it.
+ */
+@keyframes fh-message-own {
+  from {
+    opacity: 0;
+    transform: translate3d(12px, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes fh-message-other {
+  from {
+    opacity: 0;
+    transform: translate3d(-12px, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* The mobile conversation list, which occupies the whole screen below `md`. */
+@keyframes fh-drawer-in {
+  from {
+    opacity: 0;
+    transform: translate3d(-16px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
   }
 }
 
@@ -83,9 +122,30 @@ html[data-theme='light'] {
     animation: fh-scale-in 180ms ease-out;
   }
 
+  .animate-fh-message-own {
+    animation: fh-message-own 180ms ease-out;
+  }
+
+  .animate-fh-message-other {
+    animation: fh-message-other 180ms ease-out;
+  }
+
+  .animate-fh-drawer {
+    animation: fh-drawer-in 180ms ease-out;
+  }
+
+  /*
+   * One switch for every animation in the app, including Tailwind's own
+   * `animate-pulse`: anyone who asked their system for less motion should get a
+   * skeleton that is simply a placeholder, not one that breathes.
+   */
   @media (prefers-reduced-motion: reduce) {
     .animate-fh-fade,
-    .animate-fh-pop {
+    .animate-fh-pop,
+    .animate-fh-message-own,
+    .animate-fh-message-other,
+    .animate-fh-drawer,
+    .animate-pulse {
       animation: none;
     }
   }
