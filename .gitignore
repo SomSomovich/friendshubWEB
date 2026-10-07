@@ -13,6 +13,13 @@ dist
 dist-ssr
 *.local
 
+# Environment. The `VITE_*` values are not secrets — they are inlined into the
+# bundle — but they are per deployment, so the template is committed and the
+# files made from it are not. The harness's own `.env.harness` is listed below.
+.env
+.env.*
+!.env.example
+
 # The WASM crypto module is built from github.com/SomSomovich/friendshub-wasm.
 # Its binary is never committed; rebuild it from the source repo instead.
 src/wasm/pkg/*.wasm

@@ -12,10 +12,12 @@ when the call button is pressed (`call-outgoing-dark-ru`). Everything else is in
 `README_CALLS.md` as a manual procedure. Related: `navigator.mediaDevices` does
 not exist outside a secure context, so calls need `https://` or `localhost`.
 
-**Push notifications.** The server is not configured with a VAPID key, so
-`GET /push/vapid` answers 404 and the client reports "push is unavailable"
-rather than registering. The service worker's handlers are checked by their
-presence in the built worker, not by firing them.
+**Push notifications.** `GET /push/vapid` now answers with a key
+(`subject: mailto:som0somovich@gmail.com`), so the client does register a
+subscription — but nothing has verified that a wake-up push actually arrives,
+because the service worker's handlers are checked by their presence in the built
+worker rather than by firing them. Treat "a notification appeared on a locked
+phone" as untested until someone has seen it.
 
 **Safari.** Not tested. The code avoids the platform-specific APIs it can avoid
 (`setSinkId` is feature-detected, `MediaRecorder` falls back to whatever the

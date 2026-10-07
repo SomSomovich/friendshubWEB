@@ -863,16 +863,24 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
      * then* — which is the whole point. A release only reaches the composer if
      * the button it was pressed on is still there to receive it.
      *
-     * What comes out is written to the same `data-probe` attribute, because
-     * there are three different ways this can end and the capture should say
-     * which one happened.
+     * Two separate things are checked, and the capture says which one failed:
+     *
+     *  - the release has to end the recording at all (a button that unmounted
+     *    under the press swallowed it entirely);
+     *  - the recording has to go straight out, not land in the attachment
+     *    overlay waiting to be confirmed — the strip promises "release to send",
+     *    and a note that needs a second confirmation is one that was not sent.
+     *
+     * What this *cannot* prove is that the upload succeeded: the harness's
+     * seeded profile holds an account row but no crypto state, so the envelopes
+     * an attachment needs cannot be built. That last step is a manual check.
      */
     const voiceProbe = `(function () {
       if (window.__voiceProbe === undefined) window.__voiceProbe = { step: 'press', at: 0 }
       const state = window.__voiceProbe
       const mic = () => document.querySelector('button[aria-label="Записать голосовое сообщение"]')
       const recording = () => document.body.innerText.includes('Отпустите')
-      const overlay = () => document.body.innerText.includes('Отправка файлов')
+      const staged = () => document.body.innerText.includes('Отправка файлов')
 
       if (state.step === 'press') {
         const button = mic()
@@ -902,9 +910,16 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
         return false
       }
 
-      if (recording() && Date.now() - state.at < 3000) return false
-      document.documentElement.dataset.probe =
-        'voice=' + (recording() ? 'stuck' : 'released') + '-' + (overlay() ? 'sent' : 'nosend')
+      // Released: let the outcome settle before judging it, and give a recording
+      // that is still running longer still, since "it stopped" is the first
+      // thing that was ever wrong here.
+      if (Date.now() - state.at < 800) return false
+      if (recording()) {
+        if (Date.now() - state.at < 4000) return false
+        document.documentElement.dataset.probe = 'voice=stuck'
+        return true
+      }
+      document.documentElement.dataset.probe = staged() ? 'voice=released-staged' : 'voice=released-direct'
       return true
     })()`
 
@@ -933,7 +948,7 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
           lang: 'ru',
           size: '1280,800',
           ready: voiceProbe,
-          expect: ['voice=released-sent'],
+          expect: ['voice=released-direct'],
         },
       )
     }
