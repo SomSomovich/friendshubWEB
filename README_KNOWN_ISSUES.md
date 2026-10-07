@@ -75,15 +75,24 @@ search and pin jumps, e.g. scrolling to an index rather than to a node.
 
 ## Behaviour worth knowing
 
-**One unreachable device makes its owner unreachable.** Sending encrypts for
-every device of the recipient, and the first device that cannot be given a
-prekey bundle fails the whole message — so a device left behind (an old browser
-profile, or one from before a sign-out, which registers a new device number)
-whose pool has run dry makes that person impossible to write to, and "no prekeys"
-is all the sender sees. The recipient's own, live devices would have taken it
-fine. Skipping the device that failed would deliver to the rest, at the cost of
-the message quietly missing on one of them; which of those is worse is a product
-decision rather than a technical one, so it stays as it is until that is made.
+**A device that cannot be reached is left out, and the message does not wait for
+it.** A device left behind — an old browser profile, or one from before a
+sign-out, which registers a new device number — with an empty pool of one-time
+prekeys can never be given a session again, and it used to fail every message to
+its owner even though each of their other devices would have taken it. Now the
+unreachable devices are skipped and the rest are delivered to.
+
+What that costs: the message **does not arrive on the device that was skipped**.
+It is not queued for it and nothing retries, so a device that is merely out of
+prekeys will miss whatever was sent before its owner's client tops the pool back
+up. Only two failures are treated this way — `replenish_required`, which is a
+drained pool, and a `404`, which is a device that no longer exists. A rate limit,
+a server error or a dropped connection still fails the send outright, because
+those are not facts about the device.
+
+The cleaner cure for the same situation is to revoke the abandoned device
+(`DELETE /devices/{id}`, allowed when your own device is number 1 or older than
+three days), after which there is nothing left to skip.
 
 **A long-lived tab tops its prekey pool up only when its socket reconnects.**
 Since v0.3.2 the top-up runs on `connected`, which covers every reload, account

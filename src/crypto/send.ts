@@ -8,7 +8,13 @@ import { uuidV7 } from '../utils/uuid'
 import { groupEncrypt } from '../wasm'
 import { requireActiveClient } from '../ws/activeClient'
 import { ENVELOPE_TYPE_MESSAGE } from '../ws/envelopeTypes'
-import { buildEnvelope, encryptForDevice, resolveOwnOtherDevices, resolvePeerDevices } from './envelopes'
+import {
+  buildEnvelope,
+  pairwiseFanout,
+  pairwiseFanoutOrThrow,
+  resolveOwnOtherDevices,
+  resolvePeerDevices,
+} from './envelopes'
 import { resolveGroupMemberAccounts } from './groups'
 import { encodePayload, toWireForward, toWireReply, type MessagePayload } from './payloads'
 import { persistSnapshot } from './snapshot'
@@ -84,19 +90,16 @@ export async function sendMessage(
   const createdAt = options.createdAt ?? nowSeconds()
   const payloadHex = encodePayload(buildMessagePayload(messageId, draft, createdAt))
 
-  const envelopes: Envelope[] = []
-  for (const device of devices) {
-    envelopes.push(
-      await pairwise(
-        account,
-        target.peerAccountId,
-        device.deviceNumber,
-        payloadHex,
-        ENVELOPE_TYPE_MESSAGE,
-        target.conversationId,
-      ),
-    )
-  }
+  // A device of the peer that cannot be given a session is left out rather than
+  // failing the message; see `pairwiseFanout`.
+  const envelopes = await pairwiseFanoutOrThrow(
+    account,
+    target.peerAccountId,
+    devices,
+    payloadHex,
+    ENVELOPE_TYPE_MESSAGE,
+    target.conversationId,
+  )
   envelopes.push(...(await ownDeviceCopies(account, payloadHex, ENVELOPE_TYPE_MESSAGE, target.conversationId)))
 
   await uploadBatch(envelopes)
@@ -277,39 +280,15 @@ function buildMessagePayload(
   }
 }
 
-/** One envelope, encrypted for exactly one device. */
-export async function pairwise(
-  account: Account,
-  recipientAccountId: string,
-  recipientDeviceNumber: number,
-  payloadHex: string,
-  envelopeType: number,
-  conversationId: string | null,
-): Promise<Envelope> {
-  const encrypted = await encryptForDevice(
-    account,
-    recipientAccountId,
-    recipientDeviceNumber,
-    payloadHex,
-  )
-  return buildEnvelope({
-    senderAccountId: account.id,
-    senderDeviceNumber: account.deviceNumber,
-    recipientAccountId,
-    recipientDeviceNumber,
-    envelopeType,
-    isPrekeyMessage: encrypted.isPrekeyMessage,
-    ciphertextHex: encrypted.ciphertextHex,
-    conversationId,
-  })
-}
-
 /**
  * The same payload, to this account's other devices.
  *
  * They receive a real message envelope rather than a special sync kind, and
  * recognise it as their own account's by `sender_account_id`. That is what makes
  * one rule cover a sent message, an edit, a delete and a reaction alike.
+ *
+ * Best effort, unlike the peer's devices: a copy of our own that cannot be
+ * delivered costs a sync, and the message itself is already on its way.
  */
 export async function ownDeviceCopies(
   account: Account,
@@ -318,15 +297,16 @@ export async function ownDeviceCopies(
   conversationId: string | null,
 ): Promise<Envelope[]> {
   const others = await resolveOwnOtherDevices(account)
-  // Sequential rather than `Promise.all`: each call may have to establish a
-  // session, and the module's state is not safe to mutate from two of them at
-  // once.
-  const envelopes: Envelope[] = []
-  for (const device of others) {
-    envelopes.push(
-      await pairwise(account, account.id, device.deviceNumber, payloadHex, envelopeType, conversationId),
-    )
-  }
+  // Not the throwing variant: a copy of our own that cannot be delivered costs a
+  // sync, and the message itself is already on its way to the peer.
+  const { envelopes } = await pairwiseFanout(
+    account,
+    account.id,
+    others,
+    payloadHex,
+    envelopeType,
+    conversationId,
+  )
   return envelopes
 }
 

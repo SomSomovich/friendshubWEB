@@ -1,4 +1,4 @@
-import { buildEnvelope, encryptForDevice, resolvePeerDevices } from '../crypto/envelopes'
+import { pairwiseFanoutOrThrow, resolvePeerDevices } from '../crypto/envelopes'
 import { encodePayload } from '../crypto/payloads'
 import type { Account, Envelope } from '../types'
 import { getActiveClientOrNull } from '../ws/activeClient'
@@ -106,29 +106,19 @@ export async function sendCallSignal(
   })
   const envelopeType = ENVELOPE_TYPE_BY_KIND[signal.kind]
 
-  // Sequential: `encryptForDevice` may have to establish a session first, and the
-  // WASM module's state is not safe to mutate from two calls at once.
-  const envelopes: Envelope[] = []
-  for (const device of devices) {
-    const encrypted = await encryptForDevice(
-      account,
-      peerAccountId,
-      device.deviceNumber,
-      payloadHex,
-    )
-    envelopes.push(
-      buildEnvelope({
-        senderAccountId: account.id,
-        senderDeviceNumber: account.deviceNumber,
-        recipientAccountId: peerAccountId,
-        recipientDeviceNumber: device.deviceNumber,
-        envelopeType,
-        isPrekeyMessage: encrypted.isPrekeyMessage,
-        ciphertextHex: encrypted.ciphertextHex,
-        conversationId,
-      }),
-    )
-  }
+  // A device of the peer that cannot be given a session is left out: the call
+  // should still ring the ones that can be reached, and the frames after this
+  // one are addressed to a call that device never heard about anyway. When not
+  // one device could be reached the original failure is thrown, because a call
+  // that rings nowhere is not a call.
+  const envelopes = await pairwiseFanoutOrThrow(
+    account,
+    peerAccountId,
+    devices,
+    payloadHex,
+    envelopeType,
+    conversationId,
+  )
 
   await upload(envelopes)
 }

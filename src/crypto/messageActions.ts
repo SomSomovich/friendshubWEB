@@ -10,7 +10,8 @@ import {
 } from '../ws/envelopeTypes'
 import { resolvePeerDevices } from './envelopes'
 import { encodePayload, type DeletePayload, type EditPayload, type ReactionPayload } from './payloads'
-import { ownDeviceCopies, pairwise } from './send'
+import { ownDeviceCopies } from './send'
+import { pairwiseFanout } from './envelopes'
 import { persistSnapshot } from './snapshot'
 
 /**
@@ -43,26 +44,35 @@ export async function sendMessageAction(
   const recipients = detail.members.filter((member) => member !== account.id)
 
   const envelopes: Envelope[] = []
+  /** Envelopes for the *recipients*, which is what decides whether this failed. */
+  let deliveredToOthers = 0
+  let cause: unknown = null
+
   for (const recipientId of recipients) {
-    // Sequential: each pairwise call may establish a session, and the module's
-    // state is not safe to mutate from two of them at once.
-    for (const device of await resolvePeerDevices(account, recipientId)) {
-      envelopes.push(
-        await pairwise(
-          account,
-          recipientId,
-          device.deviceNumber,
-          payloadHex,
-          envelopeType,
-          message.conversationId,
-        ),
-      )
-    }
+    // Sequential inside, and per recipient: each call may have to establish a
+    // session, and the module's state is not safe to mutate from two at once.
+    const fanout = await pairwiseFanout(
+      account,
+      recipientId,
+      await resolvePeerDevices(account, recipientId),
+      payloadHex,
+      envelopeType,
+      message.conversationId,
+    )
+    envelopes.push(...fanout.envelopes)
+    deliveredToOthers += fanout.envelopes.length
+    cause ??= fanout.cause
   }
 
   envelopes.push(
     ...(await ownDeviceCopies(account, payloadHex, envelopeType, message.conversationId)),
   )
+
+  // Nobody else got it, so the edit, deletion or reaction happened only here.
+  // Saying so beats a silent success, and the server's message says why.
+  if (deliveredToOthers === 0 && cause !== null) {
+    throw cause
+  }
 
   if (envelopes.length > 0) {
     await requireActiveClient().uploadEnvelopes(envelopes)

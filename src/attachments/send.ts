@@ -1,13 +1,13 @@
 import { getConversation } from '../api/conversations'
 import { uploadAttachment } from '../crypto/attachments'
-import { ownDeviceCopies, pairwise } from '../crypto/send'
+import { ownDeviceCopies } from '../crypto/send'
 import { encodePayload, type AttachmentKeyPayload } from '../crypto/payloads'
 import { persistSnapshot } from '../crypto/snapshot'
 import { ENVELOPE_TYPE_ATTACHMENT_KEY } from '../ws/envelopeTypes'
 import { requireActiveClient } from '../ws/activeClient'
-import { resolvePeerDevices } from '../crypto/envelopes'
+import { pairwiseFanout, resolvePeerDevices } from '../crypto/envelopes'
 import { fileToWebp, MESSAGE_IMAGE } from '../utils/image'
-import type { Account } from '../types'
+import type { Account, Envelope } from '../types'
 
 /**
  * Sending files.
@@ -146,24 +146,36 @@ async function broadcastKey(
   }
   const payloadHex = encodePayload(payload)
 
-  const envelopes = []
+  const envelopes: Envelope[] = []
+  /** Envelopes for the *recipients*, which is what decides whether this failed. */
+  let deliveredToOthers = 0
+  let cause: unknown = null
+
   for (const recipient of recipients) {
-    for (const device of await resolvePeerDevices(account, recipient)) {
-      envelopes.push(
-        await pairwise(
-          account,
-          recipient,
-          device.deviceNumber,
-          payloadHex,
-          ENVELOPE_TYPE_ATTACHMENT_KEY,
-          conversationId,
-        ),
-      )
-    }
+    const fanout = await pairwiseFanout(
+      account,
+      recipient,
+      await resolvePeerDevices(account, recipient),
+      payloadHex,
+      ENVELOPE_TYPE_ATTACHMENT_KEY,
+      conversationId,
+    )
+    envelopes.push(...fanout.envelopes)
+    deliveredToOthers += fanout.envelopes.length
+    cause ??= fanout.cause
   }
+
   envelopes.push(
     ...(await ownDeviceCopies(account, payloadHex, ENVELOPE_TYPE_ATTACHMENT_KEY, conversationId)),
   )
+
+  // A key that reached no recipient leaves the file unopenable on the other
+  // side, so that fails rather than being sent — and it fails with the server's
+  // own reason. Our own copies do not count: they do not make the file readable
+  // to anybody else.
+  if (deliveredToOthers === 0 && cause !== null) {
+    throw cause
+  }
 
   if (envelopes.length > 0) {
     await requireActiveClient().uploadEnvelopes(envelopes)
