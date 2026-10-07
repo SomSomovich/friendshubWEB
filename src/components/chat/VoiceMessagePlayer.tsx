@@ -41,6 +41,36 @@ export function VoiceMessagePlayer({ src, className }: VoiceMessagePlayerProps) 
   /** While it is going, the elapsed time is the interesting one; the length when it is not. */
   const label = playing || (position > 0 && !atEnd) ? position : duration
 
+  /**
+   * Makes the element work out how long the clip is.
+   *
+   * `MediaRecorder` writes a WebM whose header carries no length, so the element
+   * reports `NaN` and there is nothing to draw a bar against: every voice note
+   * shows `0:00` with a dead scrubber, which is half of what a voice note is.
+   * Seeking past the end forces it to scan the file, and the real length arrives
+   * with `durationchange` — after which the position is put back.
+   */
+  function probeDuration(audio: HTMLAudioElement): void {
+    const settle = (): void => {
+      if (!Number.isFinite(audio.duration)) {
+        return
+      }
+      audio.removeEventListener('durationchange', settle)
+      audio.removeEventListener('timeupdate', settle)
+      audio.currentTime = 0
+      setDuration(audio.duration)
+    }
+
+    audio.addEventListener('durationchange', settle)
+    audio.addEventListener('timeupdate', settle)
+    try {
+      audio.currentTime = Number.MAX_SAFE_INTEGER
+    } catch (error) {
+      // A file the element refuses to seek has no length to find.
+      console.warn('[voice] the recording length could not be worked out', error)
+    }
+  }
+
   function togglePlay(): void {
     const audio = audioRef.current
     if (audio === null) {
@@ -116,9 +146,12 @@ export function VoiceMessagePlayer({ src, className }: VoiceMessagePlayerProps) 
         // duration before anything is pressed.
         preload="metadata"
         onLoadedMetadata={(event) => {
-          const value = event.currentTarget.duration
-          // Streaming containers can report Infinity until they are played.
-          setDuration(Number.isFinite(value) ? value : 0)
+          const audio = event.currentTarget
+          if (Number.isFinite(audio.duration)) {
+            setDuration(audio.duration)
+            return
+          }
+          probeDuration(audio)
         }}
         onTimeUpdate={(event) => {
           setPosition(event.currentTarget.currentTime)

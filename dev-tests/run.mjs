@@ -356,10 +356,20 @@ const STYLE_READY =
  * would show an empty bar over a `0:00` and prove nothing about either.
  */
 const VOICE_READY = `(function () {
+  const why = (name) => { document.documentElement.dataset.voice = name; return false }
+  const sniff = document.querySelector('[data-sniff]')
+  if (sniff === null) return why('no-sniff')
+  if (sniff.textContent.startsWith('sniff=recording')) return why('recording')
   const players = [...document.querySelectorAll('audio')]
-  if (players.length < 2) return false
-  if (!players.every((audio) => Number.isFinite(audio.duration) && audio.duration > 0)) return false
-  return document.body.innerText.includes('0:54') && ${STYLE_READY}
+  if (players.length === 0) return why('no-players')
+  if (players.length < 2) return why('players=' + players.length)
+  if (!players.every((audio) => Number.isFinite(audio.duration) && audio.duration > 0)) {
+    return why('durations=' + players.map((audio) => String(audio.duration)).join(','))
+  }
+  if (!document.body.innerText.includes('0:54')) return why('no-label')
+  if (!${STYLE_READY}) return why('no-style')
+  document.documentElement.dataset.voice = 'ready'
+  return true
 })()`
 const HARNESS_ENV_FILE = resolve(projectRoot, '.env.harness')
 
@@ -971,7 +981,7 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
           lang: 'ru',
           size: '390,844',
           ready: VOICE_READY,
-          expect: ['Воспроизвести', 'Позиция воспроизведения', '1:30', '0:54'],
+          expect: ['Воспроизвести', 'Позиция воспроизведения', '0:54', 'sniff=audio', '0:04'],
         },
         {
           label: 'voice-note-light-en',
@@ -980,7 +990,7 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
           lang: 'en',
           size: '390,844',
           ready: VOICE_READY,
-          expect: ['Play', 'Playback position', '1:30', '0:54'],
+          expect: ['Play', 'Playback position', '0:54', 'sniff=audio', '0:04'],
         },
       )
     }

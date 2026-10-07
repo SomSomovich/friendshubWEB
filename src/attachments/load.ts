@@ -63,8 +63,11 @@ async function transferAttachment(
   const bytes = new Uint8Array(await blob.arrayBuffer())
 
   // The protocol carries no content type, so the bytes say what they are. The
-  // first four bytes are enough and cost nothing on a 20 MB video.
-  const mime = detectMime(bytes.subarray(0, 64))
+  // whole array is handed over — a view, not a copy — because how much of it is
+  // worth reading is the sniffer's business: a WebM's track list sits past the
+  // first hundred bytes, and a fixed prefix here is how a voice note came to be
+  // drawn as a video.
+  const mime = detectMime(bytes)
   const typed = new Blob([blob], { type: mime.type })
   const loaded: Cached = { url: URL.createObjectURL(typed), mime }
 

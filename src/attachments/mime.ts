@@ -29,7 +29,21 @@ const SIGNATURES: ReadonlyArray<{ bytes: number[]; type: string; family: Attachm
 /** EBML, the container both WebM and Matroska start with. */
 const EBML_HEADER = [0x1a, 0x45, 0xdf, 0xa3]
 
-export function detectMime(bytes: Uint8Array): AttachmentMime {
+/**
+ * How much of the file is looked at.
+ *
+ * Four kilobytes, and not a smaller prefix, because the signatures are only half
+ * the job: telling an audio WebM from a video one means reading the track list,
+ * which sits *after* the EBML header and the Info element — measured at byte 104
+ * in a clip recorded here, so a window of a few dozen bytes silently misses it
+ * and every voice note comes back as video. Reading more costs nothing: callers
+ * hand over the whole file and this takes a view of it.
+ */
+export const MIME_SNIFF_BYTES = 4_096
+
+export function detectMime(source: Uint8Array): AttachmentMime {
+  const bytes = source.subarray(0, MIME_SNIFF_BYTES)
+
   for (const signature of SIGNATURES) {
     if (!startsWith(bytes, signature.bytes)) {
       continue
@@ -74,7 +88,7 @@ export function detectMime(bytes: Uint8Array): AttachmentMime {
  * is exactly what a video element does with audio-only content.
  */
 function hasVideoTrack(bytes: Uint8Array): boolean {
-  const limit = Math.min(bytes.length, 4_096)
+  const limit = bytes.length
   for (let index = 0; index < limit - 2; index += 1) {
     if (bytes[index] === 0x83 && bytes[index + 1] === 0x81) {
       if (bytes[index + 2] === 0x01) {
