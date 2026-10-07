@@ -116,14 +116,40 @@ async function registerDeviceOrRecover(
 }
 
 /**
+ * The account whose pool is being topped up, or `null` when nothing is.
+ *
+ * A flapping connection fires `connected` again and again, and two runs at once
+ * would both see a low pool and both upload a full batch — which the server caps
+ * at 200 unconsumed keys per kind, so the second would be rejected outright.
+ */
+let replenishing: { accountId: string; work: Promise<number> } | null = null
+
+/**
  * Tops the prekey pool up when it runs low, and reports how many keys were sent.
  *
  * The server's count is what matters: other devices consume the pool by fetching
  * bundles, and a drained pool makes this device unreachable to anybody (the
  * server answers `replenish_required`). The module's local count says nothing
  * about that, so it is only used as a fallback when the status call fails.
+ *
+ * Serialised rather than merely guarded: a second caller during a top-up gets
+ * the first one's result instead of starting an overlapping one.
  */
-export async function ensurePrekeysUploaded(account: Account): Promise<number> {
+export function ensurePrekeysUploaded(account: Account): Promise<number> {
+  if (replenishing !== null && replenishing.accountId === account.id) {
+    return replenishing.work
+  }
+
+  const work = checkAndReplenish(account).finally(() => {
+    if (replenishing !== null && replenishing.work === work) {
+      replenishing = null
+    }
+  })
+  replenishing = { accountId: account.id, work }
+  return work
+}
+
+async function checkAndReplenish(account: Account): Promise<number> {
   let available: number
   try {
     available = (await getPrekeyStatus(account)).oneTimeAvailable

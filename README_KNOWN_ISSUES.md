@@ -75,6 +75,22 @@ search and pin jumps, e.g. scrolling to an index rather than to a node.
 
 ## Behaviour worth knowing
 
+**One unreachable device makes its owner unreachable.** Sending encrypts for
+every device of the recipient, and the first device that cannot be given a
+prekey bundle fails the whole message — so a device left behind (an old browser
+profile, or one from before a sign-out, which registers a new device number)
+whose pool has run dry makes that person impossible to write to, and "no prekeys"
+is all the sender sees. The recipient's own, live devices would have taken it
+fine. Skipping the device that failed would deliver to the rest, at the cost of
+the message quietly missing on one of them; which of those is worse is a product
+decision rather than a technical one, so it stays as it is until that is made.
+
+**A long-lived tab tops its prekey pool up only when its socket reconnects.**
+Since v0.3.2 the top-up runs on `connected`, which covers every reload, account
+switch and reconnect — but a tab left open for days with a connection that never
+drops has no such moment. Its pool is consumed by other people's traffic, so it
+can still run down without the tab noticing. A periodic check would close it.
+
 **A 401 does not sign the account out.** The session is *ended*, not erased: the
 account stops being the active one and the reader lands on the login screen, but
 its messages, keys and IndexedDB record are untouched, so an accidental

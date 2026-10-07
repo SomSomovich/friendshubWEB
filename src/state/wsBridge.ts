@@ -1,6 +1,7 @@
 import type { StoreApi } from 'zustand/vanilla'
 import { getConversationReads } from '../api/conversations'
 import { isDeadSessionCode, reportSessionExpired } from '../auth/sessionExpiry'
+import { ensurePrekeysUploaded } from '../crypto/account'
 import { i18n } from '../i18n'
 import { announceIncoming } from '../pwa/notify'
 import { useToastStore, type ToastKind } from './toastStore'
@@ -112,6 +113,16 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
       pushToast('success', i18n.t('app.connectionRestored'))
     }
     hasConnected = true
+
+    // Being connected is the moment to make sure other people can still reach
+    // *this* device. The one-time prekey pool is what they draw on to open a
+    // session, it is consumed by their traffic rather than by anything this
+    // client does, and until this ran it was only ever refilled by signing in —
+    // so a device that stayed signed in drained to nothing and everybody
+    // writing to it was told it had no prekeys left.
+    void ensurePrekeysUploaded(account).catch((error: unknown) => {
+      console.warn('[state] the prekey pool could not be topped up', error)
+    })
 
     void store
       .getState()
