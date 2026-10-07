@@ -23,8 +23,26 @@ import { refreshPins } from './pins'
  * store that holds the message has seen it.
  */
 
+/**
+ * How often a signed-in device re-checks that it can still be reached.
+ *
+ * The prekey pool is spent by other people's traffic, so it drains while nothing
+ * on this device happens at all. Connecting is one moment to top it up — and the
+ * only one, until this: a tab left open for days never reconnects, so it would
+ * otherwise become silently unreachable exactly as a device that had just
+ * signed in once used to.
+ */
+const PREKEY_RECHECK_MS = 15 * 60_000
+
 export function attachClientToAccount(client: WsClient, account: Account): () => void {
   const store = requireAccountStore(account.id)
+
+  const replenishPrekeys = (): void => {
+    void ensurePrekeysUploaded(account).catch((error: unknown) => {
+      console.warn('[state] the prekey pool could not be topped up', error)
+    })
+  }
+  const prekeyTimer = setInterval(replenishPrekeys, PREKEY_RECHECK_MS)
 
   // Decryption mutates the module's state, so envelopes are applied one at a
   // time. Firing them off concurrently would let two calls interleave inside the
@@ -120,9 +138,7 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     // client does, and until this ran it was only ever refilled by signing in —
     // so a device that stayed signed in drained to nothing and everybody
     // writing to it was told it had no prekeys left.
-    void ensurePrekeysUploaded(account).catch((error: unknown) => {
-      console.warn('[state] the prekey pool could not be topped up', error)
-    })
+    replenishPrekeys()
 
     void store
       .getState()
@@ -152,6 +168,7 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
   })
 
   return () => {
+    clearInterval(prekeyTimer)
     detachDelivery()
     detachReceipt()
     detachPresence()

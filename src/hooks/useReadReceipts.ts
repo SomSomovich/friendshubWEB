@@ -93,6 +93,16 @@ export function useReadReceipts(
         void markConversationRead(account, conversationId).catch((error: unknown) => {
           console.warn('[read] the read marker could not be reported', error)
         })
+        return
+      }
+
+      // Coming back is the other half, and it was missing: a message that
+      // arrived while the tab was away never changed `newestIncomingAt` again,
+      // so the effect above had nothing to fire on and the conversation sat
+      // there with an unread badge on its own row — the reader looking straight
+      // at the message it was counting.
+      if (newestIncomingAt !== null) {
+        void store.getState().actions.markRead(conversationId)
       }
     }
 
@@ -100,5 +110,5 @@ export function useReadReceipts(
     return () => {
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [account, conversationId])
+  }, [account, conversationId, store, newestIncomingAt])
 }
