@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { displayName, formatBytes } from '../../attachments/display'
 import type { AttachmentMime } from '../../attachments/mime'
 import { useAttachment } from '../../hooks/useAttachment'
+import { VoiceMessagePlayer } from './VoiceMessagePlayer'
 
 export type AttachmentViewProps = {
   accountId: string
@@ -76,10 +77,9 @@ export function AttachmentView({ accountId, attachmentId, onOpen }: AttachmentVi
   }
 
   if (mime.family === 'audio') {
-    // The waveform the brief asks for would need the amplitude envelope, which
-    // is not in the file the recorder produces; the player's own scrubber is
-    // what a voice note gets instead.
-    return <audio src={url} controls className="w-56 max-w-full" />
+    // A waveform would need the amplitude envelope, which is not in the file the
+    // recorder produces; what a voice note gets is the player's own bar.
+    return <VoiceMessagePlayer src={url} />
   }
 
   return (

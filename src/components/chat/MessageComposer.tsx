@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type Po
 import { useTranslation } from 'react-i18next'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 import { cn } from '../../utils/cn'
+import { formatClipDuration } from '../../utils/duration'
 import { DropdownMenu, type DropdownItem } from '../ui/DropdownMenu'
 
 /** What the attachment menu offers. */
@@ -219,7 +220,7 @@ export function MessageComposer({
         {voice.recording ? (
           <span className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border border-danger/50 bg-bg px-3 text-sm text-fg">
             <span className="size-2 shrink-0 animate-pulse rounded-full bg-danger" aria-hidden />
-            <span className="shrink-0 tabular-nums">{formatDuration(voice.seconds)}</span>
+            <span className="shrink-0 tabular-nums">{formatClipDuration(voice.seconds)}</span>
             <span className="truncate text-xs text-fg-muted">{t('chat.voice.recordingHint')}</span>
             <button
               type="button"
@@ -345,8 +346,3 @@ function extensionFor(mimeType: string): string {
   return mimeType.includes('mp4') ? 'm4a' : 'webm'
 }
 
-/** `0:07`, the way a recorder shows it. */
-function formatDuration(seconds: number): string {
-  const minutes = Math.floor(seconds / 60)
-  return `${minutes}:${String(seconds % 60).padStart(2, '0')}`
-}

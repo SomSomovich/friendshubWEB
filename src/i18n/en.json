@@ -238,7 +238,10 @@
       "record": "Record a voice message",
       "recordHint": "Hold to record a voice message",
       "recordingHint": "Release to send, slide left to cancel",
-      "cancel": "Discard the recording"
+      "cancel": "Discard the recording",
+      "play": "Play",
+      "pause": "Pause",
+      "seek": "Playback position"
     },
     "edit": {
       "banner": "Editing a message",

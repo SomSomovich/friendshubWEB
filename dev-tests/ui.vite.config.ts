@@ -36,6 +36,9 @@ export default defineConfig({
       input: {
         app: resolve(projectRoot, 'index.html'),
         seed: resolve(here, 'seed.html'),
+        // A stand for the voice-message player; see `voice.tsx` for why it is
+        // not captured inside the app.
+        voice: resolve(here, 'voice.html'),
       },
     },
   },

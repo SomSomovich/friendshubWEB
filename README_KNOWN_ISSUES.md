@@ -12,6 +12,15 @@ when the call button is pressed (`call-outgoing-dark-ru`). Everything else is in
 `README_CALLS.md` as a manual procedure. Related: `navigator.mediaDevices` does
 not exist outside a secure context, so calls need `https://` or `localhost`.
 
+**An attachment inside a transcript.** The harness cannot get one there: an
+attachment is drawn from bytes fetched back from the server, and the S3 bucket
+allows the deployed origin only — a page on `127.0.0.1` cannot even PUT a chunk
+(`Failed to fetch`), so nothing can be uploaded into a seeded conversation. The
+voice player is captured on a stand of its own instead (`dev-tests/voice.html`,
+the `voice-note-*` captures), which renders the real component in both of the
+bubbles it appears in, with a clip built in the page. Adding the harness origin
+to the bucket's CORS would close the gap for every attachment, not just voice.
+
 **Push notifications.** `GET /push/vapid` now answers with a key
 (`subject: mailto:som0somovich@gmail.com`), so the client does register a
 subscription — but nothing has verified that a wake-up push actually arrives,

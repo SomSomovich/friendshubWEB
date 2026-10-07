@@ -347,6 +347,20 @@ const UI_PORT = 4297
  */
 const STYLE_READY =
   "(document.styleSheets.length > 0 && getComputedStyle(document.body).backgroundColor !== 'rgba(0, 0, 0, 0)')"
+
+/**
+ * The voice player has drawn its real length and taken its parked position.
+ *
+ * Readiness cannot be "the element is there": the bar and the clock are both
+ * drawn from the decoded length, so a capture taken before the metadata lands
+ * would show an empty bar over a `0:00` and prove nothing about either.
+ */
+const VOICE_READY = `(function () {
+  const players = [...document.querySelectorAll('audio')]
+  if (players.length < 2) return false
+  if (!players.every((audio) => Number.isFinite(audio.duration) && audio.duration > 0)) return false
+  return document.body.innerText.includes('0:54') && ${STYLE_READY}
+})()`
 const HARNESS_ENV_FILE = resolve(projectRoot, '.env.harness')
 
 const UI_CONFIGS = [
@@ -950,6 +964,24 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
           ready: voiceProbe,
           expect: ['voice=released-direct'],
         },
+        {
+          label: 'voice-note-dark-ru',
+          route: '/dev-tests/voice.html',
+          theme: 'dark',
+          lang: 'ru',
+          size: '390,844',
+          ready: VOICE_READY,
+          expect: ['Воспроизвести', 'Позиция воспроизведения', '1:30', '0:54'],
+        },
+        {
+          label: 'voice-note-light-en',
+          route: '/dev-tests/voice.html',
+          theme: 'light',
+          lang: 'en',
+          size: '390,844',
+          ready: VOICE_READY,
+          expect: ['Play', 'Playback position', '1:30', '0:54'],
+        },
       )
     }
 
@@ -1159,6 +1191,9 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
       }
       if (capture.seedUnread === true) {
         seedParams.set('seedUnread', '1')
+      }
+      if (capture.seedVoice === true) {
+        seedParams.set('seedVoice', '1')
       }
       const targetUrl =
         capture.route === null
