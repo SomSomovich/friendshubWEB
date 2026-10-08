@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { displayName, formatBytes } from '../../attachments/display'
 import type { AttachmentMime } from '../../attachments/mime'
 import { useAttachment } from '../../hooks/useAttachment'
+import { usePendingVoiceStore } from '../../state/pendingVoiceStore'
 import { VoiceMessagePlayer } from './VoiceMessagePlayer'
 
 export type AttachmentViewProps = {
@@ -22,7 +23,20 @@ export type AttachmentViewProps = {
  */
 export function AttachmentView({ accountId, attachmentId, onOpen }: AttachmentViewProps) {
   const { t } = useTranslation()
-  const state = useAttachment(accountId, attachmentId)
+  // A recording that has not reached the server yet. Its bytes are in this tab,
+  // so there is nothing to download and nothing to sniff — the message names a
+  // placeholder id, and the store holds what to draw for it.
+  const pending = usePendingVoiceStore((state) => state.notes[attachmentId] ?? null)
+  const state = useAttachment(accountId, pending === null ? attachmentId : null)
+
+  if (pending !== null) {
+    return (
+      <VoiceMessagePlayer
+        src={pending.url}
+        upload={{ progress: pending.progress, error: pending.error }}
+      />
+    )
+  }
 
   if (state.status === 'loading') {
     return (

@@ -10,6 +10,7 @@ import {
 import { registerThisDevice, revokeRegisteredDevice, uploadInitialPrekeys } from '../crypto/account'
 import { persistSnapshot, restoreSnapshot } from '../crypto/snapshot'
 import { destroyAccountStore, getAccountStore } from '../state/accountRegistry'
+import { usePendingVoiceStore } from '../state/pendingVoiceStore'
 import { DEVICE_LABEL, connectedAccountId, disconnectConnection } from '../state/connection'
 import { useUiStore } from '../state/uiStore'
 import { listAccounts, purgeAccount, saveAccount } from '../storage/accounts'
@@ -313,6 +314,10 @@ export async function signOutAccount(account: Account): Promise<void> {
  * server-side session, and the follow-up `POST /logout` would only earn a 401.
  */
 export async function forgetAccount(account: Account): Promise<void> {
+  // Recordings still on their way belong to the session that is ending, and the
+  // object URLs they hold would otherwise outlive the account by a tab's life.
+  usePendingVoiceStore.getState().clear()
+
   if (connectedAccountId() === account.id) {
     await disconnectConnection()
   }

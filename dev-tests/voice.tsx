@@ -138,11 +138,13 @@ function VoiceStand() {
   useEffect(() => {
     // Parking a player mid-clip is the only way to see the fill: the bar is
     // drawn from the element's own position, and nothing here is really playing.
+    // Addressed by a marker rather than by being last, because the last one is
+    // now a recording that failed to send — whose label says so instead of
+    // showing a position at all.
     const timer = setTimeout(() => {
-      const players = document.querySelectorAll('audio')
-      const last = players[players.length - 1]
-      if (last !== null && last !== undefined) {
-        last.currentTime = SEEK_TO_SECONDS
+      const parked = document.querySelector('[data-seek-target] audio')
+      if (parked !== null) {
+        parked.currentTime = SEEK_TO_SECONDS
       }
     }, 900)
     return () => {
@@ -187,8 +189,27 @@ function VoiceStand() {
         </div>
       )}
       <div className="flex justify-start">
-        <div className="rounded-2xl bg-bg-elevated px-3 py-2">
+        {/* Marked: this is the player the capture parks mid-clip, so the
+            screenshot shows a filled bar as well as an empty one. */}
+        <div data-seek-target className="rounded-2xl bg-bg-elevated px-3 py-2">
           <VoiceMessagePlayer src={wav} />
+        </div>
+      </div>
+
+      {/* The two states a recording passes through on its way to being a
+          message: how far the upload has got, and that it gave up. Both are
+          drawn in the place the play button will take. */}
+      <div className="flex justify-end">
+        <div className="rounded-2xl bg-accent/20 px-3 py-2 ring-1 ring-accent/30">
+          <VoiceMessagePlayer src={wav} upload={{ progress: 0.42, error: null }} />
+        </div>
+      </div>
+      <div className="flex justify-start">
+        <div className="rounded-2xl bg-bg-elevated px-3 py-2">
+          <VoiceMessagePlayer
+            src={wav}
+            upload={{ progress: 0.68, error: 'the pool needs replenishing' }}
+          />
         </div>
       </div>
     </div>

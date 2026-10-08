@@ -1,8 +1,9 @@
-import { Pause, Play } from 'lucide-react'
+import { Pause, Play, TriangleAlert } from 'lucide-react'
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../utils/cn'
 import { formatClipDuration } from '../../utils/duration'
+import { UploadProgressRing } from './UploadProgressRing'
 
 /**
  * A voice message, played by the app rather than by the browser.
@@ -20,16 +21,36 @@ import { formatClipDuration } from '../../utils/duration'
 /** How far the arrow keys move the position, matching every other player. */
 const SEEK_STEP_SECONDS = 5
 
+export type VoiceUploadState = {
+  /** 0..1 while the file is on its way to the server. */
+  progress: number
+  /** A sentence once the upload has given up; `null` while it is still trying. */
+  error: string | null
+}
+
 export type VoiceMessagePlayerProps = {
-  /** An object URL of the decrypted file, so the duration is known at once. */
+  /** An object URL of the file — decrypted, or still being uploaded. */
   src: string
+  /**
+   * Present while the recording has not reached the server yet.
+   *
+   * A voice note is a local file first, and until it is uploaded the play
+   * control is replaced by how far it has got. Without that, releasing the
+   * microphone looked like nothing happening at all — which is what was
+   * reported.
+   */
+  upload?: VoiceUploadState
   className?: string
 }
 
-export function VoiceMessagePlayer({ src, className }: VoiceMessagePlayerProps) {
+export function VoiceMessagePlayer({ src, upload, className }: VoiceMessagePlayerProps) {
   const { t } = useTranslation()
   const audioRef = useRef<HTMLAudioElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
+
+  /** On its way to the server: no play control, and nothing to seek yet. */
+  const sending = upload !== undefined && upload.error === null
+  const failed = upload !== undefined && upload.error !== null
 
   const [playing, setPlaying] = useState(false)
   /** 0 until the metadata arrives; a blob URL answers immediately. */
@@ -168,44 +189,81 @@ export function VoiceMessagePlayer({ src, className }: VoiceMessagePlayerProps) 
         className="hidden"
       />
 
-      <button
-        type="button"
-        aria-label={playing ? t('chat.voice.pause') : t('chat.voice.play')}
-        title={playing ? t('chat.voice.pause') : t('chat.voice.play')}
-        onClick={togglePlay}
-        className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-accent text-accent-fg transition-[filter] duration-150 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-      >
-        {playing ? <Pause className="size-4" aria-hidden /> : <Play className="size-4" aria-hidden />}
-      </button>
+      {/* The same disc as the play button, holding what is happening instead of
+          what can be done: how far the upload has got, or that it stopped. */}
+      {sending ? (
+        <span
+          aria-hidden
+          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-fg"
+        >
+          <UploadProgressRing progress={upload.progress} label={t('chat.voice.uploading')} />
+        </span>
+      ) : failed ? (
+        <span
+          role="img"
+          aria-label={upload.error ?? t('chat.voice.failed')}
+          title={upload.error ?? t('chat.voice.failed')}
+          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-danger text-danger-fg"
+        >
+          <TriangleAlert className="size-4" aria-hidden />
+        </span>
+      ) : (
+        <button
+          type="button"
+          aria-label={playing ? t('chat.voice.pause') : t('chat.voice.play')}
+          title={playing ? t('chat.voice.pause') : t('chat.voice.play')}
+          onClick={togglePlay}
+          className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-accent text-accent-fg transition-[filter] duration-150 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          {playing ? <Pause className="size-4" aria-hidden /> : <Play className="size-4" aria-hidden />}
+        </button>
+      )}
 
       {/* A real slider to a screen reader, and a plain bar to look at: the
           native range input is a knob on a groove, which is a different thing
-          from a progress line and cannot be talked out of it. */}
+          from a progress line and cannot be talked out of it. It is inert until
+          the recording has a copy on the server worth seeking in. */}
       <div
         ref={trackRef}
         role="slider"
-        tabIndex={0}
+        tabIndex={sending || failed ? -1 : 0}
         aria-label={t('chat.voice.seek')}
         aria-valuemin={0}
         aria-valuemax={Math.round(duration)}
         aria-valuenow={Math.round(position)}
         aria-valuetext={formatClipDuration(position)}
+        aria-disabled={sending || failed}
         onClick={(event) => {
-          seekFromPointer(event.clientX)
+          if (!sending && !failed) {
+            seekFromPointer(event.clientX)
+          }
         }}
-        onKeyDown={handleTrackKey}
-        className="flex h-8 min-w-0 flex-1 cursor-pointer items-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        onKeyDown={(event) => {
+          if (!sending && !failed) {
+            handleTrackKey(event)
+          }
+        }}
+        className={cn(
+          'flex h-8 min-w-0 flex-1 items-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+          sending || failed ? 'cursor-default' : 'cursor-pointer',
+        )}
       >
         <span className="block h-1 w-full overflow-hidden rounded-full bg-fg-muted/40">
           <span
-            className="block h-full rounded-full bg-accent"
+            className={cn('block h-full rounded-full', failed ? 'bg-danger' : 'bg-accent')}
             style={{ width: `${progress * 100}%` }}
           />
         </span>
       </div>
 
-      <span className="shrink-0 text-[11px] tabular-nums text-fg-muted">
-        {formatClipDuration(label)}
+      {/* The length, until there is something more important to say about it. */}
+      <span
+        className={cn(
+          'shrink-0 text-[11px] tabular-nums',
+          failed ? 'font-medium text-danger' : 'text-fg-muted',
+        )}
+      >
+        {failed ? t('chat.voice.failed') : formatClipDuration(label)}
       </span>
     </div>
   )

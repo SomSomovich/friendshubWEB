@@ -241,7 +241,9 @@
       "cancel": "Discard the recording",
       "play": "Play",
       "pause": "Pause",
-      "seek": "Playback position"
+      "seek": "Playback position",
+      "uploading": "Sending the voice message",
+      "failed": "Not sent"
     },
     "edit": {
       "banner": "Editing a message",

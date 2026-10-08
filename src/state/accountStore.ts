@@ -1,5 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { listConversations } from '../api/conversations'
+import { uploadAll } from '../attachments/send'
 import { handleCallSignal } from '../calls/incoming'
 import {
   buildLocalMessageRecord,
@@ -32,6 +33,7 @@ import type { PresenceEvent } from '../ws/events'
 import { TYPING_TTL_SECONDS, withTyping, type TypingState } from '../utils/typing'
 import { applyReceivedEnvelope, mergeById } from './applyEnvelope'
 import { enqueue, listOutbox, removeFromOutbox } from './outbox'
+import { usePendingVoiceStore } from './pendingVoiceStore'
 import { useUiStore } from './uiStore'
 
 /**
@@ -112,6 +114,16 @@ export type AccountActions = {
    */
   sendDraft: (draft: MessageDraft) => Promise<void>
   sendToSaved: (plaintext: string) => Promise<void>
+  /**
+   * Sends a finished recording, which appears in the chat before it is uploaded.
+   *
+   * A voice note is a local file first and a message second, so the row is
+   * written immediately — marked `sending`, drawing the recording out of
+   * `pendingVoiceStore` — and replaced by the real one when the upload lands.
+   * Releasing the microphone used to put nothing on screen at all, so a slow
+   * upload and a failed one looked exactly alike.
+   */
+  sendVoice: (blob: Blob, name: string) => Promise<void>
   /** Sends whatever was queued while the connection was down. */
   flushOutbox: () => Promise<void>
   applyEnvelope: (envelope: Envelope) => Promise<void>
@@ -402,6 +414,79 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
           })
         } catch (error) {
           set({ sending: false, error: describe(error) })
+          throw error
+        }
+      },
+
+      async sendVoice(blob, name) {
+        const { activeConversationId } = get()
+        if (activeConversationId === null) {
+          throw new Error('[state] no conversation is open')
+        }
+
+        // The placeholder id is what the row names and what the store answers
+        // for, so the bubble can draw a file that is not on any server yet.
+        const localId = `local:${uuidV7()}`
+        const url = URL.createObjectURL(blob)
+        usePendingVoiceStore.getState().add(localId, url)
+
+        const placeholder = buildLocalMessageRecord(account, {
+          conversationId: activeConversationId,
+          messageId: uuidV7(),
+          envelopeId: uuidV7(),
+          draft: { text: '', attachmentIds: [localId] },
+          createdAt: nowSeconds(),
+          status: 'sending',
+        })
+        await saveMessage(placeholder)
+        set({
+          messages: mergeById([placeholder], get().messages),
+          messagesVersion: get().messagesVersion + 1,
+        })
+
+        try {
+          const attachmentIds = await uploadAll({
+            account,
+            conversationId: activeConversationId,
+            files: [{ blob, name, compress: false }],
+            caption: '',
+            onProgress: (progress) => {
+              usePendingVoiceStore.getState().setProgress(localId, progress.fraction)
+            },
+          })
+
+          // The real row replaces the placeholder rather than joining it: the
+          // two have different envelope ids, and both at once is the message
+          // twice.
+          await deleteMessage(account.id, placeholder.envelopeId)
+          const record = await sendToOpenConversation(
+            account,
+            activeConversationId,
+            { text: '', attachmentIds },
+            get(),
+          )
+          await saveMessage(record)
+          set({
+            messages: mergeById(
+              get().messages.filter((message) => message.envelopeId !== placeholder.envelopeId),
+              [record],
+            ),
+            messagesVersion: get().messagesVersion + 1,
+          })
+
+          usePendingVoiceStore.getState().remove(localId)
+          URL.revokeObjectURL(url)
+        } catch (error) {
+          // The row stays, marked as failed. A recording that did not go out has
+          // to be visible, or the reader cannot tell it from one that did.
+          await updateMessage(account.id, placeholder.envelopeId, { status: 'failed' })
+          set({
+            messages: get().messages.map((message) =>
+              message.envelopeId === placeholder.envelopeId ? { ...message, status: 'failed' } : message,
+            ),
+            messagesVersion: get().messagesVersion + 1,
+          })
+          usePendingVoiceStore.getState().fail(localId, describe(error))
           throw error
         }
       },

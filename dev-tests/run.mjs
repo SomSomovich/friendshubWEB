@@ -981,7 +981,7 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
           lang: 'ru',
           size: '390,844',
           ready: VOICE_READY,
-          expect: ['Воспроизвести', 'Позиция воспроизведения', '0:54', 'sniff=audio', '0:04'],
+          expect: ['Воспроизвести', 'Позиция воспроизведения', '0:54', 'sniff=audio', '0:04', 'Отправка голосового', 'Не отправлено'],
         },
         {
           label: 'voice-note-light-en',
@@ -990,7 +990,7 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
           lang: 'en',
           size: '390,844',
           ready: VOICE_READY,
-          expect: ['Play', 'Playback position', '0:54', 'sniff=audio', '0:04'],
+          expect: ['Play', 'Playback position', '0:54', 'sniff=audio', '0:04', 'Sending the voice message', 'Not sent'],
         },
       )
     }

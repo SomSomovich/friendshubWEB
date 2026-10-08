@@ -360,35 +360,14 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
   /**
    * Sends a finished recording, without asking again.
    *
-   * The gesture is a promise the strip makes in words — "release to send" — and
-   * routing the recording into the attachment overlay broke it: letting go
-   * produced a note that had to be confirmed a second time, which reads exactly
-   * like the message never being sent at all.
-   *
-   * A voice message is also the one attachment with nothing to decide: no
-   * caption to write, no compression to weigh, nothing to remove. The overlay
-   * exists for the choices; there are none here.
-   *
-   * No progress bar for the same reason — it belongs to that overlay, and a
-   * recording is short enough that the message appearing is the feedback.
+   * The upload belongs to the store: the note appears in the chat before it has
+   * left the device, and the row that draws it has to be in step with the
+   * transcript. All that is left here is saying so when it fails.
    */
-  async function sendVoiceNote(blob: Blob, name: string): Promise<void> {
-    try {
-      const attachmentIds = await uploadAll({
-        account,
-        conversationId,
-        files: [{ blob, name, compress: false }],
-        caption: '',
-        // The overlay's bar, which is not on screen for this; `uploadAll` wants
-        // the callback regardless.
-        onProgress: () => {},
-      })
-
-      await store.getState().actions.sendDraft({ text: '', attachmentIds })
-    } catch (cause) {
-      console.error('[chat] the voice message was not sent', cause)
+  function sendVoiceNote(blob: Blob, name: string): void {
+    void store.getState().actions.sendVoice(blob, name).catch((cause: unknown) => {
       report(cause, 'chat.actionFailed')
-    }
+    })
   }
 
   function discardAttachments(): void {
@@ -788,9 +767,7 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
           onPickFile={(file) => {
             void addAttachment(file)
           }}
-          onVoiceRecorded={(blob, name) => {
-            void sendVoiceNote(blob, name)
-          }}
+          onVoiceRecorded={sendVoiceNote}
           disabled={loadingConversation}
           focusToken={focusToken}
         />
