@@ -174,12 +174,32 @@ async function send(
   }
 }
 
+/**
+ * Reads the body, as one of the two things `ApiError` promises to be.
+ *
+ * A connection can also die *while the body is arriving* — the status line and
+ * the headers have already been received, so `fetch` resolved — and that failure
+ * surfaces here rather than from `send`. Left alone it escapes as a raw
+ * `TypeError`, outside the one error type every caller catches: no retry, no
+ * message, and an unhandled rejection in its place. Reported with a status of 0,
+ * which is what "the exchange never completed" means to every caller.
+ */
 async function readBody<T>(response: Response, options: RequestOptions): Promise<T> {
-  if (options.responseType === 'bytes') {
-    return new Uint8Array(await response.arrayBuffer()) as T
+  let text: string
+  try {
+    if (options.responseType === 'bytes') {
+      return new Uint8Array(await response.arrayBuffer()) as T
+    }
+    text = await response.text()
+  } catch (error) {
+    throw new ApiError({
+      status: 0,
+      code: 'network',
+      message: 'the response body could not be read',
+      details: null,
+      cause: error,
+    })
   }
-
-  const text = await response.text()
 
   if (text.length === 0) {
     // 204s and empty bodies are the norm for mutations; callers that need a

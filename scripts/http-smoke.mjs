@@ -19,7 +19,7 @@
  */
 import { API_HEALTH_URL, request } from '../src/api/client.ts'
 import { getMe, login, register } from '../src/api/auth.ts'
-import { listOwnDevices, registerDevice } from '../src/api/devices.ts'
+import { listOwnDevices, registerDevice, revokeDevice } from '../src/api/devices.ts'
 import { getPrekeyStatus } from '../src/api/prekeys.ts'
 import { createDirectConversation, listConversations } from '../src/api/conversations.ts'
 import { addContact, listBlocks, listContacts } from '../src/api/contacts.ts'
@@ -237,6 +237,78 @@ check(
   Array.isArray(ice.iceServers) && ice.iceServers.length > 0 && ice.ttlSeconds > 0,
   `${ice.iceServers.length} server(s), ttl ${ice.ttlSeconds}s`,
 )
+
+// --- the device a session speaks for ---------------------------------------
+//
+// The bug this exists for: a device registered by a session that is bound to a
+// *different* device cannot upload prekeys — the server answers 403 — so the
+// device is left with an empty pool. A device with an empty pool is not merely
+// useless: everyone writing to that account fans out to every one of its
+// devices, the server answers `replenish_required` for that one, and the account
+// reads as unreachable to all of them while its own chat history says otherwise.
+//
+// That is why `src/auth/session.ts` signs in a second time, as the device it has
+// just registered. This is what that second sign-in buys.
+const secondDevice = await call(() =>
+  registerDevice(
+    { sessionToken: alice.sessionToken },
+    {
+      name: 'smoke-second-device',
+      registrationId: 4321,
+      identityKeyPub: randomIdentityKeyHex(),
+    },
+  ),
+)
+check(
+  'a device can be registered while the session is bound to another one',
+  secondDevice.deviceNumber !== alice.deviceNumber,
+  `session=${alice.deviceNumber} device=${secondDevice.deviceNumber}`,
+)
+
+/**
+ * Whether a session is allowed to store prekeys for a device.
+ *
+ * An empty body on purpose: the question is about the session, and the server
+ * answers that before it looks at any keys.
+ */
+async function prekeyAttempt(sessionToken, headerDevice) {
+  try {
+    await call(() =>
+      request('POST', '/devices/me/prekeys', {}, { token: sessionToken, deviceNumber: headerDevice }),
+    )
+    return 'accepted'
+  } catch (error) {
+    return error instanceof ApiError ? `${error.status} ${error.code}` : String(error)
+  }
+}
+
+const withOldSession = await prekeyAttempt(alice.sessionToken, secondDevice.deviceNumber)
+check(
+  'its prekeys are refused while the session still speaks for the first device',
+  withOldSession === '403 forbidden',
+  withOldSession,
+)
+
+const secondSession = await call(() =>
+  login(alice.fhNumber, alice.password, secondDevice.deviceNumber),
+)
+check('signing in as the device just registered succeeds', secondSession.kind === 'session')
+
+if (secondSession.kind === 'session') {
+  const renewed = { sessionToken: secondSession.sessionToken, deviceNumber: secondDevice.deviceNumber }
+  const withNewSession = await prekeyAttempt(renewed.sessionToken, secondDevice.deviceNumber)
+  check('and its prekeys are accepted once the session is bound to it', withNewSession === 'accepted', withNewSession)
+
+  // Revoking it, which also ends the sessions bound to it — the cleanup a failed
+  // sign-in relies on so it leaves nothing unusable behind.
+  await call(() => revokeDevice(renewed, secondDevice.id))
+  const left = await call(() => listOwnDevices({ sessionToken: alice.sessionToken, deviceNumber: alice.deviceNumber }))
+  check(
+    'revoking leaves the account as it was',
+    !left.some((device) => device.deviceNumber === secondDevice.deviceNumber),
+    `devices: ${left.map((device) => device.deviceNumber).join(', ')}`,
+  )
+}
 
 console.log(`\nthrowaway accounts for cleanup: ${alice.fhNumber}, ${bob.fhNumber}`)
 if (failures === 0) {

@@ -21,6 +21,16 @@ the `voice-note-*` captures), which renders the real component in both of the
 bubbles it appears in, with a clip built in the page. Adding the harness origin
 to the bucket's CORS would close the gap for every attachment, not just voice.
 
+**Signing in again on a browser that has no keys, with 2FA by backup code.** A
+session carries the device number it was created with, and the server gives every
+registration a *new* number — so a browser with no stored keys (after signing
+out, which destroys them) has to log in twice: once to be allowed to register a
+device, and once as the device it has just become. The second login reuses the
+2FA code, which works for a TOTP code — it is seconds old and still inside its
+window — but not for a backup code, which is single-use. That route fails
+*safely*: the device it could not adopt is revoked, nothing is left behind, and
+the account is exactly as it was. TOTP is the ordinary case.
+
 **Push notifications.** `GET /push/vapid` now answers with a key
 (`subject: mailto:som0somovich@gmail.com`), so the client does register a
 subscription — but nothing has verified that a wake-up push actually arrives,

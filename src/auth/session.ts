@@ -7,8 +7,10 @@ import {
   type LoginResult,
   type SessionResult,
 } from '../api/auth'
+import { registerThisDevice, revokeRegisteredDevice, uploadInitialPrekeys } from '../crypto/account'
+import { persistSnapshot, restoreSnapshot } from '../crypto/snapshot'
 import { destroyAccountStore, getAccountStore } from '../state/accountRegistry'
-import { connectedAccountId, disconnectConnection } from '../state/connection'
+import { DEVICE_LABEL, connectedAccountId, disconnectConnection } from '../state/connection'
 import { useUiStore } from '../state/uiStore'
 import { listAccounts, purgeAccount, saveAccount } from '../storage/accounts'
 import { getSetting, setSetting } from '../storage/settings'
@@ -82,12 +84,20 @@ export function readChallenge(): PendingChallenge | null {
 }
 
 export function clearChallenge(): void {
+  // The sign-in is being abandoned, so the password it was keeping goes with it.
+  passwordInFlight = null
   sessionStorage.removeItem(TOTP_CHALLENGE_KEY)
 }
 
 /** Phase one of login: a session, or the challenge the 2FA screen needs. */
 export async function startLogin(fhNumber: string, password: string): Promise<LoginResult> {
-  return loginRequest(fhNumber, password, await rememberedDeviceNumber(fhNumber))
+  passwordInFlight = { fhNumber, password, code: null }
+  try {
+    return await loginRequest(fhNumber, password, await rememberedDeviceNumber(fhNumber))
+  } catch (error) {
+    passwordInFlight = null
+    throw error
+  }
 }
 
 /** Phase two: the code, exchanged for a session. */
@@ -96,7 +106,14 @@ export async function startLoginWithTotp(
   code: string,
   fhNumber: string,
 ): Promise<SessionResult> {
-  return loginWithTotp(challengeToken, code, await rememberedDeviceNumber(fhNumber))
+  const result = await loginWithTotp(challengeToken, code, await rememberedDeviceNumber(fhNumber))
+
+  // Kept alongside the password: a browser with no keys signs in a second time,
+  // as the device it has just registered, and needs the same code again.
+  if (passwordInFlight !== null && passwordInFlight.fhNumber === fhNumber) {
+    passwordInFlight = { ...passwordInFlight, code }
+  }
+  return result
 }
 
 export type RegistrationLogin = {
@@ -113,12 +130,31 @@ export type RegistrationLogin = {
  */
 export async function registerAndStartLogin(password: string): Promise<RegistrationLogin> {
   const registered = await registerRequest(password)
+  passwordInFlight = { fhNumber: registered.fhNumber, password, code: null }
+
   const result = await loginRequest(registered.fhNumber, password, 1)
   return { fhNumber: registered.fhNumber, result }
 }
 
+/**
+ * The password of a sign-in still in progress.
+ *
+ * Held for the one step that needs it and cleared the moment the account is
+ * stored. A session is bound to the device number it was created with and the
+ * server gives every registration a *new* number, so a browser with no stored
+ * keys has to log in twice — once to be allowed to register a device, and once
+ * as the device it has just become. The screen that holds the password is not
+ * the one that finishes the flow: 2FA sits between them.
+ *
+ * In memory only, for the length of one sign-in, and never written anywhere.
+ */
+let passwordInFlight: { fhNumber: string; password: string; code: string | null } | null = null
+
 /** Turns a session into the account the rest of the app uses. */
 export async function persistSession(fhNumber: string, session: SessionResult): Promise<Account> {
+  const pending = passwordInFlight
+  passwordInFlight = null
+
   const deviceNumber = await rememberedDeviceNumber(fhNumber)
   const me = await getMe({ sessionToken: session.sessionToken, deviceNumber })
 
@@ -134,12 +170,106 @@ export async function persistSession(fhNumber: string, session: SessionResult): 
     expiresAt: session.expiresAt,
   }
 
-  await saveAccount(account)
-  getAccountStore(account)
-  await setSetting(deviceNumberSettingKey(fhNumber), String(deviceNumber))
-  useUiStore.getState().setActiveAccount(account.id)
+  const aligned = await alignDevice(account, fhNumber, pending)
 
-  return account
+  await saveAccount(aligned)
+  getAccountStore(aligned)
+  await setSetting(deviceNumberSettingKey(fhNumber), String(aligned.deviceNumber))
+  useUiStore.getState().setActiveAccount(aligned.id)
+
+  return aligned
+}
+
+/**
+ * Makes the session belong to the device this browser actually is.
+ *
+ * A session carries the device number it was created with, and the server hands
+ * every registration a *new* number. A browser with no stored keys — after
+ * signing out, which is meant to destroy them, or the first time it is used for
+ * the account — therefore registers a device its own session cannot speak for:
+ * the prekey upload is refused with 403, the device is left on the server with
+ * no prekeys, and everybody who writes to this account is told the pool is
+ * empty. One sign-in, an entire account unreachable, with the chat history still
+ * sitting there saying otherwise.
+ *
+ * The cure is a second login, as the device it has just become.
+ */
+async function alignDevice(
+  account: Account,
+  fhNumber: string,
+  pending: { password: string; code: string | null } | null,
+): Promise<Account> {
+  // The ordinary case: this browser has used the device before, and the login
+  // already named it.
+  if (await restoreSnapshot(account.id)) {
+    return account
+  }
+
+  const device = await registerThisDevice(account, DEVICE_LABEL)
+
+  let aligned = account
+  try {
+    if (device.deviceNumber !== account.deviceNumber) {
+      if (pending === null) {
+        throw new Error(
+          '[auth] this browser has no keys for the account, and the device it registered cannot be signed in as without the password',
+        )
+      }
+
+      const renewed = await logInAs(fhNumber, pending, device.deviceNumber)
+      aligned = {
+        ...account,
+        deviceNumber: device.deviceNumber,
+        sessionToken: renewed.sessionToken,
+        expiresAt: renewed.expiresAt,
+      }
+    }
+
+    // The state has to be written before anything else claims success: a device
+    // this browser cannot remember is a device nobody can use, and leaving one
+    // behind is the whole failure this function exists to prevent.
+    await persistSnapshot(account.id)
+  } catch (error) {
+    // Nothing unusable may be left behind; see `revokeRegisteredDevice`.
+    if (device.created) {
+      await revokeRegisteredDevice(account, device.deviceNumber)
+    }
+    throw error
+  }
+
+  // The pool is deliberately not part of that: the device is registered, bound
+  // and remembered, and `ensurePrekeysUploaded` fills the pool on the connection
+  // that follows — it runs on every connect and every fifteen minutes after. A
+  // pool that could not be uploaded here would otherwise cost the whole sign-in.
+  await uploadInitialPrekeys(aligned, device.deviceNumber).catch((error: unknown) => {
+    console.warn('[auth] the first prekey pool could not be uploaded yet', error)
+  })
+
+  return aligned
+}
+
+/**
+ * A second sign-in, for the device number the server just assigned.
+ *
+ * The 2FA code is sent again rather than asked for again: it is seconds old and
+ * still inside its window. A backup code is single-use, so that route can fail
+ * here — it fails *safely*, revoking the device it could not adopt, and the
+ * account is left exactly as it was.
+ */
+async function logInAs(
+  fhNumber: string,
+  pending: { password: string; code: string | null },
+  deviceNumber: number,
+): Promise<SessionResult> {
+  const result = await loginRequest(fhNumber, pending.password, deviceNumber)
+  if (result.kind === 'session') {
+    return result
+  }
+
+  if (pending.code === null) {
+    throw new Error('[auth] the server asked for a 2FA code, and none was kept')
+  }
+  return loginWithTotp(result.challengeToken, pending.code, deviceNumber)
 }
 
 /**

@@ -21,7 +21,8 @@ import { attachClientToAccount } from './wsBridge'
 /** The slow half (`keys`) is the first sign-in on a device. */
 export type ConnectStep = 'keys' | 'socket'
 
-const DEVICE_LABEL = 'FriendsHub Web'
+/** The name this browser registers under, wherever a device is registered. */
+export const DEVICE_LABEL = 'FriendsHub Web'
 /** The first connection's retry delays; the client owns reconnects after that. */
 const RETRY_DELAYS_MS = [2_000, 5_000, 10_000, 30_000]
 
