@@ -20,6 +20,9 @@ import {
   WasmError,
   clearIdentityChanges,
   createSenderKeyDistribution,
+  decrypt,
+  encrypt,
+  establishSession,
   generateAttachmentKey,
   generateIdentity,
   generatePrekeys,
@@ -222,6 +225,63 @@ checks.check(
 checks.check(
   'snapshot -> restore preserves prekey state',
   (await prekeyCounts(copyAccount)).oneTimeAvailable === 2,
+)
+
+// --- 4.3 sessions ----------------------------------------------------------
+//
+// The contract nothing asserted until now: a session stops being a prekey
+// session once it has been established *and answered*. If it did not, every
+// message to a conversation that already exists would be a prekey message
+// carrying prekey material — and, worse, the sender would keep spending the
+// other side's one-time prekeys.
+const sessionPeer = `smoke-session-peer-${Date.now()}`
+const sessionPeerIdentity = await generateIdentity(sessionPeer, 77)
+const sessionPeerPrekeys = await generatePrekeys(sessionPeer, 2)
+const sessionBundle = JSON.stringify({
+  account_id: sessionPeer,
+  device_number: 1,
+  registration_id: 77,
+  identity_key_pub: sessionPeerIdentity.publicKeyHex,
+  signed_prekey: sessionPeerPrekeys.signedPrekey,
+  kyber_last_resort: sessionPeerPrekeys.kyberLastResort,
+  one_time_prekey: sessionPeerPrekeys.oneTimePrekeys[0] ?? null,
+  kyber_one_time_prekey: sessionPeerPrekeys.kyberOneTimePrekeys[0] ?? null,
+})
+
+await establishSession(accountId, sessionPeer, 1, 1, sessionBundle)
+const sessionOpening = await encrypt(accountId, sessionPeer, 1, 1, utf8ToHex('первое'))
+checks.check('the first message to a new device is a prekey message', sessionOpening.isPrekeyMessage)
+
+const sessionOpened = await decrypt(
+  sessionPeer,
+  accountId,
+  1,
+  1,
+  sessionOpening.ciphertextHex,
+  sessionOpening.isPrekeyMessage,
+)
+checks.check('the peer reads it', hexToUtf8(sessionOpened) === 'первое', hexToUtf8(sessionOpened))
+
+const sessionAnswer = await encrypt(sessionPeer, accountId, 1, 1, utf8ToHex('ответ'))
+checks.check('the answer is a session message already', !sessionAnswer.isPrekeyMessage)
+
+const sessionAnswered = await decrypt(accountId, sessionPeer, 1, 1, sessionAnswer.ciphertextHex, sessionAnswer.isPrekeyMessage)
+checks.check('and it is read back', hexToUtf8(sessionAnswered) === 'ответ', hexToUtf8(sessionAnswered))
+
+const sessionFollowUp = await encrypt(accountId, sessionPeer, 1, 1, utf8ToHex('второе'))
+checks.check(
+  'the session is no longer a prekey session',
+  !sessionFollowUp.isPrekeyMessage,
+  'a prekey message here means prekey material on every message',
+)
+
+const sessionSnapshot = await snapshot(accountId)
+await restore(accountId, sessionSnapshot)
+const sessionAfterRestore = await encrypt(accountId, sessionPeer, 1, 1, utf8ToHex('третье'))
+checks.check(
+  'the session survives a snapshot round trip',
+  !sessionAfterRestore.isPrekeyMessage,
+  'the app snapshots after every send and restores on every connect',
 )
 
 await reset(accountId)
