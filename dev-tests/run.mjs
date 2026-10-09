@@ -413,18 +413,37 @@ function captureEdge(browser, url, label, extraArgs = [], profileDir = PROFILE_D
   return readFileSync(logPath, 'utf8')
 }
 
+/** The group the profile and settings captures open; created once, then reused. */
+const HARNESS_GROUP_TITLE = 'Harness group'
+/** The channel the channel-settings capture opens; made the same way. */
+const HARNESS_CHANNEL_TITLE = 'Harness channel'
+
 /**
  * What the signed-in captures need about the smoke account: a conversation to
- * open, and a contact to search for.
+ * open, a contact to search for, and a group of its own.
  *
  * Resolved over the same proxy the page uses, with the account's own
  * credentials, so the harness never has to know an id that changes between
- * environments. Both are `null` when the account does not have one, and the
- * captures that need them are skipped rather than reported as failures.
+ * environments. Each is `null` when the account does not have one, and the
+ * captures that need it are skipped rather than reported as failures.
+ *
+ * The group is made here when the account has none, because the group profile
+ * and the settings inside it are owner-only screens: without a group the smoke
+ * account owns, there is nothing for them to show.
  */
 async function resolveHarnessTargets(origin, account) {
   const deviceNumber = account.deviceNumber ?? 1
   const headers = { 'X-Device-Number': String(deviceNumber) }
+  const nothing = {
+    conversationId: null,
+    contactFhNumber: null,
+    contactName: null,
+    groupId: null,
+    groupTitle: null,
+    channelId: null,
+    channelTitle: null,
+    inviteToken: null,
+  }
 
   try {
     const login = await fetch(`${origin}/api/v1/login`, {
@@ -439,7 +458,7 @@ async function resolveHarnessTargets(origin, account) {
     const session = await login.json()
     if (typeof session.session_token !== 'string') {
       console.warn('[harness] the account could not be signed in for the signed-in captures')
-      return { conversationId: null, contactFhNumber: null, contactName: null }
+      return nothing
     }
 
     const authorized = { ...headers, Authorization: `Bearer ${session.session_token}` }
@@ -449,15 +468,114 @@ async function resolveHarnessTargets(origin, account) {
       .then((response) => response.json())
 
     const contact = contacts.at(0)
+    const group = await resolveHarnessGroup(origin, authorized, conversations)
+    const channel = await resolveHarnessChannel(origin, authorized, conversations)
+    const inviteToken =
+      group === null ? null : await createHarnessInvite(origin, authorized, group.id)
     return {
-      conversationId: conversations.find((entry) => entry.kind !== 'saved')?.id ?? null,
+      inviteToken,
+      // A direct conversation, not merely the first one that is not Saved: the
+      // chat captures expect the peer's name, and the group made below would
+      // otherwise sort above it and be opened instead.
+      conversationId:
+        conversations.find((entry) => entry.kind === 'direct')?.id ??
+        conversations.find((entry) => entry.kind !== 'saved')?.id ??
+        null,
       contactFhNumber: contact?.fh_number ?? null,
       contactName: contact?.username ?? null,
+      groupId: group?.id ?? null,
+      groupTitle: group?.title ?? null,
+      channelId: channel?.id ?? null,
+      channelTitle: channel?.title ?? null,
     }
   } catch (error) {
     console.warn('[harness] could not pick a conversation to open', error)
-    return { conversationId: null, contactFhNumber: null, contactName: null }
+    return nothing
   }
+}
+
+/**
+ * A group the smoke account owns, made if it does not have one yet.
+ *
+ * Looked up by title rather than remembered, so a run against a fresh account
+ * creates it once and every later run reuses it — and so the harness never
+ * accumulates a group per run. Only the title is set: the profile and settings
+ * captures are about what those screens render, not about the group's contents.
+ */
+async function resolveHarnessGroup(origin, authorized, conversations) {
+  const existing = conversations.find(
+    (entry) => entry.kind === 'group' && entry.title === HARNESS_GROUP_TITLE,
+  )
+  if (existing !== undefined) {
+    return { id: existing.id, title: existing.title }
+  }
+
+  const created = await fetch(`${origin}/api/v1/groups`, {
+    method: 'POST',
+    headers: { ...authorized, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: HARNESS_GROUP_TITLE,
+      member_ids: [],
+      is_public: false,
+      description: null,
+    }),
+  }).then((response) => response.json())
+
+  if (typeof created.conversation_id !== 'string') {
+    console.warn('[harness] the harness group could not be created', created)
+    return null
+  }
+  return { id: created.conversation_id, title: HARNESS_GROUP_TITLE }
+}
+
+/**
+ * A channel the smoke account owns, made if it does not have one yet.
+ *
+ * The channel settings screen is a different set of panels from the group's —
+ * visibility, the discussion link, bots, and member roles that can be taken
+ * away — and none of them is reachable from the group's.
+ */
+async function resolveHarnessChannel(origin, authorized, conversations) {
+  const existing = conversations.find(
+    (entry) => entry.kind === 'channel' && entry.title === HARNESS_CHANNEL_TITLE,
+  )
+  if (existing !== undefined) {
+    return { id: existing.id, title: existing.title }
+  }
+
+  const created = await fetch(`${origin}/api/v1/channels`, {
+    method: 'POST',
+    headers: { ...authorized, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: HARNESS_CHANNEL_TITLE, description: null, is_public: false }),
+  }).then((response) => response.json())
+
+  if (typeof created.conversation_id !== 'string') {
+    console.warn('[harness] the harness channel could not be created', created)
+    return null
+  }
+  return { id: created.conversation_id, title: HARNESS_CHANNEL_TITLE }
+}
+
+/**
+ * A permanent invite into the harness group.
+ *
+ * Permanent on purpose: the join capture runs as an account that is already a
+ * member, which spends no use, and a second run must find the token still good.
+ * The token is minted rather than stored, so nothing here drifts out of step
+ * with the group it points at.
+ */
+async function createHarnessInvite(origin, authorized, groupId) {
+  const invite = await fetch(`${origin}/api/v1/conversations/${groupId}/invites`, {
+    method: 'POST',
+    headers: { ...authorized, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind: 'permanent' }),
+  }).then((response) => response.json())
+
+  if (typeof invite.token !== 'string') {
+    console.warn('[harness] no invite for the harness group could be made', invite)
+    return null
+  }
+  return invite.token
 }
 
 async function runUi(browser) {
@@ -645,6 +763,147 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
         },
       )
     }
+
+    // The group's profile, and the settings behind the pencil in it. Both are
+    // owner-only screens, which is why the group is made rather than looked for.
+    const groupId = targets.groupId
+    if (groupId !== null) {
+      const groupTitle = targets.groupTitle
+
+      /**
+       * Opens the profile the way a reader does: by pressing the identity block
+       * in the conversation's header.
+       *
+       * Text, not a selector: the header carries five controls, and the title is
+       * what tells the identity button from the rest. The search is scoped to
+       * `main`, which is the routed screen: the conversation list sits in a
+       * `header` of its own beside it, and its rows carry the same title — one
+       * of them would be pressed instead, and pressing a row of the list the
+       * conversation is already open in opens nothing.
+       *
+       * The dialog counts as ready only once its member list has arrived, or the
+       * screenshot would show skeletons instead of the people it is about.
+       */
+      const openConversationProfile = `(function () {
+        const dialog = document.querySelector('[role="dialog"]')
+        if (dialog !== null) {
+          if (dialog.querySelector('[role="status"]') !== null) return false
+          return dialog.innerText.includes('Участники')
+        }
+        const screen = document.querySelector('main') ?? document
+        const identity = [...screen.querySelectorAll('header button')].find((button) =>
+          button.textContent.includes(${JSON.stringify(groupTitle)}),
+        )
+        if (identity === undefined || identity.disabled) return false
+        identity.click()
+        return false
+      })()`
+
+      captures.push(
+        {
+          label: 'conversation-profile-dark-ru',
+          route: null,
+          next: `/app/chat/${groupId}`,
+          theme: 'dark',
+          lang: 'ru',
+          size: '1280,800',
+          ready: openConversationProfile,
+          expect: [
+            groupTitle,
+            'Создана',
+            'Участники',
+            // The owner's own row, the pencil beside the title — whose
+            // accessible name is the only text it has — and the sentence that
+            // stands where a leave button would be.
+            'Владелец',
+            'Вы',
+            'Настройки группы',
+            'Владелец не может выйти',
+          ],
+        },
+        {
+          label: 'conversation-settings-light-en',
+          route: null,
+          next: `/app/chat/${groupId}/settings`,
+          theme: 'light',
+          lang: 'en',
+          size: '390,844',
+          // 'Change photo' rather than the header's own title: the header is on
+          // screen from the first paint, and the panels arrive with the member
+          // list — a screenshot taken while the skeletons are up proves nothing.
+          // The owner's role badge is the slower of the two, so both are asked
+          // for.
+          ready:
+            `document.body.innerText.includes('Change photo')` +
+            ` && document.body.innerText.includes('Owner')` +
+            ` && ${STYLE_READY}`,
+          expect: [
+            'Group settings',
+            groupTitle,
+            // One card per thing the owner can change.
+            'Photo',
+            'Handle',
+            'Members',
+            'Invite links',
+          ],
+        },
+      )
+    }
+
+    if (targets.channelId !== null) {
+      captures.push({
+        label: 'channel-settings-dark-ru',
+        route: null,
+        next: `/app/chat/${targets.channelId}/settings`,
+        theme: 'dark',
+        lang: 'ru',
+        size: '1280,800',
+        ready:
+          `document.body.innerText.includes('Изменить фото')` +
+          ` && document.body.innerText.includes('Владелец') && ${STYLE_READY}`,
+        expect: [
+          'Настройки канала',
+          targets.channelTitle,
+          // Owner-only panels, and the two that name a mirror value.
+          'Фото',
+          'Ссылка-имя',
+          'Публичный канал',
+          'Группа для обсуждений',
+          'Участники',
+          'Боты',
+        ],
+      })
+    }
+
+    // The invite link, followed the way a stranger would: a full page load at
+    // `/join/<token>`, which joins and then replaces the URL with the chat.
+    if (targets.inviteToken !== null) {
+      captures.push({
+        label: 'join-invite-dark-ru',
+        route: null,
+        next: `/join/${targets.inviteToken}`,
+        theme: 'dark',
+        lang: 'ru',
+        size: '1280,800',
+        ready:
+          `document.querySelector('textarea') !== null` +
+          ` && document.body.innerText.includes(${JSON.stringify(targets.groupTitle)}) && ${STYLE_READY}`,
+        expect: [targets.groupTitle, 'Сообщение'],
+      })
+    }
+
+    // A token that names nothing: the screen has to say so and offer a way out
+    // rather than sit on its spinner for ever.
+    captures.push({
+      label: 'join-invite-invalid-light-en',
+      route: null,
+      next: '/join/no-such-invite-token',
+      theme: 'light',
+      lang: 'en',
+      size: '390,844',
+      ready: `document.body.innerText.includes('The invite did not work') && ${STYLE_READY}`,
+      expect: ['The invite did not work', 'Go to the chat list'],
+    })
 
     // Read rather than written down: the About screen reports this value, and a
     // release should not need a second edit here to keep the check honest.
@@ -1156,8 +1415,9 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
         lang: 'ru',
         size: '1280,800',
         ready: stepForward('Необязательно: группа, где читатели смогут комментировать.'),
-        // "Link an existing one" only appears once the account has a group; the
-        // smoke account has none, so it is not expected here.
+        // "Link an existing one" is left out of the expectations on purpose: it
+        // appears only once the account has a group, which the harness creates
+        // for its own captures and a fresh account would not have yet.
         expect: ['Группа для обсуждений', 'Без обсуждений', 'Создать новую'],
       },
     )

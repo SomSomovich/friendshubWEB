@@ -255,6 +255,151 @@
       "many": "several people are typing…"
     }
   },
+  "conversation": {
+    "group": "Group",
+    "channel": "Channel",
+    "bot": "Bot",
+    "createdGroup": "Created {{date}}",
+    "createdChannel": "Created {{date}}",
+    "memberCount_one": "{{count}} member",
+    "memberCount_other": "{{count}} members",
+    "subscriberCount_one": "{{count}} subscriber",
+    "subscriberCount_other": "{{count}} subscribers",
+    "membersUnavailable": "The member list is unavailable.",
+    "member": {
+      "previewMore": "and {{count}} more",
+      "muted": "Muted",
+      "makeAdmin": "Make administrator",
+      "editRights": "Administrator rights",
+      "demote": "Remove administrator rights",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "muteOn": "Member muted",
+      "unmuteOn": "Member unmuted",
+      "removed": "Member removed",
+      "roleUpdated": "Rights updated",
+      "remove": "Remove",
+      "removeHint": "{{name}} loses access to the channel and cannot read posts until they subscribe again."
+    },
+    "role": {
+      "owner": "Owner",
+      "admin": "Administrator",
+      "member": "Member",
+      "subscriber": "Subscriber"
+    },
+    "leave": {
+      "group": "Leave group",
+      "channel": "Unsubscribe",
+      "groupHint": "The group disappears from your list. Only an invite brings you back.",
+      "channelHint": "The channel disappears from your list. A public channel or an invite brings you back.",
+      "ownerNote": "The owner cannot leave: no endpoint hands ownership to another account."
+    },
+    "left": "You left the group",
+    "unsubscribed": "You unsubscribed from the channel",
+    "settings": {
+      "titleGroup": "Group settings",
+      "titleChannel": "Channel settings",
+      "noAccess": "Settings belong to the owner and to administrators",
+      "unavailable": "The member list could not be read, and without it there is no way to know what you may do.",
+      "unsupported": "This chat has no settings",
+      "backToChat": "Back to the chat",
+      "auditNote": "The handle, the channel visibility and the discussion group are shown as they were set from this device: the server accepts these values but never returns them."
+    },
+    "photo": {
+      "title": "Photo",
+      "change": "Change photo",
+      "remove": "Remove photo",
+      "hint": "WebP up to 5 MB; the picture is scaled to 512 pixels automatically.",
+      "updated": "Photo updated",
+      "removed": "Photo removed",
+      "notAnImage": "That is not an image."
+    },
+    "handle": {
+      "title": "Handle",
+      "description": "The name the group or channel is found by.",
+      "current": "Set from this device: {{handle}}",
+      "none": "No handle has been set from this device.",
+      "note": "The server does not return the current handle — the API can only set it. A new value replaces the old one, if there was one.",
+      "save": "Save",
+      "saved": "Handle saved"
+    },
+    "members": {
+      "title": "Members",
+      "groupNote": "The API can neither add nor remove a group member: people join by invite, and the closest thing to a kick is a mute.",
+      "channelNote": "Roles and removal are the channel owner’s to give.",
+      "channelTitle": "Subscribers"
+    },
+    "rights": {
+      "title": "Administrator rights",
+      "save": "Save",
+      "ownerHint": "The owner may grant any right.",
+      "limited": "You may grant only the rights you hold yourself.",
+      "demoteHint": "Clearing every box makes the member an ordinary one again.",
+      "perm": {
+        "changeProfile": "Change the group profile",
+        "deleteMessages": "Delete messages",
+        "banUsers": "Mute members",
+        "manageInvites": "Manage invites",
+        "pinMessages": "Pin messages",
+        "addAdmins": "Appoint administrators",
+        "manageGreetings": "Manage the greeting",
+        "changeTags": "Change tags",
+        "anonymousPost": "Post anonymously",
+        "manageVideoChats": "Manage video chats"
+      },
+      "above": "This member holds rights you do not have. They are not shown here, and saving removes them."
+    },
+    "invites": {
+      "title": "Invite links",
+      "description": "The link adds anyone who opens it. There is no other way for the API to put a person into a group that already exists.",
+      "createPermanent": "Create permanent",
+      "createOneTime": "Create one-time",
+      "kind": {
+        "permanent": "Permanent",
+        "oneTime": "One-time"
+      },
+      "used": "Used {{count}} times",
+      "copy": "Copy link",
+      "revoke": "Revoke",
+      "created": "Invite link created",
+      "revoked": "Invite link revoked",
+      "empty": "No links yet."
+    },
+    "channelSettings": {
+      "public": {
+        "title": "Public channel",
+        "hint": "A public channel is found by its handle, and anyone may subscribe.",
+        "makePublic": "Make public",
+        "makePrivate": "Make private",
+        "unknown": "The server does not return the current value, so this starts as a choice rather than a switch.",
+        "note": "Showing what was set from this device: the server stores the flag but never returns it.",
+        "saved": "Channel visibility updated"
+      },
+      "discussion": {
+        "title": "Discussion group",
+        "hint": "The group where readers comment on posts.",
+        "none": "No discussion",
+        "noGroups": "You have no groups to link yet.",
+        "note": "Showing what was set from this device: the server does not return the current link.",
+        "saved": "Discussion group updated"
+      },
+      "bots": {
+        "title": "Bots",
+        "hint": "Your bots may publish in the channel. One that is added appears in the member list.",
+        "none": "You have no bots yet: they are created through the Bot API.",
+        "add": "Add",
+        "present": "Already in the channel",
+        "added": "Bot added to the channel"
+      }
+    },
+    "join": {
+      "joining": "Joining…",
+      "joined": "You have joined the group",
+      "failed": "The invite did not work",
+      "failedHint": "The link may have been revoked or already used.",
+      "toChats": "Go to the chat list"
+    }
+  },
   "chatList": {
     "searchPlaceholder": "Search",
     "empty": "No chats yet",

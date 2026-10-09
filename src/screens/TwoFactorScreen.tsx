@@ -6,7 +6,7 @@ import { clearChallenge, persistSession, readChallenge, startLoginWithTotp } fro
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { useToast } from '../hooks/useToast'
-import { ROUTES, withAddAccount } from '../router/paths'
+import { ROUTES, withAddAccount, type AuthRedirectState } from '../router/paths'
 
 /** TOTP is six digits; a backup code is ten characters. */
 const TOTP_LENGTH = 6
@@ -18,6 +18,8 @@ export function TwoFactorScreen() {
   const location = useLocation()
   const toast = useToast()
   const inputRef = useRef<HTMLInputElement>(null)
+  /** Where the visitor was headed before the sign-in flow caught them. */
+  const from = (location.state as AuthRedirectState)?.from
 
   const [challenge] = useState(readChallenge)
   const [code, setCode] = useState('')
@@ -31,11 +33,11 @@ export function TwoFactorScreen() {
     if (challenge === null) {
       // Back to sign-in with `add` intact, so a half-finished second account
       // does not end up on the conversation list of the first one.
-      void navigate(withAddAccount(ROUTES.login, location.search), { replace: true })
+      void navigate(withAddAccount(ROUTES.login, location.search), { replace: true, state: { from } })
       return
     }
     inputRef.current?.focus()
-  }, [challenge, navigate, location.search])
+  }, [challenge, navigate, location.search, from])
 
   if (challenge === null) {
     return null
@@ -61,7 +63,7 @@ export function TwoFactorScreen() {
       )
       await persistSession(challenge?.fhNumber ?? '', session)
       clearChallenge()
-      void navigate(ROUTES.connect, { replace: true })
+      void navigate(ROUTES.connect, { replace: true, state: { from } })
     } catch (cause) {
       const message =
         cause instanceof ApiError && cause.status === 401
@@ -133,6 +135,7 @@ export function TwoFactorScreen() {
           </button>
           <Link
             to={withAddAccount(ROUTES.login, location.search)}
+            state={{ from }}
             onClick={() => {
               clearChallenge()
             }}

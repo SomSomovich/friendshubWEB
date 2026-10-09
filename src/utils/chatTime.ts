@@ -77,6 +77,13 @@ export function formatFullTimestamp(seconds: number, language: string): string {
   })
 }
 
+/** A date with no time — when a group or a channel was created. */
+export function formatDateOnly(seconds: number, language: string): string {
+  return format(new Date(seconds * 1000), 'd MMMM yyyy', {
+    locale: localeFor(language),
+  })
+}
+
 /** The time inside a message bubble. */
 export function formatMessageTime(seconds: number): string {
   return format(new Date(seconds * 1000), 'HH:mm')

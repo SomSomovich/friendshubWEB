@@ -6,7 +6,7 @@ import { persistSession, registerAndStartLogin } from '../auth/session'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { useToast } from '../hooks/useToast'
-import { ROUTES, withAddAccount } from '../router/paths'
+import { ROUTES, withAddAccount, type AuthRedirectState } from '../router/paths'
 
 /** The API accepts 8..128 characters; the client refuses anything shorter first. */
 const MIN_PASSWORD_LENGTH = 8
@@ -16,6 +16,8 @@ export function RegisterScreen() {
   const navigate = useNavigate()
   const location = useLocation()
   const toast = useToast()
+  /** Where the visitor was headed before the sign-in flow caught them. */
+  const from = (location.state as AuthRedirectState)?.from
 
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -45,7 +47,7 @@ export function RegisterScreen() {
         kind: 'success',
         message: t('auth.registered', { fhNumber }),
       })
-      void navigate(ROUTES.connect, { replace: true })
+      void navigate(ROUTES.connect, { replace: true, state: { from } })
     } catch (cause) {
       const message =
         cause instanceof ApiError && cause.isTransportFailure
@@ -98,6 +100,7 @@ export function RegisterScreen() {
         <div className="flex flex-col gap-2 text-center text-xs text-fg-muted">
           <Link
             to={withAddAccount(ROUTES.login, location.search)}
+            state={{ from }}
             className="font-medium text-accent hover:underline"
           >
             {t('auth.toLogin')}

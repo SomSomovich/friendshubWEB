@@ -13,6 +13,7 @@ import { getSetting, setSetting } from './settings'
 const NOTIFICATIONS_ENABLED = 'notifications_enabled'
 const NOTIFICATIONS_SOUND = 'notifications_sound'
 const INVISIBLE = 'invisible_mode'
+const CONVERSATION_MIRROR = 'conversation_mirror'
 
 /** Default sound id, kept in one place so the reader and the writer agree. */
 export const DEFAULT_NOTIFICATION_SOUND: NotificationSound = 'chime'
@@ -57,4 +58,75 @@ export async function readInvisibleMirror(accountId: string): Promise<boolean> {
 
 export async function writeInvisibleMirror(accountId: string, on: boolean): Promise<void> {
   await setSetting(key(accountId, INVISIBLE), on ? 'on' : 'off')
+}
+
+/**
+ * The three group/channel settings the server only ever writes.
+ *
+ * `POST /groups/{id}/profile` and `POST /channels/{id}/profile` set a handle and
+ * nothing returns it; `POST /channels/{id}/public` and
+ * `POST /channels/{id}/linked-group` are the same story, and the conversation
+ * list carries neither value. So — exactly like the invisibility flag above —
+ * the settings screen shows what this device last set and says so on screen,
+ * rather than pretending it read the value back.
+ *
+ * One row per (account, conversation), holding all three: they are written by
+ * the same screen and read by the same screen, and three separate rows would
+ * only make a partial write possible.
+ */
+export type ConversationMirror = {
+  handle: string | null
+  isPublic: boolean | null
+  discussionGroupId: string | null
+}
+
+const EMPTY_MIRROR: ConversationMirror = {
+  handle: null,
+  isPublic: null,
+  discussionGroupId: null,
+}
+
+function mirrorKey(accountId: string, conversationId: string): string {
+  return `${CONVERSATION_MIRROR}:${accountId}:${conversationId}`
+}
+
+export async function readConversationMirror(
+  accountId: string,
+  conversationId: string,
+): Promise<ConversationMirror> {
+  const raw = await getSetting(mirrorKey(accountId, conversationId))
+  if (raw === null) {
+    return EMPTY_MIRROR
+  }
+
+  // Written by this app, but an older build or a hand-edited database is not a
+  // reason to throw while opening a settings screen.
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (typeof parsed !== 'object' || parsed === null) {
+      return EMPTY_MIRROR
+    }
+    const record = parsed as Record<string, unknown>
+    return {
+      handle: typeof record.handle === 'string' ? record.handle : null,
+      isPublic: typeof record.isPublic === 'boolean' ? record.isPublic : null,
+      discussionGroupId:
+        typeof record.discussionGroupId === 'string' ? record.discussionGroupId : null,
+    }
+  } catch (error) {
+    console.warn('[settings] the conversation mirror could not be parsed', error)
+    return EMPTY_MIRROR
+  }
+}
+
+/** Merges `patch` into what is stored and returns the merged value. */
+export async function writeConversationMirror(
+  accountId: string,
+  conversationId: string,
+  patch: Partial<ConversationMirror>,
+): Promise<ConversationMirror> {
+  const current = await readConversationMirror(accountId, conversationId)
+  const next = { ...current, ...patch }
+  await setSetting(mirrorKey(accountId, conversationId), JSON.stringify(next))
+  return next
 }

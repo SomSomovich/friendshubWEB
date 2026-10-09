@@ -33,6 +33,62 @@ export type GroupMember = {
   joinedAt: number
 }
 
+/**
+ * The administrator permission bits (API_FRONTEND.txt §15).
+ *
+ * A group admin is a role plus this mask; the owner holds every bit implicitly
+ * (`member_has_permission` returns true for the owner row whatever the mask says),
+ * which is why the UI treats `role === 'owner'` as "all of them" rather than
+ * reading a number off the member list.
+ */
+export const GROUP_PERM = {
+  changeProfile: 1,
+  manageGreetings: 2,
+  deleteMessages: 4,
+  banUsers: 8,
+  manageInvites: 16,
+  pinMessages: 32,
+  manageVideoChats: 64,
+  changeTags: 128,
+  anonymousPost: 256,
+  addAdmins: 512,
+} as const
+
+export type GroupPermission = (typeof GROUP_PERM)[keyof typeof GROUP_PERM]
+
+/** A permission's name, which is also the key its label is looked up by. */
+export type GroupPermissionName = keyof typeof GROUP_PERM
+
+/** Every bit set — the server's `ALL_ADMIN_PERMS`. */
+export const ALL_GROUP_PERMS = Object.values(GROUP_PERM).reduce((all, bit) => all | bit, 0)
+
+/**
+ * The bits in the order they are offered in the admin-rights editor.
+ *
+ * Named as well as valued, because the label is looked up by name and a bare
+ * list of numbers would have to be mapped back to one at the call site.
+ */
+export const GROUP_PERMISSION_BITS: ReadonlyArray<{
+  name: GroupPermissionName
+  bit: GroupPermission
+}> = [
+  { name: 'changeProfile', bit: GROUP_PERM.changeProfile },
+  { name: 'deleteMessages', bit: GROUP_PERM.deleteMessages },
+  { name: 'banUsers', bit: GROUP_PERM.banUsers },
+  { name: 'manageInvites', bit: GROUP_PERM.manageInvites },
+  { name: 'pinMessages', bit: GROUP_PERM.pinMessages },
+  { name: 'addAdmins', bit: GROUP_PERM.addAdmins },
+  { name: 'manageGreetings', bit: GROUP_PERM.manageGreetings },
+  { name: 'changeTags', bit: GROUP_PERM.changeTags },
+  { name: 'anonymousPost', bit: GROUP_PERM.anonymousPost },
+  { name: 'manageVideoChats', bit: GROUP_PERM.manageVideoChats },
+]
+
+/** Whether `mask` contains every listed bit, for a rights summary. */
+export function hasPermission(mask: number, bit: GroupPermission): boolean {
+  return (mask & bit) !== 0
+}
+
 export type GroupHandle = {
   handle: string
   handleNormalized: string

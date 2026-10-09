@@ -17,7 +17,11 @@ const MAX_PROFILE_LOOKUPS = 25
 
 const profileNames = new Map<string, string>()
 
-export async function primeSenderNames(account: Account, senderIds: string[]): Promise<Map<string, string>> {
+export async function primeSenderNames(
+  account: Account,
+  senderIds: string[],
+  limit: number = MAX_PROFILE_LOOKUPS,
+): Promise<Map<string, string>> {
   const names = new Map<string, string>()
 
   const contacts = await listContacts(account).catch(() => [])
@@ -26,7 +30,7 @@ export async function primeSenderNames(account: Account, senderIds: string[]): P
   }
 
   const unknown = senderIds.filter((id) => id !== account.id && !names.has(id))
-  const pending = unknown.slice(0, MAX_PROFILE_LOOKUPS).map(async (id) => {
+  const pending = unknown.slice(0, limit).map(async (id) => {
     const cached = profileNames.get(id)
     if (cached !== undefined) {
       names.set(id, cached)
@@ -49,16 +53,31 @@ export async function primeSenderNames(account: Account, senderIds: string[]): P
 /**
  * @param senderIds the distinct senders currently on screen. Only new ones cost
  *                  a request, so this can be derived from the message list.
+ * @param limit     how many unknown ids may cost a profile read. A member list
+ *                  names more people than a screenful of messages does, but not
+ *                  unboundedly: a thousand-member group must not fire a thousand
+ *                  requests, so the rest fall back to "unknown peer".
  */
-export function useSenderNames(account: Account, senderIds: string[]): Map<string, string> {
+export function useSenderNames(
+  account: Account,
+  senderIds: string[],
+  limit: number = MAX_PROFILE_LOOKUPS,
+): Map<string, string> {
   const [names, setNames] = useState<Map<string, string>>(new Map())
   // A string key so the effect does not re-run on every render: the list is
   // rebuilt each time, and only its contents matter.
   const key = [...senderIds].sort().join(',')
 
   useEffect(() => {
+    // Nothing to resolve costs nothing: `primeSenderNames` reads the contact
+    // list even when it is given no ids, and a screen that is merely mounted —
+    // a profile dialog that has not been opened — must not.
+    if (key.length === 0) {
+      return
+    }
+
     let cancelled = false
-    void primeSenderNames(account, key.length === 0 ? [] : key.split(',')).then((resolved) => {
+    void primeSenderNames(account, key.split(','), limit).then((resolved) => {
       if (!cancelled) {
         setNames(resolved)
       }
@@ -66,7 +85,7 @@ export function useSenderNames(account: Account, senderIds: string[]): Map<strin
     return () => {
       cancelled = true
     }
-  }, [account, key])
+  }, [account, key, limit])
 
   return names
 }

@@ -26,6 +26,7 @@ import { PinnedBanner } from '../components/chat/PinnedBanner'
 import { buildMessageMenuItems, buildReactionOptions } from '../components/chat/messageMenu'
 import { presenceText } from '../components/chat/presenceText'
 import { MuteDialog, type MuteChoice } from '../components/layout/MuteDialog'
+import { ConversationProfileModal } from '../components/profile/ConversationProfileModal'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ContextMenu } from '../components/ui/ContextMenu'
 import type { DropdownItem } from '../components/ui/DropdownMenu'
@@ -38,7 +39,7 @@ import { usePins } from '../hooks/usePins'
 import { useReadReceipts } from '../hooks/useReadReceipts'
 import { useSenderNames } from '../hooks/useSenderNames'
 import { useToast } from '../hooks/useToast'
-import { ROUTES } from '../router/paths'
+import { ROUTES, conversationSettingsPath } from '../router/paths'
 import { requireAccountStore } from '../state/accountRegistry'
 import { applyDelete, applyEdit, applyReaction } from '../state/messageMutations'
 import { togglePin as togglePinned } from '../state/pins'
@@ -125,6 +126,8 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [viewer, setViewer] = useState<{ url: string; mime: AttachmentMime } | null>(null)
+  /** The group's or channel's profile; see `openIdentity` below. */
+  const [profileOpen, setProfileOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [focusToken, setFocusToken] = useState(0)
   /** When typing was last reported here, for the throttle below. */
@@ -333,6 +336,29 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
       conversationId,
       withVideo,
     })
+  }
+
+  /**
+   * What tapping the identity block in the header does.
+   *
+   * A direct chat has a person at the other end, so it opens that person's
+   * profile; a group or a channel has a subject of its own, so it opens the
+   * conversation's — which is where the settings pencil lives. Saved Messages
+   * has neither, and its header leads nowhere.
+   */
+  function openIdentity(): void {
+    if (conversation === null) {
+      return
+    }
+    if (conversation.kind === 'direct') {
+      if (peerAccountId !== null) {
+        openProfile(peerAccountId)
+      }
+      return
+    }
+    if (conversation.kind === 'group' || conversation.kind === 'channel') {
+      setProfileOpen(true)
+    }
   }
 
   /** Scrolls to a message and outlines it briefly. */
@@ -665,6 +691,12 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
   }
 
   const bannerVisible = !pins.hidden && pins.pins.length > 0 && !searchOpen
+  // The conversation whose profile the dialog would show: a group or a channel,
+  // and null for every other kind.
+  const profileTarget =
+    conversation !== null && (conversation.kind === 'group' || conversation.kind === 'channel')
+      ? conversation
+      : null
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg">
@@ -673,11 +705,7 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
         subtitle={subtitle}
         avatarUrl={avatarUrl}
         onOpenProfile={
-          peerAccountId === null
-            ? undefined
-            : () => {
-                openProfile(peerAccountId)
-              }
+          profileTarget === null && peerAccountId === null ? undefined : openIdentity
         }
         onBack={() => {
           void navigate(ROUTES.app)
@@ -904,6 +932,28 @@ function ChatView({ account, conversationId }: { account: Account; conversationI
           setPendingDelete(null)
         }}
       />
+
+      {profileTarget === null ? null : (
+        <ConversationProfileModal
+          open={profileOpen}
+          account={account}
+          conversation={profileTarget}
+          avatarUrl={avatarUrl}
+          onClose={() => {
+            setProfileOpen(false)
+          }}
+          onOpenSettings={() => {
+            // Closed here rather than in the screen it opens: the dialog is this
+            // screen's state, and a route change does not unmount ChatScreen.
+            setProfileOpen(false)
+            void navigate(conversationSettingsPath(conversationId))
+          }}
+          onLeft={() => {
+            setProfileOpen(false)
+            void navigate(ROUTES.app, { replace: true })
+          }}
+        />
+      )}
     </div>
   )
 }

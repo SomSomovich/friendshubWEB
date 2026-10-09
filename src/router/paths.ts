@@ -83,3 +83,36 @@ export function botPath(botId: string): string {
 export function chatPath(conversationId: string): string {
   return `${ROUTES.app}/chat/${encodeURIComponent(conversationId)}`
 }
+
+/**
+ * A group's or a channel's management screen.
+ *
+ * Under the conversation rather than under `/app/settings`: it is that chat's
+ * settings, it is the chat that the back button must return to, and the two
+ * must not be able to disagree about which one is open.
+ */
+export function conversationSettingsPath(conversationId: string): string {
+  return `${chatPath(conversationId)}/settings`
+}
+
+/** Path pattern for an invite link, for use in the route tree. */
+export const JOIN_ROUTE_PATTERN = 'join/:token'
+
+/** Where an invite link points. Not under `/app`: it is a link, not a screen. */
+export function joinPath(token: string): string {
+  return `/join/${encodeURIComponent(token)}`
+}
+
+/**
+ * Where the sign-in flow should land once it is done.
+ *
+ * Carried in the router state by `RequireAuth`, which knows the screen a visitor
+ * was turned away from. Only a path is accepted — never a full URL — so a
+ * tampered state cannot turn the end of a login into a redirect somewhere else.
+ */
+export type AuthRedirectState = { from?: string } | null
+
+export function redirectTarget(state: unknown, fallback: string): string {
+  const from = (state as AuthRedirectState)?.from
+  return typeof from === 'string' && from.startsWith('/') ? from : fallback
+}

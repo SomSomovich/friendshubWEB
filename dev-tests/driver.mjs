@@ -14,7 +14,25 @@ import { spawn, spawnSync } from 'node:child_process'
 /** Base for the debugging port; each capture takes its own to avoid a stale browser. */
 const DEBUG_PORT_BASE = 9300
 const CONNECT_TIMEOUT_MS = 30_000
-const WAIT_TIMEOUT_MS = 30_000
+/**
+ * How long a screen has to become ready.
+ *
+ * Deliberately twice the API client's own request timeout: the app is allowed to
+ * spend a whole 30 seconds failing one request — a rate-limited call waits out
+ * its `Retry-After` before trying again — and the screen only moves on once that
+ * has finished. Racing the two made a capture fail whenever the server was slow
+ * rather than whenever the app was wrong.
+ */
+const WAIT_TIMEOUT_MS = 60_000
+/**
+ * How long one CDP command may go unanswered.
+ *
+ * A browser that exits mid-capture takes its socket with it, and a request that
+ * was in flight when that happened never settles — the ready poll would then
+ * wait on it for ever, which is a suite that hangs rather than a capture that
+ * fails. Same hazard as the connect timeout below, one level down.
+ */
+const COMMAND_TIMEOUT_MS = 30_000
 
 function sleep(ms) {
   return new Promise((ready) => setTimeout(ready, ms))
@@ -87,7 +105,22 @@ async function connect(webSocketUrl) {
     nextId += 1
     const id = nextId
     return new Promise((resolve, reject) => {
-      pending.set(id, { resolve, reject, method })
+      const timer = setTimeout(() => {
+        pending.delete(id)
+        reject(new Error(`[driver] ${method} went unanswered for ${COMMAND_TIMEOUT_MS} ms`))
+      }, COMMAND_TIMEOUT_MS)
+
+      pending.set(id, {
+        method,
+        resolve: (value) => {
+          clearTimeout(timer)
+          resolve(value)
+        },
+        reject: (error) => {
+          clearTimeout(timer)
+          reject(error)
+        },
+      })
       socket.send(JSON.stringify({ id, method, params }))
     })
   }

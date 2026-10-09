@@ -7,10 +7,8 @@ import { Input } from '../components/ui/Input'
 import { ApiError } from '../api/errors'
 import { persistSession, startLogin, storeChallenge } from '../auth/session'
 import { useToast } from '../hooks/useToast'
-import { ROUTES, isAddingAccount, withAddAccount } from '../router/paths'
+import { ROUTES, isAddingAccount, withAddAccount, type AuthRedirectState } from '../router/paths'
 import { cn } from '../utils/cn'
-
-type RedirectState = { from?: string } | null
 
 export function LoginScreen() {
   const { t } = useTranslation()
@@ -24,7 +22,7 @@ export function LoginScreen() {
   const [busy, setBusy] = useState(false)
 
   const addingAccount = isAddingAccount(location.search)
-  const from = (location.state as RedirectState)?.from
+  const from = (location.state as AuthRedirectState)?.from
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
@@ -43,8 +41,10 @@ export function LoginScreen() {
       if (result.kind === 'totp_required') {
         storeChallenge({ fhNumber: trimmed, challengeToken: result.challengeToken })
         // Carries `add` with it: a second account behind 2FA must not be dropped
-        // on the conversation list half way through its own sign-in.
-        void navigate(withAddAccount(ROUTES.twoFactor, location.search))
+        // on the conversation list half way through its own sign-in. `from`
+        // travels too, so the screen the visitor was turned away from — an
+        // invite link, most often — survives the detour.
+        void navigate(withAddAccount(ROUTES.twoFactor, location.search), { state: { from } })
         return
       }
 
@@ -109,6 +109,7 @@ export function LoginScreen() {
         <div className="flex flex-col gap-2 text-center text-xs text-fg-muted">
           <Link
             to={withAddAccount(ROUTES.register, location.search)}
+            state={{ from }}
             className={cn('font-medium text-accent hover:underline')}
           >
             {t('auth.toRegister')}

@@ -2,13 +2,13 @@ import { Check, Loader2 } from 'lucide-react'
 import type { ParseKeys } from 'i18next'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { connectAccount, type ConnectStep } from '../auth/session'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { useActiveAccount } from '../hooks/useActiveAccount'
 import { useToast } from '../hooks/useToast'
-import { ROUTES } from '../router/paths'
+import { ROUTES, redirectTarget } from '../router/paths'
 import { cn } from '../utils/cn'
 
 /**
@@ -27,12 +27,19 @@ const STEPS: Array<{ id: ConnectStep; labelKey: ParseKeys }> = [
 export function ConnectScreen() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const location = useLocation()
   const toast = useToast()
   const account = useActiveAccount()
 
   const [step, setStep] = useState<ConnectStep | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
+  /**
+   * Where the visitor was headed when the sign-in flow caught them — an invite
+   * link, most often. Nothing else tells this screen where to hand them over,
+   * so without it a link followed by a stranger ends on the conversation list.
+   */
+  const next = redirectTarget(location.state, ROUTES.app)
   // Guards against React's development double-invocation running the whole
   // device initialisation twice.
   const startedRef = useRef(false)
@@ -57,7 +64,7 @@ export function ConnectScreen() {
     })
       .then(() => {
         if (!cancelled) {
-          void navigate(ROUTES.app, { replace: true })
+          void navigate(next, { replace: true })
         }
       })
       .catch((cause: unknown) => {
@@ -72,7 +79,7 @@ export function ConnectScreen() {
     return () => {
       cancelled = true
     }
-  }, [account, navigate, attempt])
+  }, [account, navigate, attempt, next])
 
   if (account === null) {
     return null
@@ -141,7 +148,7 @@ export function ConnectScreen() {
                 variant="secondary"
                 onClick={() => {
                   toast.notify({ kind: 'info', message: t('connect.offlineHint') })
-                  void navigate(ROUTES.app, { replace: true })
+                  void navigate(next, { replace: true })
                 }}
               >
                 {t('connect.continueOffline')}

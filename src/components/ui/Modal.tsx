@@ -11,7 +11,19 @@ export type ModalProps = {
   children: ReactNode
   footer?: ReactNode
   size?: 'md' | 'lg'
+  /** A control beside the title — the pencil that leads to a group's settings. */
+  headerAction?: ReactNode
 }
+
+/**
+ * The dialogs that are open, innermost last.
+ *
+ * Two can be open at once — a member's profile over a group's, an admin-rights
+ * editor over a member list — and Escape must close the one in front. Both
+ * listen on `document` with capture, and `stopPropagation` does not stop the
+ * other listeners on the same node, so the browser will not decide this for us.
+ */
+const openModals: symbol[] = []
 
 const FOCUSABLE_SELECTOR = [
   'a[href]',
@@ -29,7 +41,7 @@ const FOCUSABLE_SELECTOR = [
  * scroll, and focus goes back to whatever opened it — the four things that make
  * a dialog feel broken when they are missing.
  */
-export function Modal({ open, onClose, title, children, footer, size = 'md' }: ModalProps) {
+export function Modal({ open, onClose, title, children, footer, size = 'md', headerAction }: ModalProps) {
   const titleId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -37,6 +49,9 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
     if (!open) {
       return
     }
+
+    const token = Symbol('modal')
+    openModals.push(token)
 
     const restoreFocusTo =
       document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -54,6 +69,11 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
     }
 
     function handleKeyDown(event: KeyboardEvent): void {
+      // Only the dialog in front reacts: a dialog underneath must not answer an
+      // Escape that was meant for the one the reader is looking at.
+      if (openModals.at(-1) !== token) {
+        return
+      }
       if (event.key === 'Escape') {
         event.stopPropagation()
         onClose()
@@ -88,6 +108,12 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
     initial?.focus()
 
     return () => {
+      // Dropped first: from here on, whatever this dialog covered answers for
+      // itself again.
+      const index = openModals.indexOf(token)
+      if (index !== -1) {
+        openModals.splice(index, 1)
+      }
       document.removeEventListener('keydown', handleKeyDown, true)
       document.body.style.overflow = previousOverflow
       restoreFocusTo?.focus()
@@ -117,7 +143,13 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
           <h2 id={titleId} className="text-base font-semibold text-fg">
             {title}
           </h2>
-          <CloseButton onClose={onClose} />
+          {/* Reversed on purpose: the header action is drawn to the left of the
+              close button, but the close button stays first in the DOM — and
+              therefore the one a dialog that has just opened puts focus on. */}
+          <div className="flex shrink-0 flex-row-reverse items-center gap-1">
+            <CloseButton onClose={onClose} />
+            {headerAction}
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>

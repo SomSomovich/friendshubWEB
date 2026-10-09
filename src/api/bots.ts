@@ -42,6 +42,17 @@ export function getBotInfo(account: AccountAuth, botId: string): Promise<BotInfo
   return get<BotInfo>(`/bots/${encodeURIComponent(botId)}/info`, { account })
 }
 
+/**
+ * Every bot this account owns — the only source of bot ids.
+ *
+ * A channel's member list names its bots by id, and a bot has no FH number and
+ * no entry in the conversation list, so this is what turns one into something
+ * readable, and what the "add a bot to the channel" picker offers.
+ */
+export function listOwnedBots(account: AccountAuth): Promise<OwnedBot[]> {
+  return get<OwnedBot[]>('/user/bots', { account })
+}
+
 /** The whole thread, oldest first as the server sends it. */
 export function listBotMessages(account: AccountAuth, botId: string): Promise<BotMessage[]> {
   return get<BotMessage[]>(`/bots/${encodeURIComponent(botId)}/messages`, { account })

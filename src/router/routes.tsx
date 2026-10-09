@@ -63,6 +63,10 @@ const CreateChannelScreen = lazyScreen('CreateChannelScreen', () =>
   import('../screens/CreateChannelScreen'),
 )
 const BotChatScreen = lazyScreen('BotChatScreen', () => import('../screens/BotChatScreen'))
+const ConversationSettingsScreen = lazyScreen('ConversationSettingsScreen', () =>
+  import('../screens/conversation/ConversationSettingsScreen'),
+)
+const JoinInviteScreen = lazyScreen('JoinInviteScreen', () => import('../screens/JoinInviteScreen'))
 
 /**
  * `React.lazy` for a module that exports by name.
@@ -96,6 +100,10 @@ export const router = createBrowserRouter([
     element: <RequireAuth />,
     children: [
       { path: ROUTES.connect, element: <ConnectScreen /> },
+      // Outside the shell: an invite link is followed from somewhere else, and
+      // the visitor is here for one screen — the chat it opens needs no list
+      // beside it. `RequireAuth` sends a stranger through sign-in first.
+      { path: '/join/:token', element: lazyElement(JoinInviteScreen) },
       {
         path: ROUTES.app,
         element: <AppLayout />,
@@ -103,6 +111,7 @@ export const router = createBrowserRouter([
           { index: true, element: <ChatIndexScreen /> },
           { path: '2fa', element: <TwoFactorSetupScreen /> },
           { path: CHAT_ROUTE_PATTERN, element: <ChatScreen /> },
+          { path: 'chat/:id/settings', element: lazyElement(ConversationSettingsScreen) },
           {
             path: 'bot/:id',
             element: (
