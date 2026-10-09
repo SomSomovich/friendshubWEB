@@ -611,6 +611,20 @@
     "emptyHint": "Say something to the bot.",
     "placeholder": "Message the bot"
   },
+  "emoji": {
+    "title": "Emoji",
+    "open": "Emoji",
+    "categories": {
+      "smileys": "Smileys",
+      "emotions": "Emotions",
+      "gestures": "Gestures",
+      "hearts": "Hearts",
+      "animals": "Animals",
+      "food": "Food",
+      "activity": "Activity and travel",
+      "objects": "Objects"
+    }
+  },
   "call": {
     "incoming_from": "Incoming call from {{name}}",
     "inProgress": "Call with {{name}}",

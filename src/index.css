@@ -151,6 +151,23 @@ html[data-theme='light'] {
   }
 
   /*
+   * Emoji, drawn by the colour font.
+   *
+   * The fallback chain on Windows reaches Segoe UI Symbol — which carries
+   * monochrome, outlined versions of hearts, planes, keyboards and a hundred
+   * other symbols — before it reaches Segoe UI Emoji. Naming the colour fonts
+   * first is what keeps them coloured; Segoe UI Symbol stays at the end only so
+   * that a character the colour fonts lack draws as something rather than as a
+   * hollow box. The characters that default to the *text* presentation carry
+   * U+FE0F in `src/emoji/catalog.ts` for the same reason.
+   */
+  .emoji {
+    font-family:
+      'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', sans-serif;
+    font-variant-emoji: emoji;
+  }
+
+  /*
    * Horizontal strips (the chat filter tabs) stay scrollable on narrow screens
    * without showing a scrollbar they have no room for.
    */

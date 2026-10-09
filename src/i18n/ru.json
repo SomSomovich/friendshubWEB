@@ -615,6 +615,20 @@
     "emptyHint": "Напишите боту первым.",
     "placeholder": "Сообщение боту"
   },
+  "emoji": {
+    "title": "Эмодзи",
+    "open": "Эмодзи",
+    "categories": {
+      "smileys": "Смайлы",
+      "emotions": "Эмоции",
+      "gestures": "Жесты",
+      "hearts": "Сердца",
+      "animals": "Животные",
+      "food": "Еда",
+      "activity": "Активности и транспорт",
+      "objects": "Предметы"
+    }
+  },
   "call": {
     "incoming_from": "Входящий звонок от {{name}}",
     "inProgress": "Звонок с {{name}}",

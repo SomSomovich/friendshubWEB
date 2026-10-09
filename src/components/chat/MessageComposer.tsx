@@ -5,6 +5,7 @@ import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 import { cn } from '../../utils/cn'
 import { formatClipDuration } from '../../utils/duration'
 import { DropdownMenu, type DropdownItem } from '../ui/DropdownMenu'
+import { EmojiPicker } from './EmojiPicker'
 
 /** What the attachment menu offers. */
 export type AttachmentKind = 'photo' | 'video' | 'file'
@@ -189,6 +190,28 @@ export function MessageComposer({
     onVoiceRecorded(blob, `voice-${Date.now()}.${extensionFor(blob.type)}`)
   }
 
+  /**
+   * Puts an emoji where the caret is.
+   *
+   * At the caret, not at the end: the picker is used mid-sentence as often as it
+   * starts one, and a field that jumps the caret to the end is the reason people
+   * type a message twice. The selection is restored after React has written the
+   * new value, which is why it waits for a frame.
+   */
+  function insertEmoji(emoji: string): void {
+    const field = textareaRef.current
+    const start = field?.selectionStart ?? value.length
+    const end = field?.selectionEnd ?? value.length
+    setValue(value.slice(0, start) + emoji + value.slice(end))
+
+    requestAnimationFrame(() => {
+      field?.focus()
+      const caret = start + emoji.length
+      field?.setSelectionRange(caret, caret)
+    })
+    onTyping()
+  }
+
   return (
     <div className="shrink-0 border-t border-border bg-bg-elevated">
       {editing === null ? null : (
@@ -262,6 +285,12 @@ export function MessageComposer({
               'disabled:cursor-not-allowed disabled:opacity-50',
             )}
           />
+        )}
+
+        {/* Left of the microphone, and out of the way of the recording strip:
+            an emoji has nowhere to go while the field is showing a timer. */}
+        {voice.recording ? null : (
+          <EmojiPicker onPick={insertEmoji} disabled={disabled} />
         )}
 
         {/* The microphone stays mounted for the whole press, which is the hinge

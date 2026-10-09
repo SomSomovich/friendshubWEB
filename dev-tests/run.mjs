@@ -822,6 +822,54 @@ VITE_WS_URL=ws://127.0.0.1:${UI_PORT}/ws
       return false
     })()`
 
+    /**
+     * The emoji picker, opened over the composer.
+     *
+     * Two things are being *looked at* here rather than asserted, and the
+     * screenshot is the point of the capture: that the panel fits above the
+     * composer on a phone-sized screen, and that every glyph is drawn by the
+     * colour font. Windows reaches Segoe UI Symbol — outlined and monochrome —
+     * before Segoe UI Emoji, so a heart or a plane arrives black-outlined unless
+     * the colour fonts are named first.
+     */
+    const openEmojiPicker = (title) => {
+      const selector = JSON.stringify(`button[aria-label="${title}"]`)
+      return `(function () {
+      if (document.querySelector('[role="dialog"][aria-label="${title}"]') !== null) return true
+      const button = document.querySelector(${selector})
+      if (button === null) return false
+      button.click()
+      return false
+    })()`
+    }
+
+    if (chatId !== null) {
+      captures.push(
+        {
+          label: 'emoji-picker-dark-ru',
+          route: null,
+          next: `/app/chat/${chatId}`,
+          seedChat: chatId,
+          theme: 'dark',
+          lang: 'ru',
+          size: '390,844',
+          ready: openEmojiPicker('Эмодзи'),
+          expect: ['Смайлы', 'Эмоции', 'Жесты', 'Сердца', 'Животные', 'Еда', 'Предметы', '😀', '👍', '❤️'],
+        },
+        {
+          label: 'emoji-picker-light-en',
+          route: null,
+          next: `/app/chat/${chatId}`,
+          seedChat: chatId,
+          theme: 'light',
+          lang: 'en',
+          size: '390,844',
+          ready: openEmojiPicker('Emoji'),
+          expect: ['Smileys', 'Emotions', 'Gestures', 'Hearts', 'Animals', 'Food', 'Objects', '😀', '👍', '❤️'],
+        },
+      )
+    }
+
     if (chatId !== null) {
       captures.push({
         label: 'chat-attachment-dark-ru',
