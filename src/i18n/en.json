@@ -905,5 +905,14 @@
       "cancelled": "Cancelled",
       "failed": "Failed"
     }
+  },
+  "discover": {
+    "title": "Public chats",
+    "kind": "Category",
+    "handle": "Find by handle",
+    "find": "Find",
+    "all": "Show directory",
+    "empty": "No public chats yet.",
+    "open": "Open / join"
   }
 }

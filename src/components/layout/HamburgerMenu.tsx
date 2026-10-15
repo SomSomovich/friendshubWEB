@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Megaphone, Menu, Settings, Users, Phone } from 'lucide-react'
+import { ArrowLeftRight, Megaphone, Menu, Settings, Users, Phone, Compass } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
@@ -16,6 +16,7 @@ export function HamburgerMenu() {
   const [switcherOpen, setSwitcherOpen] = useState(false)
 
   const items: DropdownItem[] = [
+    { id: 'discover', label: t('discover.title'), icon: Compass, onSelect: () => { void navigate(ROUTES.discover) } },
     { id: 'calls', label: t('callHistory.title'), icon: Phone, onSelect: () => { void navigate(ROUTES.calls) } },
     {
       id: 'settings',
