@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { setUsername } from '../../api/profile'
 import { AvatarUploader } from '../../components/settings/AvatarUploader'
 import { SettingsCard, SettingsRow } from '../../components/settings/Section'
+import { ProfileFieldsPanel } from '../../components/settings/ProfileFieldsPanel'
 import { StatusEditor } from '../../components/settings/StatusEditor'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
@@ -40,6 +41,7 @@ export function AccountSettingsScreen() {
       <NameCard key={`${account.id}:${account.username}`} account={account} />
       <FhNumberCard account={account} />
       <StatusEditor account={account} />
+      <ProfileFieldsPanel key={account.id} account={account} />
     </SettingsSectionScreen>
   )
 }

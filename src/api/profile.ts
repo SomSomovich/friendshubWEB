@@ -1,6 +1,8 @@
 import type { AccountAuth } from './auth'
 import { del, get, post, put } from './client'
 
+export type ProfileField = { label: string; value: string }
+
 export type PublicProfile = {
   id: string
   userId: number
@@ -12,6 +14,7 @@ export type PublicProfile = {
   customStatusExpiresAt: number | null
   isBlockedByMe: boolean
   isContact: boolean
+  profileFields: ProfileField[]
 }
 
 export type PresenceResponse = {
@@ -112,4 +115,45 @@ export function getAccountPresence(
   return get<PresenceResponse>(`/accounts/${encodeURIComponent(targetAccountId)}/presence`, {
     account,
   })
+}
+
+export function getProfileFields(account: AccountAuth): Promise<{ fields: ProfileField[] }> {
+  return get('/profile/fields', { account })
+}
+
+/** Replaces the entire set, including deletion with an empty list. */
+export function setProfileFields(account: AccountAuth, fields: ProfileField[]): Promise<void> {
+  return put('/profile/fields', { fields }, { account })
+}
+
+export type DmPolicy = 'everyone' | 'contacts_only'
+export type GroupAddPolicy = 'everyone' | 'nobody'
+export type GroupAddException = { accountId: string; createdAt: number }
+
+export function getDmPolicy(account: AccountAuth): Promise<{ policy: DmPolicy }> {
+  return get('/profile/dm-policy', { account })
+}
+
+export function setDmPolicy(account: AccountAuth, policy: DmPolicy): Promise<void> {
+  return put('/profile/dm-policy', { policy }, { account })
+}
+
+export function getGroupAddPolicy(account: AccountAuth): Promise<{ policy: GroupAddPolicy }> {
+  return get('/profile/group-add-policy', { account })
+}
+
+export function setGroupAddPolicy(account: AccountAuth, policy: GroupAddPolicy): Promise<void> {
+  return put('/profile/group-add-policy', { policy }, { account })
+}
+
+export function listGroupAddExceptions(account: AccountAuth): Promise<GroupAddException[]> {
+  return get('/profile/group-add-exceptions', { account })
+}
+
+export function addGroupAddException(account: AccountAuth, accountId: string): Promise<void> {
+  return post('/profile/group-add-exceptions', { account_id: accountId }, { account })
+}
+
+export function removeGroupAddException(account: AccountAuth, accountId: string): Promise<void> {
+  return del(`/profile/group-add-exceptions/${encodeURIComponent(accountId)}`, undefined, { account })
 }

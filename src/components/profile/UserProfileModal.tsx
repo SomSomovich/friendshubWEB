@@ -258,6 +258,17 @@ export function UserProfileModal() {
             </div>
           </div>
 
+          {(profile.profileFields ?? []).length > 0 ? (
+            <dl className="flex flex-col gap-2 rounded-lg border border-border bg-bg p-3">
+              {profile.profileFields.map((field, index) => (
+                <div key={index} className="flex min-w-0 flex-col gap-0.5">
+                  <dt className="text-xs text-fg-muted break-words">{field.label}</dt>
+                  <dd className="text-sm text-fg whitespace-pre-wrap break-words">{field.value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+
           <div className="flex flex-wrap gap-2">
             <Button
               loading={busy}

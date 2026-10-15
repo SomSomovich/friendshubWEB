@@ -506,7 +506,7 @@
     "privacy": {
       "invisible": "Invisible mode",
       "invisibleHint": "Hides your online status and last-seen time.",
-      "invisibleNote": "The server never reads this back, so the switch shows what this device last set.",
+      "invisibleNote": "The current setting is read from the server.",
       "invisibleOn": "Invisible mode on",
       "invisibleOff": "Invisible mode off",
       "exceptions": "Presence exceptions",
@@ -525,7 +525,15 @@
       "block": "Block",
       "unblock": "Unblock",
       "blockedAdded": "Account blocked",
-      "unblocked": "Account unblocked"
+      "unblocked": "Account unblocked",
+      "dmPolicy": "Who can message you",
+      "dmPolicyHint": "Known people share a direct or group chat with you. This includes more than saved contacts.",
+      "everyone": "Everyone",
+      "knownPeers": "Only known people",
+      "groupAddPolicy": "Who can add you to groups",
+      "groupAddPolicyHint": "Permission to add you directly to a group.",
+      "exceptionsOnly": "Only people in exceptions",
+      "groupExceptionsHint": "These people can add you to groups when only exceptions are allowed."
     },
     "security": {
       "account": "Signing in",
@@ -598,6 +606,16 @@
       "title": "Profile",
       "edit": "Edit",
       "share": "Copy the FH number"
+    },
+    "profileFields": {
+      "title": "Profile details",
+      "hint": "Up to 10 public fields: labels up to 64 characters, values up to 128.",
+      "label": "Field {{index}} label",
+      "value": "Field {{index}} value",
+      "remove": "Remove field",
+      "add": "Add field",
+      "saved": "Profile details saved",
+      "invalid": "Fill in every label and value. Limits: 64 and 128 characters."
     }
   },
   "profile": {

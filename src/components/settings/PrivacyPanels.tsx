@@ -10,6 +10,7 @@ import {
 } from '../../api/contacts'
 import {
   addPresenceException,
+  getInvisible,
   listPresenceExceptions,
   removePresenceException,
   setInvisible,
@@ -18,49 +19,28 @@ import {
 } from '../../api/profile'
 import { useActionReporter } from '../../hooks/useActionReporter'
 import { useToast } from '../../hooks/useToast'
-import { readInvisibleMirror, writeInvisibleMirror } from '../../storage/app_settings'
+import { useAccountResource } from '../../hooks/useAccountResource'
 import type { Account } from '../../types'
 import { Button } from '../ui/Button'
 import { PanelError } from './PanelError'
 import { PanelSkeleton } from './PanelSkeleton'
 import { describeCause } from '../../utils/errors'
-import { Skeleton } from '../ui/Skeleton'
 import { SettingsCard, SettingsChoice, SettingsRow, SettingsToggle } from './Section'
 
-/**
- * Invisible mode.
- *
- * The toggle remembers what this device last set rather than reading the value:
- * the server stores the flag but nothing returns it — `GET /me` carries the
- * username, the avatar and the custom status, and not this — so the screen says
- * what it is showing instead of implying it read it back.
- */
+/** Invisible mode is read from the server on each visit. */
 export function InvisiblePanel({ account }: { account: Account }) {
   const { t } = useTranslation()
   const toast = useToast()
   const fail = useActionReporter('privacy')
 
-  const [enabled, setEnabled] = useState<boolean | null>(null)
+  const resource = useAccountResource(account, getInvisible)
   const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    void readInvisibleMirror(account.id).then((value) => {
-      if (!cancelled) {
-        setEnabled(value)
-      }
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [account.id])
 
   async function toggle(next: boolean): Promise<void> {
     setBusy(true)
     try {
       await setInvisible(account, next)
-      await writeInvisibleMirror(account.id, next)
-      setEnabled(next)
+      resource.replace({ enabled: next })
       toast.notify({
         kind: 'success',
         message: next ? t('settings.privacy.invisibleOn') : t('settings.privacy.invisibleOff'),
@@ -74,13 +54,15 @@ export function InvisiblePanel({ account }: { account: Account }) {
 
   return (
     <SettingsCard title={t('settings.privacy.invisible')} description={t('settings.privacy.invisibleHint')}>
-      <SettingsRow label={t('settings.privacy.invisible')} description={t('settings.privacy.invisibleNote')}>
-        {enabled === null ? (
-          <Skeleton className="h-6 w-10 rounded-full" />
+      <SettingsRow label={t('settings.privacy.invisible')} description={t('settings.privacy.invisibleHint')}>
+        {resource.error !== null ? (
+          <PanelError message={resource.error} onRetry={resource.reload} />
+        ) : resource.data === null ? (
+          <PanelSkeleton rows={1} />
         ) : (
           <SettingsToggle
             label={t('settings.privacy.invisible')}
-            checked={enabled}
+            checked={resource.data.enabled}
             disabled={busy}
             onChange={(next) => {
               void toggle(next)

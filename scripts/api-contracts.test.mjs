@@ -1,0 +1,86 @@
+/** Run: node --experimental-vm-modules scripts/api-contracts.test.mjs */
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import { test } from 'node:test'
+import { SourceTextModule, SyntheticModule, createContext } from 'node:vm'
+import ts from 'typescript'
+
+async function loadSource(path) {
+  const calls = []
+  const context = createContext({ console, Date, Number, Set, Map, Error, Promise })
+  const cache = new Map()
+  async function module(url) {
+    if (cache.has(url.href)) return cache.get(url.href)
+    if (url.pathname.endsWith('/api/client.ts')) {
+      const exports = Object.fromEntries(['get', 'post', 'put', 'patch', 'del'].map((method) => [method,
+        async (...args) => { calls.push(JSON.parse(JSON.stringify({ method, args }))); return {} },
+      ]))
+      const stub = new SyntheticModule(Object.keys(exports), function () {
+        for (const [name, value] of Object.entries(exports)) this.setExport(name, value)
+      }, { context })
+      cache.set(url.href, stub)
+      return stub
+    }
+    const source = await readFile(url, 'utf8')
+    const { outputText } = ts.transpileModule(source, {
+      compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ESNext, verbatimModuleSyntax: true },
+    })
+    const mod = new SourceTextModule(outputText, { context, identifier: url.href })
+    cache.set(url.href, mod)
+    return mod
+  }
+  const mod = await module(new URL(`../src/${path}.ts`, import.meta.url))
+  await mod.link((specifier, parent) => module(new URL(`${specifier}.ts`, parent.identifier)))
+  await mod.evaluate()
+  return { api: mod.namespace, calls }
+}
+const account = { id: 'self', sessionToken: 'token', deviceNumber: 3 }
+
+test('profile fields replace the complete set and support clearing all fields', async () => {
+  const { api, calls } = await loadSource('api/profile')
+  await api.getProfileFields(account)
+  await api.setProfileFields(account, [{ label: 'Site', value: 'example.com' }])
+  await api.setProfileFields(account, [])
+  assert.deepEqual(calls.map(({ method, args }) => [method, args[0]]), [
+    ['get', '/profile/fields'], ['put', '/profile/fields'], ['put', '/profile/fields'],
+  ])
+  assert.deepEqual(calls[2].args[1], { fields: [] })
+  assert.deepEqual(calls[1].args[2], { account })
+})
+
+test('privacy policy endpoints use their distinct API values', async () => {
+  const { api, calls } = await loadSource('api/profile')
+  await api.getDmPolicy(account)
+  await api.setDmPolicy(account, 'contacts_only')
+  await api.getGroupAddPolicy(account)
+  await api.setGroupAddPolicy(account, 'nobody')
+  assert.deepEqual(calls[1], { method: 'put', args: ['/profile/dm-policy', { policy: 'contacts_only' }, { account }] })
+  assert.deepEqual(calls[3], { method: 'put', args: ['/profile/group-add-policy', { policy: 'nobody' }, { account }] })
+})
+
+test('group exceptions use account_id in the body and an encoded ID in DELETE', async () => {
+  const { api, calls } = await loadSource('api/profile')
+  await api.listGroupAddExceptions(account)
+  await api.addGroupAddException(account, 'other')
+  await api.removeGroupAddException(account, 'id/with space')
+  assert.deepEqual(calls[1].args[1], { account_id: 'other' })
+  assert.equal(calls[2].args[0], '/profile/group-add-exceptions/id%2Fwith%20space')
+  assert.equal(calls[2].method, 'del')
+})
+
+test('invisibility is read from the account API', async () => {
+  const { api, calls } = await loadSource('api/profile')
+  await api.getInvisible(account)
+  assert.deepEqual(calls[0], { method: 'get', args: ['/profile/invisible', { account }] })
+})
+
+test('profile field limits count Unicode code points and accept the documented boundaries', async () => {
+  const { api } = await loadSource('utils/profileFields')
+  assert.equal(api.validProfileFields([{ label: '😀'.repeat(64), value: '😀'.repeat(128) }]), true)
+  assert.equal(api.validProfileFields([{ label: 'a'.repeat(65), value: 'v' }]), false)
+  assert.equal(api.validProfileFields([{ label: 'a', value: 'v'.repeat(129) }]), false)
+  assert.equal(api.validProfileFields(Array.from({ length: 10 }, () => ({ label: 'a', value: 'v' }))), true)
+  assert.equal(api.validProfileFields(Array.from({ length: 11 }, () => ({ label: 'a', value: 'v' }))), false)
+  assert.equal(api.validProfileFields([{ label: ' ', value: 'v' }]), false)
+  assert.equal(api.validProfileFields([]), true)
+})
