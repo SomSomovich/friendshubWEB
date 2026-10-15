@@ -1,3 +1,5 @@
+import { sendHistory, clearHistoryTransfers } from '../crypto/historySync'
+import { useHistorySyncStore } from './historySyncStore'
 import type { StoreApi } from 'zustand/vanilla'
 import { getConversationReads } from '../api/conversations'
 import { reportSessionExpired } from '../auth/sessionExpiry'
@@ -63,6 +65,20 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     }
   })
 
+  let exportChain: Promise<void> = Promise.resolve()
+  const detachHistoryRequest = client.on('historyRequest', (request) => {
+    exportChain = exportChain.then(() => sendHistory(account, request, client, (work) => {
+      const next = chain.then(work)
+      chain = next.catch(() => {})
+      return next
+    })).catch((cause: unknown) => {
+      console.error('[history] export failed', cause)
+      pushToast('error', cause instanceof Error ? cause.message : String(cause))
+    })
+  })
+  const detachHistoryError = client.on('error', (error) => {
+    if (error.message.includes('history_request:')) useHistorySyncStore.getState().fail(account.id, error.message)
+  })
   const detachReceipt = client.on('receipt', ({ envelopeIds, serverTimestamps }) => {
     void store
       .getState()
@@ -172,6 +188,9 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
   return () => {
     clearInterval(prekeyTimer)
     detachDelivery()
+    detachHistoryRequest()
+    detachHistoryError()
+    clearHistoryTransfers(account.id)
     detachReceipt()
     detachPresence()
     detachTyping()

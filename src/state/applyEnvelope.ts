@@ -1,3 +1,5 @@
+import { receiveHistoryChunk } from '../crypto/historySync'
+import { useHistorySyncStore } from './historySyncStore'
 import type { CallPayload, EditPayload, MessagePayload, ReactionPayload } from '../crypto/payloads'
 import { buildMessageRecord, handleEnvelope } from '../crypto/receive'
 import type { MessageRecord } from '../storage/db'
@@ -54,6 +56,16 @@ export async function applyReceivedEnvelope(
     }
 
     switch (received.kind) {
+      case 'history_sync': {
+        const messages = await receiveHistoryChunk(context.account, envelope, received.payload)
+        if (messages.length > 0) {
+          context.onMessageStored()
+          if (envelope.conversationId !== null && context.isConversationOpen(envelope.conversationId)) {
+            context.updateMessages((current) => mergeById(messages, current))
+          }
+        }
+        break
+      }
       case 'message':
         await storeIncoming(envelope, received.payload, context)
         break
@@ -83,6 +95,7 @@ export async function applyReceivedEnvelope(
     // A pairwise envelope never becomes decryptable later, so the failure is
     // recorded and the envelope is still acknowledged below — otherwise the
     // server would replay it on every connect, forever.
+    if (envelope.envelopeType === 2 && envelope.senderAccountId === context.account.id) useHistorySyncStore.getState().fail(context.account.id, describe(error))
     console.error('[state] could not process an envelope', error)
     context.setError(describe(error))
   }

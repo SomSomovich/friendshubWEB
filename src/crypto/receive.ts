@@ -1,3 +1,4 @@
+import { parseHistoryChunk, type HistoryChunk } from './historyProtocol'
 import { setAttachmentKey } from '../storage/attachments'
 import type { MessageRecord } from '../storage/db'
 import type { Account, Envelope, MessageStatus } from '../types'
@@ -50,6 +51,7 @@ import { persistSnapshot } from './snapshot'
  */
 
 export type ReceivedEnvelope =
+  | { kind: 'history_sync'; envelope: Envelope; payload: HistoryChunk; identityChanges: IdentityChange[] }
   | { kind: 'message'; envelope: Envelope; payload: MessagePayload; identityChanges: IdentityChange[] }
   | { kind: 'edit'; envelope: Envelope; payload: EditPayload; identityChanges: IdentityChange[] }
   | { kind: 'delete'; envelope: Envelope; payload: DeletePayload; identityChanges: IdentityChange[] }
@@ -73,6 +75,7 @@ export async function handleEnvelope(
 }
 
 type RoutedResult =
+  | Omit<Extract<ReceivedEnvelope, { kind: 'history_sync' }>, 'identityChanges'>
   | Omit<Extract<ReceivedEnvelope, { kind: 'message' }>, 'identityChanges'>
   | Omit<Extract<ReceivedEnvelope, { kind: 'edit' }>, 'identityChanges'>
   | Omit<Extract<ReceivedEnvelope, { kind: 'delete' }>, 'identityChanges'>
@@ -162,6 +165,8 @@ async function route(account: Account, envelope: Envelope): Promise<RoutedResult
       await persistSnapshot(account.id)
 
       const legacy = parseJson(plaintextHex)
+      const history = parseHistoryChunk(legacy)
+      if (history !== null) return { kind: 'history_sync', envelope, payload: history }
       if (!isRecord(legacy) || typeof legacy['plaintext_hex'] !== 'string') {
         return { kind: 'ignored', envelope }
       }

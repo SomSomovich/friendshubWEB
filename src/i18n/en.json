@@ -914,5 +914,17 @@
     "all": "Show directory",
     "empty": "No public chats yet.",
     "open": "Open / join"
+  },
+  "historySync": {
+    "title": "History sync",
+    "hint": "Choose another device that still has your history and keep it online. Messages and attachment keys are transferred with encryption. Channel posts and bot messages are fetched separately from the server.",
+    "source": "Device with history",
+    "choose": "Choose a device",
+    "request": "Load history",
+    "offline": "Connect to the server before syncing history.",
+    "timeout": "The transfer stopped or the device did not respond. Keep it online and try again. Messages already imported are kept.",
+    "complete_one": "History loaded. Added {{count}} message.",
+    "complete_other": "History loaded. Added {{count}} messages.",
+    "progress": "Messages received: {{count}}. Conversations complete: {{done}} of {{total}}."
   }
 }

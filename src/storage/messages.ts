@@ -290,3 +290,19 @@ export async function searchMessages(
 
   return found
 }
+
+export type HistoryMessageCursor = { timestamp: number; envelopeId: string }
+export async function getHistoryMessagePage(accountId: string, conversationId: string,
+  after?: HistoryMessageCursor): Promise<MessageRecord[]> {
+  const database = await openDatabase()
+  const index = database.transaction('messages').store.index('byConversation')
+  const range = IDBKeyRange.bound([accountId, conversationId, after?.timestamp ?? 0], [accountId, conversationId, Number.MAX_SAFE_INTEGER])
+  let cursor = await index.openCursor(range, 'next')
+  const result: MessageRecord[] = []
+  while (cursor !== null && result.length < 100) {
+    const record = cursor.value
+    if (!after || record.clientTimestamp > after.timestamp || record.envelopeId > after.envelopeId) result.push(record)
+    cursor = await cursor.continue()
+  }
+  return result
+}
