@@ -1,5 +1,6 @@
 import { channelFeedKey, useChannelPostsStore } from '../state/channelPostsStore'
 import { useCallback, useEffect, useState } from 'react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { useStore } from 'zustand'
 import { listContacts } from '../api/contacts'
@@ -12,8 +13,10 @@ import {
 import type { ConversationRecord } from '../storage/db'
 import { countIncomingAfter, getMessages } from '../storage/messages'
 import { listPinned } from '../storage/pinned'
+import { getAttachment } from '../storage/attachments'
 import { loadHiddenConversations, loadPeerCache, loadReadState } from '../storage/read_state'
 import type { Account } from '../types'
+import { attachmentPreviewKind, type AttachmentPreviewKind } from '../utils/attachmentPreview'
 
 /**
  * Everything a chat row needs.
@@ -97,6 +100,7 @@ export function useChatList(account: Account): ChatListState {
               contacts: byAccountId,
               savedTitle: t('chatList.saved'),
               unknownTitle: t('chatList.unknownPeer'),
+              t,
             }),
           ),
         )
@@ -151,6 +155,7 @@ type AssembleContext = {
   contacts: Map<string, ContactName>
   savedTitle: string
   unknownTitle: string
+  t: TFunction
 }
 
 async function assembleRow(
@@ -165,6 +170,9 @@ async function assembleRow(
   ])
 
   const last = lastPage.at(0)
+  const lastAttachmentRecords = await Promise.all(
+    (last?.attachments ?? []).map((attachmentId) => getAttachment(account.id, attachmentId)),
+  )
   const channelPosts = conversation.kind === 'channel'
     ? useChannelPostsStore.getState().feeds[channelFeedKey(account.id, conversation.id)] : undefined
   const latestPost = channelPosts?.[0]
@@ -173,17 +181,37 @@ async function assembleRow(
     unknown: context.unknownTitle,
   })
 
+  const text = latestPost?.text ?? last?.plaintext ?? null
+  const attachmentIds = latestPost?.attachmentIds ?? last?.attachments ?? []
+  const preview = text?.trim().length
+    ? text
+    : attachmentIds.length > 0
+      ? attachmentPreviewText(lastAttachmentRecords, context.t)
+      : text
+
   return {
     conversation,
     title: identity.title,
     avatarUrl: identity.avatarUrl,
     peerAccountId: identity.peerAccountId,
-    preview: latestPost?.text ?? last?.plaintext ?? null,
+    preview,
     at: latestPost?.createdAt ?? last?.clientTimestamp ?? conversation.lastEnvelopeAt,
     unread: channelPosts ? channelPosts.filter((post) => post.authorId !== account.id && post.createdAt > (context.readState[conversation.id] ?? 0)).length : unread,
     muted: conversation.mutedUntil !== null,
     hasPinned: pinned.length > 0,
   }
+}
+
+function attachmentPreviewText(
+  records: Array<{ contentType?: string | null; fileName?: string | null } | null>,
+  t: TFunction,
+): string {
+  const record = records.find((entry) => entry?.contentType != null || entry?.fileName != null)
+  const kind: AttachmentPreviewKind = attachmentPreviewKind(record?.contentType, record?.fileName)
+  if (kind === 'photo') return t('chat.attach.photo')
+  if (kind === 'video') return t('chat.attach.video')
+  if (kind === 'voice') return t('channelFeed.voiceMessage')
+  return t('chat.attach.file')
 }
 
 /**

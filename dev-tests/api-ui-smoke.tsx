@@ -12,6 +12,7 @@ import { CallHistoryScreen } from '../src/screens/CallHistoryScreen'
 import { DiscoverScreen } from '../src/screens/DiscoverScreen'
 import { getAccountStore } from '../src/state/accountRegistry'
 import { useUiStore } from '../src/state/uiStore'
+import { attachmentPreviewKind } from '../src/utils/attachmentPreview'
 import { saveConversations } from '../src/storage/conversations'
 import type { Account } from '../src/types'
 import '../src/index.css'
@@ -130,6 +131,7 @@ function inputValue(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event('input', { bubbles: true }))
 }
 async function run() {
+  check(attachmentPreviewKind('image/jpeg', null) === 'photo' && attachmentPreviewKind('video/mp4', null) === 'video' && attachmentPreviewKind('audio/webm', null) === 'voice' && attachmentPreviewKind(null, 'report.pdf') === 'file', 'chat list classifies attachment previews by media type')
   getAccountStore(account).setState({ conversations: [{ ...group, accountId }] })
   await saveConversations([{ ...group, accountId }])
   useUiStore.getState().setTheme('dark')
