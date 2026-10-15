@@ -585,7 +585,28 @@
       "revokeSelfHint": "This is the device you are using. Revoking it ends the session and you will have to sign in again.",
       "deviceRevoked": "Device revoked",
       "deviceSelfRevoked": "This device was revoked — sign in again.",
-      "deviceNotTrusted": "Another device can only be revoked from device 1, or from one older than three days."
+      "deviceNotTrusted": "Another device can only be revoked from device 1, or from one older than three days.",
+      "events": {
+        "title": "Security log",
+        "hint": "The latest 100 account events.",
+        "empty": "No events yet.",
+        "types": {
+          "registered": "Registration",
+          "loginOk": "Successful login",
+          "loginFail": "Failed login",
+          "totpEnabled": "2FA enabled",
+          "totpDisabled": "2FA disabled",
+          "deviceRegistered": "Device registered",
+          "deviceRevoked": "Device revoked",
+          "sessionsRevoked": "Sessions revoked",
+          "deletionInitiated": "Account deletion requested",
+          "deletionConfirmed": "Account deleted",
+          "groupTransferred": "Group ownership transferred",
+          "channelTransferred": "Channel ownership transferred",
+          "groupDeleted": "Group deleted",
+          "channelDeleted": "Channel deleted"
+        }
+      }
     },
     "notifications": {
       "sound": "Message sound",

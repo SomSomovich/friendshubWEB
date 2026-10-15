@@ -1,5 +1,6 @@
 import { ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { SecurityEventsPanel } from '../../components/settings/SecurityEventsPanel'
 import { DevicesPanel } from '../../components/settings/DevicesPanel'
 import { SettingsCard, SettingsNavRow } from '../../components/settings/Section'
 import { SessionsPanel } from '../../components/settings/SessionsPanel'
@@ -30,6 +31,7 @@ export function SecuritySettingsScreen() {
 
       <SessionsPanel account={account} />
       <DevicesPanel account={account} />
+      <SecurityEventsPanel key={account.id} account={account} />
     </SettingsSectionScreen>
   )
 }
