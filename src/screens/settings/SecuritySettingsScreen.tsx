@@ -1,5 +1,6 @@
 import { ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { DeviceHistoryPanel } from '../../components/settings/DeviceHistoryPanel'
 import { HistorySyncPanel } from '../../components/settings/HistorySyncPanel'
 import { SecurityEventsPanel } from '../../components/settings/SecurityEventsPanel'
 import { DevicesPanel } from '../../components/settings/DevicesPanel'
@@ -33,6 +34,7 @@ export function SecuritySettingsScreen() {
       <SessionsPanel account={account} />
       <DevicesPanel account={account} />
       <HistorySyncPanel key={`history:${account.id}`} account={account} />
+      <DeviceHistoryPanel key={`http-history:${account.id}`} account={account} />
       <SecurityEventsPanel key={account.id} account={account} />
     </SettingsSectionScreen>
   )

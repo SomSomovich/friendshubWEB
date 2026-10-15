@@ -1,3 +1,5 @@
+import { restoreEnvelopePage } from '../src/crypto/httpHistory'
+import type { ConversationEnvelope } from '../src/api/conversations'
 import { historyChunks } from '../src/crypto/historyProtocol'
 import { clearHistoryTransfers, receiveHistoryChunk } from '../src/crypto/historySync'
 import { saveConversations } from '../src/storage/conversations'
@@ -46,6 +48,25 @@ async function run() {
   const second = await getHistoryMessagePage(accountId, conversationId, { timestamp: last.clientTimestamp, envelopeId: last.envelopeId })
   const ids = new Set([...first, ...second].map((entry) => entry.envelopeId))
   check(first.length === 100 && second.length === 52 && ids.size === 152, 'equal-timestamp source pages have no gaps or duplicate boundary rows')
+  const historyRow: ConversationEnvelope = { envelopeId: '019a1234-1234-7000-9000-999999999999', senderAccountId: authorId, senderDeviceNumber: 7, recipientDeviceNumber: 3, envelopeType: 1, isPrekeyMessage: false, ciphertext: '', clientTimestamp: 3000, serverTimestamp: 3001, conversationId }
+  const decoded = message('http-message').message
+  let decryptions = 0
+  const decode: Parameters<typeof restoreEnvelopePage>[3] = async (_account, incoming) => {
+    decryptions++
+    if (incoming.ciphertext === 'bad') throw new Error('spent key')
+    return { kind: 'message', envelope: incoming, payload: decoded, identityChanges: [] }
+  }
+  const restored = await restoreEnvelopePage(account, conversationId, [historyRow], decode)
+  check(restored.messages.length === 1 && restored.messages[0]?.serverTimestamp === 3001, 'HTTP replay stores decrypted messages with the server timestamp')
+  const repeated = await restoreEnvelopePage(account, conversationId, [historyRow], decode)
+  check(repeated.existing === 1 && decryptions === 1, 'HTTP replay never spends a ratchet key again for a stored envelope')
+  const rejected = await restoreEnvelopePage(account, conversationId, [
+    { ...historyRow, envelopeId: 'wrong-device', recipientDeviceNumber: 2 },
+    { ...historyRow, envelopeId: 'wrong-chat', conversationId: 'foreign' },
+    { ...historyRow, envelopeId: 'spent', ciphertext: 'bad' },
+    { ...historyRow, envelopeId: 'old-control', envelopeType: 4 },
+  ], decode)
+  check(rejected.messages.length === 0 && rejected.unavailable === 3 && rejected.ignored === 1, 'HTTP replay reports unavailable keys, rejects foreign routing and skips stale controls')
   clearHistoryTransfers(accountId)
   return checks
 }

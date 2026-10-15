@@ -35,7 +35,7 @@ export function ConversationOwnershipPanel({ account, conversationId, kind, memb
         onChanged()
       } else {
         await (kind === 'group' ? deleteGroup : deleteChannel)(account, conversationId)
-        await deleteConversationLocally(account.id, conversationId)
+        await deleteConversationLocally(account.id, conversationId).catch((cause: unknown) => { console.warn('[conversation] local cleanup failed after deletion', cause) })
         await requireAccountStore(account.id).getState().actions.loadConversations()
         onDeleted()
       }
@@ -47,7 +47,7 @@ export function ConversationOwnershipPanel({ account, conversationId, kind, memb
       <label className="flex flex-col gap-1 text-xs font-medium text-fg-muted">
         {t('conversation.management.newOwner')}
         <select value={target} disabled={busy} onChange={(event) => setTarget(event.target.value)}
-          className="h-10 rounded-lg border border-border bg-bg px-3 text-sm text-fg focus-visible:outline-2 focus-visible:outline-accent">
+          className="h-10 w-full min-w-0 rounded-lg border border-border bg-bg px-3 text-sm text-fg focus-visible:outline-2 focus-visible:outline-accent">
           <option value="">{t('conversation.management.pickOwner')}</option>
           {candidates.map((member) => <option key={member.id} value={member.id}>{labels.get(memberKey(member)) ?? t('chatList.unknownPeer')}</option>)}
         </select>

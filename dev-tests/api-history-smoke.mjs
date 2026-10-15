@@ -1,14 +1,17 @@
 /** A real Firefox check of history import and IndexedDB; no live API is called. */
 import { build } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:http'
-import { mkdtemp, readFile } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 const directory = await mkdtemp(join(tmpdir(), 'friendshub-history-'))
-await build({ configFile: false, logLevel: 'error', define: { 'process.env.NODE_ENV': '"production"' }, build: { outDir: directory, emptyOutDir: false,
-  lib: { entry: resolve('dev-tests/api-history-smoke.ts'), formats: ['es'], fileName: () => 'smoke.js' },
+await build({ configFile: false, plugins: [react(), tailwindcss()], logLevel: 'error', define: { 'process.env.NODE_ENV': '"production"' }, build: { outDir: directory, emptyOutDir: false,
+  lib: { entry: resolve(process.argv[2] ?? 'dev-tests/api-history-smoke.ts'), formats: ['es'], fileName: () => 'smoke.js' },
 } })
+const styles = (await readdir(directory)).filter((name) => name.endsWith('.css')).map((name) => `<link rel="stylesheet" href="/${name}">`).join('')
 let complete
 const report = new Promise((resolve) => { complete = resolve })
 const server = createServer(async (request, response) => {
@@ -18,10 +21,10 @@ const server = createServer(async (request, response) => {
       for await (const chunk of request) { body += chunk; if (body.length > 100000) throw new Error('report too large') }
       complete(JSON.parse(body)); response.end('ok'); return
     }
-    if (request.url === '/') { response.setHeader('Content-Type', 'text/html'); response.end(`<script>for(const kind of ['error','unhandledrejection'])window.addEventListener(kind,e=>fetch('/result',{method:'POST',body:JSON.stringify({ok:false,error:String(e.message??e.reason?.message??'')+' '+String(e.error?.stack??e.reason?.stack??e.reason??'')})}));</script><script type="module" src="/smoke.js"></script>`); return }
+    if (request.url === '/') { response.setHeader('Content-Type', 'text/html'); response.end(`<meta http-equiv="Content-Security-Policy" content="img-src 'self' data:">${styles}<script>for(const kind of ['error','unhandledrejection'])window.addEventListener(kind,e=>fetch('/result',{method:'POST',body:JSON.stringify({ok:false,error:String(e.message??e.reason?.message??'')+' '+String(e.error?.stack??e.reason?.stack??e.reason??'')})}));</script><script type="module" src="/smoke.js"></script>`); return }
     const name = new URL(request.url, 'http://localhost').pathname.slice(1)
     if (!name || name.includes('..')) { response.writeHead(404).end(); return }
-    response.setHeader('Content-Type', name.endsWith('.js') ? 'text/javascript' : 'application/octet-stream')
+    response.setHeader('Content-Type', name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : 'application/octet-stream')
     response.end(await readFile(join(directory, name)))
   } catch { response.writeHead(404).end() }
 })

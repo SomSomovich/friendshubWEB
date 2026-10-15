@@ -926,5 +926,15 @@
     "complete_one": "History loaded. Added {{count}} message.",
     "complete_other": "History loaded. Added {{count}} messages.",
     "progress": "Messages received: {{count}}. Conversations complete: {{done}} of {{total}}."
+  },
+  "deviceHistory": {
+    "title": "This device’s history",
+    "hint": "Load available messages addressed to this device if its matching keys still exist. Use another own device as the primary way to transfer history.",
+    "limits": "A new device cannot decrypt an old session. History past the server TTL only survives on an older device. Losing every device and key makes full recovery impossible without a backup. This loads message text and attachment keys; transfer current edits and deletions from another device. Server paging may currently skip messages when 200 or more items share a second.",
+    "chat": "Chat",
+    "choose": "Choose a chat",
+    "load": "Load available history",
+    "older": "Load older history",
+    "result": "This page: {{added}} added, {{existing}} already stored, {{unavailable}} unavailable, {{ignored}} control events skipped."
   }
 }

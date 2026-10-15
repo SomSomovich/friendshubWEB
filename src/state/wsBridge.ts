@@ -1,3 +1,4 @@
+import { runReceiveWork } from '../crypto/receiveQueue'
 import { sendHistory, clearHistoryTransfers } from '../crypto/historySync'
 import { useHistorySyncStore } from './historySyncStore'
 import type { StoreApi } from 'zustand/vanilla'
@@ -55,7 +56,7 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     for (const envelope of envelopes) {
       chain = chain
         .then(async () => {
-          await store.getState().actions.applyEnvelope(envelope)
+          await runReceiveWork(account.id, () => store.getState().actions.applyEnvelope(envelope))
           requestConversationIfUnknown(store, account.id, envelope.conversationId)
           await announceMessage(store, account, envelope)
         })
@@ -68,7 +69,7 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
   let exportChain: Promise<void> = Promise.resolve()
   const detachHistoryRequest = client.on('historyRequest', (request) => {
     exportChain = exportChain.then(() => sendHistory(account, request, client, (work) => {
-      const next = chain.then(work)
+      const next = chain.then(() => runReceiveWork(account.id, work))
       chain = next.catch(() => {})
       return next
     })).catch((cause: unknown) => {

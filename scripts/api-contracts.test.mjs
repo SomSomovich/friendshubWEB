@@ -178,3 +178,12 @@ test('channel invitations use the same join contract as groups', async () => {
   assert.equal(await api.joinByInvite(account, 'token/value'), 'channel')
   assert.equal(calls[0].args[0], '/invites/join/token%2Fvalue')
 })
+
+
+test('timestamp history overlaps boundary seconds and progresses past a saturated second', async () => {
+  const { api } = await loadSource('utils/historyCursor')
+  assert.equal(api.nextHistoryBefore([30, 20]), 21)
+  assert.equal(api.nextHistoryBefore([20, 20], 21), 20)
+  assert.equal(api.nextHistoryBefore([20, 10], 21), 11)
+  assert.equal(api.nextHistoryBefore([], 21), undefined)
+})

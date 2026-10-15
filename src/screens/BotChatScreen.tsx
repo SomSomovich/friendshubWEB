@@ -1,3 +1,4 @@
+import { nextHistoryBefore } from '../utils/historyCursor'
 import { Bot, Send } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -64,14 +65,14 @@ function BotThread({ account, botId }: { account: Account; botId: string }) {
       try {
         const [info, history] = await Promise.all([
           getBotInfo(account, botId),
-          listBotMessages(account, botId, { limit: 100 }),
+          listBotMessages(account, botId, { limit: 200 }),
         ])
         if (cancelled) {
           return
         }
         setHandle(info.handle)
-        setBefore(history.at(-1)?.createdAt ?? null)
-        setHasOlder(history.length >= 100)
+        setBefore(nextHistoryBefore(history.map((row) => row.createdAt)) ?? null)
+        setHasOlder(history.length >= 200)
         setLoadError(null)
         store.getState().actions.setBotThread(botId, history)
       } catch (error) {
@@ -113,10 +114,10 @@ function BotThread({ account, botId }: { account: Account; botId: string }) {
     const viewport = viewportRef.current
     if (viewport !== null) olderScroll.current = { height: viewport.scrollHeight, top: viewport.scrollTop }
     try {
-      const history = await listBotMessages(account, botId, { before, limit: 100 })
+      const history = await listBotMessages(account, botId, { before, limit: 200 })
       store.getState().actions.setBotThread(botId, history)
-      setBefore(history.at(-1)?.createdAt ?? null)
-      setHasOlder(history.length >= 100)
+      setBefore(nextHistoryBefore(history.map((row) => row.createdAt), before) ?? null)
+      setHasOlder(history.length >= 200)
     } catch (cause) { fail(cause) }
     finally { loadingOlderRef.current = false; setLoadingOlder(false) }
   }

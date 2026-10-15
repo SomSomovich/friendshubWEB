@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useStore } from 'zustand'
+import { clearHistoryTransfers } from '../../crypto/historySync'
 import { listOwnDevices } from '../../api/devices'
 import { useAccountResource } from '../../hooks/useAccountResource'
 import { useActionReporter } from '../../hooks/useActionReporter'
@@ -19,7 +20,7 @@ export function HistorySyncPanel({ account }: { account: Account }) {
   const devices = useAccountResource(account, listOwnDevices)
   const conversations = useStore(requireAccountStore(account.id), (state) => state.conversations)
   const progress = useHistorySyncStore((state) => state.accounts[account.id])
-  const [target, setTarget] = useState('')
+  const [target, setTarget] = useState(() => progress ? String(progress.sourceDevice) : '')
   const submitting = useRef(false)
   const running = progress?.status === 'requesting' || progress?.status === 'receiving'
   useEffect(() => {
@@ -40,6 +41,7 @@ export function HistorySyncPanel({ account }: { account: Account }) {
       if (!client.isConnected) throw new Error(t('historySync.offline'))
       const ids = conversations.filter((conversation) => conversation.kind !== 'channel').map((conversation) => conversation.id)
       if (ids.length === 0) return
+      clearHistoryTransfers(account.id)
       useHistorySyncStore.getState().start(account.id, source, ids)
       for (let index = 0; index < ids.length; index += 200) client.requestHistory(source, ids.slice(index, index + 200))
     } catch (cause) {
@@ -53,7 +55,7 @@ export function HistorySyncPanel({ account }: { account: Account }) {
         <label className="flex flex-col gap-1 text-xs font-medium text-fg-muted">
           {t('historySync.source')}
           <select value={target} disabled={running} onChange={(event) => setTarget(event.target.value)}
-            className="h-10 rounded-lg border border-border bg-bg px-3 text-sm text-fg focus-visible:outline-2 focus-visible:outline-accent">
+            className="h-10 w-full min-w-0 rounded-lg border border-border bg-bg px-3 text-sm text-fg focus-visible:outline-2 focus-visible:outline-accent">
             <option value="">{t('historySync.choose')}</option>
             {devices.data.filter((device) => device.deviceNumber !== account.deviceNumber).map((device) => (
               <option key={device.id} value={device.deviceNumber}>{device.name} · {device.deviceNumber}</option>
