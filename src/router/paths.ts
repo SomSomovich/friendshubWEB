@@ -16,6 +16,7 @@ export const ROUTES = {
   createGroup: '/app/create-group',
   createChannel: '/app/create-channel',
   profile: '/app/profile',
+  calls: '/app/calls',
 } as const
 
 /**

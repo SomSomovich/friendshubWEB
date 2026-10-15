@@ -887,5 +887,23 @@
     "connectionFailed": "The connection could not be established.",
     "noOtherCamera": "No other camera was found.",
     "cameraFailed": "The camera could not be switched."
+  },
+  "callHistory": {
+    "title": "Calls",
+    "hint": "The latest 200 calls.",
+    "empty": "No calls yet.",
+    "incoming": "Incoming",
+    "outgoing": "Outgoing",
+    "clear": "Clear history",
+    "clearHint": "Delete all call records for this account?",
+    "delete": "Delete record",
+    "deleteHint": "Delete this record from your call history?",
+    "status": {
+      "completed": "Completed",
+      "missed": "Missed",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled",
+      "failed": "Failed"
+    }
   }
 }

@@ -63,6 +63,7 @@ const CreateGroupScreen = lazyScreen('CreateGroupScreen', () =>
 const CreateChannelScreen = lazyScreen('CreateChannelScreen', () =>
   import('../screens/CreateChannelScreen'),
 )
+const CallHistoryScreen = lazyScreen('CallHistoryScreen', () => import('../screens/CallHistoryScreen'))
 const BotChatScreen = lazyScreen('BotChatScreen', () => import('../screens/BotChatScreen'))
 const ConversationSettingsScreen = lazyScreen('ConversationSettingsScreen', () =>
   import('../screens/conversation/ConversationSettingsScreen'),
@@ -121,6 +122,7 @@ export const router = createBrowserRouter([
               </Suspense>
             ),
           },
+          { path: 'calls', element: lazyElement(CallHistoryScreen) },
           { path: 'settings', element: <SettingsScreen /> },
           { path: 'settings/account', element: lazyElement(AccountSettingsScreen) },
           { path: 'settings/appearance', element: lazyElement(AppearanceSettingsScreen) },
