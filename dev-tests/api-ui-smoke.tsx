@@ -27,6 +27,7 @@ const postId = '019a1234-1234-7000-8000-000000000017'
 const channel = { ...group, id: channelId, accountId, kind: 'channel' as const, title: 'Новости' }
 let posts = [{ id: postId, channel_id: channelId, author_type: 'account', author_id: accountId, text: 'Первая публикация', attachment_ids: [] as string[], forward_from: null, reply_to_post_id: null, created_at: 1000, edited_at: null, pinned_at: null as number | null, discussion_comment_count: 0 }]
 let publishAllowed = true
+let failNextPost = false
 let reaction: string | null = '👍'
 const chunks = new Map<number, Uint8Array>()
 const originalFetch = globalThis.fetch.bind(globalThis)
@@ -49,7 +50,12 @@ globalThis.fetch = async (input, options) => {
   if (path === `/channels/${channelId}`) value = { conversation_id: channelId, title: channel.title, description: null, owner_account_id: publishAllowed ? accountId : peerId, is_public: true, linked_group_conversation_id: null, member_count: 2, created_at: 1000, updated_at: 1000 }
   else if (path === `/channels/${channelId}/posts`) {
     if (method === 'POST') {
-      posts = [{ ...posts[0]!, id: '019a1234-1234-7000-8000-000000000018', text: String(body!.text) }, ...posts]; value = posts[0]
+      if (failNextPost) {
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        failNextPost = false
+        return new Response(JSON.stringify({ error: 'temporary_failure' }), { status: 500 })
+      }
+      posts = [{ ...posts[0]!, id: `019a1234-1234-7000-8000-${String(17 + posts.length).padStart(12, '0')}`, text: String(body!.text), attachment_ids: body!.attachment_ids as string[] }, ...posts]; value = posts[0]
     } else value = posts
   }
   else if (path === `/channels/${channelId}/pinned`) value = posts.filter((post) => post.pinned_at !== null)
@@ -104,7 +110,7 @@ function check(value: unknown, message: string): asserts value { if (!value) thr
 async function waitFor(condition: () => boolean, label: string) {
   const until = Date.now() + 8000
   while (!condition()) {
-    if (Date.now() > until) throw new Error(`Timed out: ${label}; screen: ${document.body.innerText.slice(0, 1500)}`)
+    if (Date.now() > until) throw new Error(`Timed out: ${label}; inputs: ${JSON.stringify([...host.querySelectorAll('textarea')].map((node) => ({ value: node.value, placeholder: node.placeholder })))}; calls: ${JSON.stringify(requests.slice(-8))}; screen: ${document.body.innerText.slice(0, 1500)}`)
     await new Promise((resolve) => setTimeout(resolve, 20))
   }
 }
@@ -170,14 +176,80 @@ async function run() {
   check(document.body.innerText.includes('Local test'), 'security events render translated actions and device information')
   show(<ChannelScreen account={account} conversation={channel} avatarUrl={null} />)
   await waitFor(() => document.body.innerText.includes('Первая публикация') && !!host.querySelector('textarea'), 'channel feed')
-  check(host.scrollWidth <= 375 && document.body.innerText.includes('без сквозного шифрования'), 'channel publisher fits a 375px container and explains public files')
+  check(host.scrollWidth <= 375 && !!host.querySelector('button[aria-label="Прикрепить файл"]') && !!host.querySelector('button[aria-label="Записать голосовое сообщение"]') && host.querySelector('textarea')?.rows === 1,
+    'channel composer uses the one-row chat input with attachment and microphone buttons at 375px')
+  check(![...host.querySelectorAll('button')].some((element) => element.textContent === 'Опубликовать') && !host.querySelector('#channel-post-text'), 'channel input has no separate publication form or publish button')
   const textarea = host.querySelector('textarea')!
   Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(textarea, 'Новая публикация')
   textarea.dispatchEvent(new Event('input', { bubbles: true }))
-  await waitFor(() => !button('Опубликовать').disabled, 'channel draft')
-  button('Опубликовать').click()
+  await waitFor(() => !!host.querySelector('button[aria-label="Отправить"]:not(:disabled)'), 'channel draft')
+  failNextPost = true
+  ;(host.querySelector('button[aria-label="Отправить"]') as HTMLButtonElement).click()
+  await waitFor(() => !!host.querySelector('button[aria-label="Отправить"]:disabled'), 'send is pending')
+  await waitFor(() => !failNextPost && !button('Обновить ленту').disabled && !!host.querySelector('button[aria-label="Отправить"]:not(:disabled)'), 'failed send retains draft')
+  check(host.querySelector('textarea')?.value === 'Новая публикация' && posts.length === 1, 'failed channel send keeps the typed text')
+  const reads = requests.filter((request) => request.path === `/channels/${channelId}/posts` && request.method === 'GET').length
+  button('Обновить ленту').click()
+  await waitFor(() => requests.filter((request) => request.path === `/channels/${channelId}/posts` && request.method === 'GET').length > reads && host.querySelector('textarea')?.value === 'Новая публикация', 'draft survives channel refresh')
+  check(true, 'channel refresh retains the draft in the shared chat composer')
+  ;(host.querySelector('button[aria-label="Отправить"]') as HTMLButtonElement).click()
   await waitFor(() => posts.length === 2 && host.querySelector('textarea')?.value === '', 'publish channel post')
   check(requests.some((request) => request.method === 'POST' && request.path === `/channels/${channelId}/posts` && request.body?.text === 'Новая публикация'), 'channel publishes through HTTP rather than an encrypted envelope')
+  button('Редактировать публикацию').click()
+  await waitFor(() => host.querySelector('textarea')?.value === 'Новая публикация' && !!host.querySelector('button[aria-label="Сохранить"]'), 'edit channel message')
+  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(host.querySelector('textarea')!, 'Исправлено')
+  host.querySelector('textarea')!.dispatchEvent(new Event('input', { bubbles: true }))
+  await waitFor(() => host.querySelector('textarea')?.value === 'Исправлено', 'edited text')
+  ;(host.querySelector('button[aria-label="Сохранить"]') as HTMLButtonElement).click()
+  await waitFor(() => posts[0]?.text === 'Исправлено' && !host.querySelector('button[aria-label="Сохранить"]'), 'edit saved')
+  check(true, 'existing channel edit action uses the shared composer and PATCH endpoint')
+  const picker = host.querySelector('button[aria-haspopup="dialog"]') as HTMLButtonElement | null
+  check(picker !== null, 'channel composer includes the same emoji picker as a normal chat')
+  picker!.click()
+  await waitFor(() => !!host.querySelector('[role="dialog"] button.emoji:not([role="tab"])'), 'emoji grid')
+  ;(host.querySelector('[role="dialog"] button.emoji:not([role="tab"])') as HTMLButtonElement).click()
+  await waitFor(() => (host.querySelector('textarea')?.value.length ?? 0) > 0, 'emoji inserted')
+  check(true, 'choosing an emoji inserts it into the channel message field')
+  picker!.click()
+  await waitFor(() => !host.querySelector('[role="dialog"]'), 'emoji picker closed')
+  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(host.querySelector('textarea')!, '')
+  host.querySelector('textarea')!.dispatchEvent(new Event('input', { bubbles: true }))
+  const transfer = new DataTransfer()
+  transfer.items.add(new File([new Uint8Array([0, 255, 1, 2, 128, 3])], 'channel.bin', { type: 'application/octet-stream' }))
+  const fileInput = host.querySelectorAll<HTMLInputElement>('input[type="file"]')[2]!
+  fileInput.files = transfer.files; fileInput.dispatchEvent(new Event('change', { bubbles: true }))
+  await waitFor(() => !!document.querySelector('[role="dialog"]') && document.body.innerText.includes('channel.bin'), 'shared attachment preview')
+  const caption = document.querySelector('[role="dialog"] textarea') as HTMLTextAreaElement
+  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(caption, 'Файл из чата')
+  caption.dispatchEvent(new Event('input', { bubbles: true }))
+  await waitFor(() => caption.value === 'Файл из чата', 'attachment caption')
+  button('Отправить').click()
+  await waitFor(() => posts.length === 3 && !document.querySelector('[role="dialog"]'), 'channel attachment sent')
+  check(requests.some((request) => request.body?.text === 'Файл из чата' && (request.body.attachment_ids as string[])?.[0] === 'raw-file') && chunks.get(0)?.[1] === 255,
+    'paperclip uses the shared preview and uploads original public channel bytes')
+  let microphoneStops = 0
+  const stream = { getTracks: () => [{ stop: () => { microphoneStops++ } }] }
+  Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { configurable: true, value: async () => stream })
+  class TestRecorder extends EventTarget {
+    static isTypeSupported() { return true }
+    stream = stream
+    state = 'inactive'
+    mimeType = 'audio/webm'
+    start() { this.state = 'recording' }
+    stop() {
+      this.state = 'inactive'
+      this.dispatchEvent(new BlobEvent('dataavailable', { data: new Blob(['123456'], { type: this.mimeType }) }))
+      this.dispatchEvent(new Event('stop'))
+    }
+  }
+  Object.defineProperty(window, 'MediaRecorder', { configurable: true, value: TestRecorder })
+  const microphone = host.querySelector('button[aria-label="Записать голосовое сообщение"]') as HTMLButtonElement
+  microphone.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }))
+  await waitFor(() => microphone.getAttribute('aria-pressed') === 'true', 'recording started')
+  await new Promise((resolve) => setTimeout(resolve, 550))
+  microphone.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }))
+  await waitFor(() => posts.length === 4 && !document.querySelector('[role="dialog"]'), 'channel voice sent')
+  check(posts[0]?.text === 'Голосовое сообщение' && posts[0]?.attachment_ids[0] === 'raw-file' && microphoneStops > 0, 'microphone sends a channel audio attachment and releases its media stream')
   button('Реакции').click()
   await waitFor(() => !!document.querySelector('[role="dialog"]') && document.body.innerText.includes('Друг'), 'post reactions')
   check(requests.some((request) => request.path.endsWith('/reactions') && request.query === '?limit=200'), 'channel reaction list requests the confirmed single page of 200')
@@ -185,10 +257,10 @@ async function run() {
   await waitFor(() => !document.querySelector('[role="dialog"]'), 'post closed')
   button('Удалить публикацию').click()
   await waitFor(() => !!document.querySelector('[role="dialog"]'), 'delete post dialog')
-  check(posts.length === 2, 'channel deletion waits for explicit confirmation')
+  check(posts.length === 4, 'channel deletion waits for explicit confirmation')
   ;(document.querySelector('[role="dialog"]')!.querySelector('button.bg-danger') as HTMLButtonElement).click()
-  await waitFor(() => posts.length === 1 && !document.querySelector('[role="dialog"]'), 'post deleted')
-  check(posts.length === 1, 'confirmed channel deletion removes the post through HTTP')
+  await waitFor(() => posts.length === 3 && !document.querySelector('[role="dialog"]'), 'post deleted')
+  check(posts.length === 3, 'confirmed channel deletion removes the post through HTTP')
   publishAllowed = false
   show(<ChannelScreen account={account} conversation={channel} avatarUrl={null} />)
   await waitFor(() => requests.filter((request) => request.path.endsWith('/can-publish')).length >= 3, 'subscriber permissions loaded')

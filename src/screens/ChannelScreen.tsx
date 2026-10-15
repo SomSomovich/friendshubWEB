@@ -1,5 +1,10 @@
 import { useStore } from 'zustand'
 import { uploadChannelAttachment } from '../attachments/channel'
+import { releasePending, type PendingAttachment } from '../attachments/prepare'
+import type { UploadProgress } from '../attachments/send'
+import { AttachmentComposer } from '../components/chat/AttachmentComposer'
+import { MessageComposer } from '../components/chat/MessageComposer'
+import { fileToWebp, MESSAGE_IMAGE } from '../utils/image'
 import { ChannelAttachment } from '../components/conversation/ChannelAttachment'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -42,10 +47,12 @@ export function ChannelScreen({ account, conversation, avatarUrl }: { account: A
   const names = useSenderNames(account, posts.filter((post) => post.authorType === 'account').map((post) => post.authorId), 200)
   const [older, setOlder] = useState<{ before: string; done: boolean } | null>(null)
   const [pageError, setPageError] = useState<string | null>(null)
-  const [files, setFiles] = useState<File[]>([])
-  const uploads = useRef(new Map<File, string>())
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [progress, setProgress] = useState(0)
+  const [files, setFiles] = useState<PendingAttachment[]>([])
+  const pendingFiles = useRef<PendingAttachment[]>([])
+  const uploads = useRef(new Map<string, string>())
+  const [progress, setProgress] = useState<UploadProgress | null>(null)
+  const [caption, setCaption] = useState('')
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const [value, setValue] = useState('')
   const [editing, setEditing] = useState<ChannelPost | null>(null)
   const [deleting, setDeleting] = useState<ChannelPost | null>(null)
@@ -73,35 +80,78 @@ export function ChannelScreen({ account, conversation, avatarUrl }: { account: A
     return () => window.removeEventListener('focus', onFocus)
   }, [reload])
 
-  async function mutate(work: () => Promise<void>): Promise<void> {
-    if (lock.current) return
+  useEffect(() => () => { pendingFiles.current.forEach(releasePending) }, [])
+
+  async function mutate(work: () => Promise<void>, rethrow = false): Promise<void> {
+    if (lock.current) {
+      if (rethrow) throw new Error(t('chat.actionFailed'))
+      return
+    }
     lock.current = true; setBusy(true)
-    try { await work() } catch (cause) { fail(cause) }
+    try { await work() } catch (cause) { fail(cause); if (rethrow) throw cause }
     finally { lock.current = false; setBusy(false) }
   }
-  async function submit(): Promise<void> {
-    const text = value.trim()
-    if (!text || [...text].length > 4096) return
+  async function submit(input: string): Promise<void> {
+    const text = input.trim()
+    if (!text || [...text].length > 4096) {
+      const cause = new Error(t('channelFeed.textLimit'))
+      fail(cause); throw cause
+    }
     await mutate(async () => {
       if (editing) {
         await editChannelPost(account, editing.id, text)
         useChannelPostsStore.getState().merge(account.id, channelId, [{ ...editing, text, editedAt: Math.floor(Date.now() / 1000) }], true)
       } else {
+        const post = await createChannelPost(account, channelId, { text, attachmentIds: [], replyToPostId: null, forwardFrom: null })
+        useChannelPostsStore.getState().merge(account.id, channelId, [post], true)
+      }
+      if (!editing) setValue('')
+      setEditing(null)
+      requireAccountStore(account.id).setState((state) => ({ messagesVersion: state.messagesVersion + 1 }))
+    }, true)
+  }
+  function replaceFiles(next: PendingAttachment[]): void {
+    pendingFiles.current = next
+    setFiles(next)
+  }
+  function clearFiles(): void {
+    pendingFiles.current.forEach(releasePending)
+    replaceFiles([]); uploads.current.clear(); setCaption(''); setUploadError(null); setProgress(null)
+  }
+  function addFile(file: File): PendingAttachment | null {
+    if (busy || !canPost) return null
+    if (pendingFiles.current.length >= 10) { fail(new Error(t('channelFeed.fileLimit'))); return null }
+    const pending: PendingAttachment = { id: crypto.randomUUID(), blob: file, name: file.name,
+      compress: false, compressedSize: null, previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null }
+    replaceFiles([...pendingFiles.current, pending])
+    return pending
+  }
+  async function sendFiles(input = caption): Promise<void> {
+    const batch = [...pendingFiles.current]
+    if (batch.length === 0 || lock.current) return
+    const text = input.trim() || (batch.every((file) => file.blob.type.startsWith('audio/')) ? t('channelFeed.voiceMessage') : t('chat.attach.file'))
+    if ([...text].length > 4096) { setUploadError(t('channelFeed.textLimit')); return }
+    setUploadError(null)
+    await mutate(async () => {
+      try {
         const attachmentIds: string[] = []
-        for (const [index, file] of files.entries()) {
-          let id = uploads.current.get(file)
+        for (const [index, file] of batch.entries()) {
+          const key = `${file.id}:${file.compress}`
+          let id = uploads.current.get(key)
+          setProgress({ fileIndex: index, fileCount: batch.length, fraction: 0 })
           if (!id) {
-            id = await uploadChannelAttachment(account, channelId, file, (fraction) => setProgress(Math.round(100 * (index + fraction) / files.length)))
-            uploads.current.set(file, id)
+            const blob = file.compress && file.blob.type.startsWith('image/')
+              ? new Blob([(await fileToWebp(new File([file.blob], file.name), MESSAGE_IMAGE)).slice()], { type: 'image/webp' }) : file.blob
+            id = await uploadChannelAttachment(account, channelId, blob, (fraction) => setProgress({ fileIndex: index, fileCount: batch.length, fraction }))
+            uploads.current.set(key, id)
           }
           attachmentIds.push(id)
         }
         const post = await createChannelPost(account, channelId, { text, attachmentIds, replyToPostId: null, forwardFrom: null })
-        uploads.current.clear(); setFiles([]); setProgress(0)
         useChannelPostsStore.getState().merge(account.id, channelId, [post], true)
-      }
-      setValue(''); setEditing(null)
-      requireAccountStore(account.id).setState((state) => ({ messagesVersion: state.messagesVersion + 1 }))
+        requireAccountStore(account.id).setState((state) => ({ messagesVersion: state.messagesVersion + 1 }))
+        clearFiles()
+      } catch (cause) { setUploadError(describeCause(cause)); setProgress(null); throw cause }
     })
   }
   async function more(): Promise<void> {
@@ -148,7 +198,7 @@ export function ChannelScreen({ account, conversation, avatarUrl }: { account: A
               useChannelPostsStore.getState().merge(account.id, channelId, [{ ...post, pinnedAt: post.pinnedAt ? null : Math.floor(Date.now() / 1000) }], true)
               resource.reload()
             }) }}>{t(post.pinnedAt ? 'channelFeed.unpin' : 'channelFeed.pin')}</Button> : null}
-            {post.authorType === 'account' && post.authorId === account.id ? <Button variant="ghost" size="sm" disabled={busy} onClick={() => { setEditing(post); setValue(post.text) }}>{t('channelFeed.edit')}</Button> : null}
+            {post.authorType === 'account' && post.authorId === account.id ? <Button variant="ghost" size="sm" disabled={busy} onClick={() => setEditing(post)}>{t('channelFeed.edit')}</Button> : null}
             {owner || (post.authorType === 'account' && post.authorId === account.id) ? <Button variant="ghost" size="sm" disabled={busy} onClick={() => setDeleting(post)}>{t('channelFeed.delete')}</Button> : null}
           </div>
         </article>)}
@@ -157,30 +207,23 @@ export function ChannelScreen({ account, conversation, avatarUrl }: { account: A
         {resource.data ? <Button variant="ghost" size="sm" disabled={busy} onClick={resource.reload}>{t('channelFeed.refresh')}</Button> : null}
       </div>
     </div>
-    {canPost || editing ? <form className="flex flex-col gap-2 border-t border-border p-3" onSubmit={(event) => { event.preventDefault(); void submit() }}>
-      <label className="text-xs text-fg-muted" htmlFor="channel-post-text">{t(editing ? 'channelFeed.edit' : 'channelFeed.compose')}</label>
-      <textarea id="channel-post-text" value={value} disabled={busy} onChange={(event) => setValue(event.target.value)} rows={3}
-        className="max-h-40 w-full resize-y rounded-lg border border-border bg-bg-elevated p-3 text-sm focus-visible:outline-2 focus-visible:outline-accent" />
-      {!editing ? <>
-        <p className="text-xs text-fg-muted">{t('channelFeed.publicHint')}</p>
-        <input ref={fileRef} type="file" multiple hidden disabled={busy} onChange={(event) => {
-          const added = Array.from(event.target.files ?? [])
-          event.target.value = ''
-          if (files.length + added.length > 10) { fail(new Error(t('channelFeed.fileLimit'))); return }
-          setFiles((current) => [...current, ...added])
-        }} />
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="secondary" disabled={busy || files.length >= 10} onClick={() => fileRef.current?.click()}>{t('channelFeed.attach')}</Button>
-          {files.map((file, index) => <Button key={index} className="max-w-full" size="sm" variant="ghost" disabled={busy} onClick={() => setFiles((current) => current.filter((_, position) => position !== index))}><span className="truncate">{file.name}</span> ×</Button>)}
-          {busy && files.length > 0 ? <span role="status" className="text-xs text-fg-muted">{progress}%</span> : null}
-        </div>
-      </> : null}
-      <div className="flex items-center gap-2">
-        <Button size="sm" loading={busy} disabled={!value.trim() || [...value.trim()].length > 4096} type="submit">{t(editing ? 'channelFeed.save' : 'channelFeed.publish')}</Button>
-        {editing ? <Button size="sm" variant="ghost" disabled={busy} onClick={() => { setEditing(null); setValue('') }}>{t('common.cancel')}</Button> : null}
-        <span className="ml-auto text-xs text-fg-muted">{[...value.trim()].length}/4096</span>
-      </div>
-    </form> : null}
+    {canPost || editing ? <MessageComposer key={editing?.id ?? 'new-message'}
+      initialDraft={value} onDraftChange={editing ? undefined : setValue}
+      editing={editing ? { envelopeId: editing.id, text: editing.text } : null}
+      onCancelEdit={() => setEditing(null)} onSubmitEdit={submit} onSend={submit}
+      onPickFile={addFile} onVoiceRecorded={(blob, name) => {
+        if (addFile(new File([blob], name, { type: blob.type }))) {
+          const text = t('channelFeed.voiceMessage'); setCaption(text); void sendFiles(text)
+        }
+      }} disabled={busy || resource.data === null} focusToken={0} onTyping={() => {}} /> : null}
+    <AttachmentComposer open={files.length > 0} attachments={files} caption={caption} onCaptionChange={setCaption}
+      onToggleCompress={(id, compress) => replaceFiles(pendingFiles.current.map((file) => file.id === id ? { ...file, compress } : file))}
+      onRemove={(id) => {
+        const file = pendingFiles.current.find((entry) => entry.id === id)
+        if (file) releasePending(file)
+        replaceFiles(pendingFiles.current.filter((entry) => entry.id !== id))
+      }} progress={progress} error={uploadError} onSend={() => { void sendFiles() }}
+      onClose={() => { if (!lock.current) clearFiles() }} />
     <ConversationProfileModal open={profileOpen} account={account} conversation={conversation} avatarUrl={avatarUrl} onClose={() => setProfileOpen(false)}
       onOpenSettings={() => { void navigate(conversationSettingsPath(channelId)) }} onLeft={() => { void navigate(ROUTES.app) }} />
     {detailPost ? <ChannelPostModal key={detailPost.id} account={account} post={detailPost} onClose={() => setDetailPost(null)} /> : null}

@@ -944,6 +944,8 @@
     "result": "This page: {{added}} added, {{existing}} already stored, {{unavailable}} unavailable, {{ignored}} control events skipped."
   },
   "channelFeed": {
+    "voiceMessage": "Voice message",
+    "textLimit": "A message must contain 1 to 4096 characters.",
     "title": "Channel posts",
     "profile": "Profile",
     "pinned": "Pinned posts",

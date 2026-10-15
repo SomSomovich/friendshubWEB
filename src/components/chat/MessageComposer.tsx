@@ -31,6 +31,9 @@ export type MessageComposerProps = {
   onTyping: () => void
   /** Focuses the field when the search overlay closes. */
   focusToken: number
+  /** Lets a transport-specific screen retain a draft while it refreshes. */
+  initialDraft?: string
+  onDraftChange?: (text: string) => void
 }
 
 /** How far left the finger has to travel to take the recording back. */
@@ -50,6 +53,8 @@ export function MessageComposer({
   disabled,
   focusToken,
   onTyping,
+  initialDraft = '',
+  onDraftChange,
 }: MessageComposerProps) {
   const { t } = useTranslation()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -66,8 +71,12 @@ export function MessageComposer({
   // remounts this component when the target changes (its `key` carries the
   // envelope id), which is what refills the field without an effect that would
   // fight the user's typing.
-  const [value, setValue] = useState(() => editing?.text ?? '')
+  const [value, setValue] = useState(() => editing?.text ?? initialDraft)
   const [busy, setBusy] = useState(false)
+  function updateDraft(text: string): void {
+    setValue(text)
+    onDraftChange?.(text)
+  }
 
   useLayoutEffect(() => {
     const element = textareaRef.current
@@ -100,7 +109,7 @@ export function MessageComposer({
       } else {
         await onSubmitEdit(text)
       }
-      setValue('')
+      updateDraft('')
     } catch (error) {
       // The toast is raised by the caller; keeping the text lets the user retry
       // without retyping it.
@@ -202,7 +211,7 @@ export function MessageComposer({
     const field = textareaRef.current
     const start = field?.selectionStart ?? value.length
     const end = field?.selectionEnd ?? value.length
-    setValue(value.slice(0, start) + emoji + value.slice(end))
+    updateDraft(value.slice(0, start) + emoji + value.slice(end))
 
     requestAnimationFrame(() => {
       field?.focus()
@@ -261,7 +270,7 @@ export function MessageComposer({
             value={value}
             disabled={disabled}
             onChange={(event) => {
-              setValue(event.target.value)
+              updateDraft(event.target.value)
               // Only forward: deleting is not typing, and reporting it would keep
               // the indicator alive while the field empties.
               if (event.target.value.length > value.length) {
