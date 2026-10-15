@@ -28,24 +28,30 @@ export function JoinInviteScreen() {
 
   const [failed, setFailed] = useState(false)
   /** Survives React's development remount, so the news is shown once. */
-  const announcedRef = useRef(false)
+  const announcedRef = useRef('')
+  const requestRef = useRef<{ key: string; result: Promise<string> } | null>(null)
 
   useEffect(() => {
     if (account === null || token === undefined) {
       return
     }
 
+    const key = `${account.id}:${token}`
+    if (requestRef.current?.key !== key) {
+      requestRef.current = { key, result: joinByInvite(account, token) }
+    }
+    const result = requestRef.current.result
     let cancelled = false
     void (async () => {
       try {
-        const conversationId = await joinByInvite(account, token)
+        const conversationId = await result
         // The list is drawn from the store, and a group nobody has heard of
         // would open as "chat not found".
         await requireAccountStore(account.id).getState().actions.loadConversations()
-        if (announcedRef.current) {
+        if (cancelled || announcedRef.current === key) {
           return
         }
-        announcedRef.current = true
+        announcedRef.current = key
         toast.notify({ kind: 'success', message: t('conversation.join.joined') })
         void navigate(chatPath(conversationId), { replace: true })
       } catch (cause) {

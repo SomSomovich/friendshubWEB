@@ -171,3 +171,10 @@ test('saved history supports the documented envelope_type filter', async () => {
   await api.getSavedMessages(account, { envelopeType: 1 })
   assert.equal(calls[0].args[1].query.envelope_type, 1)
 })
+
+
+test('channel invitations use the same join contract as groups', async () => {
+  const { api, calls } = await loadSource('api/groups', () => ({ conversationId: 'channel' }))
+  assert.equal(await api.joinByInvite(account, 'token/value'), 'channel')
+  assert.equal(calls[0].args[0], '/invites/join/token%2Fvalue')
+})

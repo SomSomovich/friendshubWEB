@@ -17,18 +17,7 @@ export type GroupInvitesPanelProps = {
   conversationId: string
 }
 
-/**
- * The ways into a group that do not need the person to already be a contact.
- *
- * This is the only way to grow a group after it is created — there is no
- * endpoint that adds a member by account id — so the panel is where a group
- * actually gathers people. The token is joined by the page at `/join/<token>`,
- * which is what the copied link points at.
- *
- * Groups only: an invite can be minted for a channel, but the join endpoint
- * refuses every kind but a group, so offering one would produce a link that
- * cannot work.
- */
+/** Invitation links shared by groups and channels. */
 export function GroupInvitesPanel({ account, conversationId }: GroupInvitesPanelProps) {
   const { t, i18n } = useTranslation()
   const toast = useToast()

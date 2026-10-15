@@ -352,7 +352,7 @@
     },
     "invites": {
       "title": "Invite links",
-      "description": "The link adds anyone who opens it. There is no other way for the API to put a person into a group that already exists.",
+      "description": "A link lets someone join a group or channel. A one-time link allows one join.",
       "createPermanent": "Create permanent",
       "createOneTime": "Create one-time",
       "kind": {
@@ -395,7 +395,7 @@
     },
     "join": {
       "joining": "Joining…",
-      "joined": "You have joined the group",
+      "joined": "You have joined the chat",
       "failed": "The invite did not work",
       "failedHint": "The link may have been revoked or already used.",
       "toChats": "Go to the chat list"

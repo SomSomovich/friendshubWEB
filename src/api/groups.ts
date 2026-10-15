@@ -227,7 +227,7 @@ export function revokeInvite(account: AccountAuth, inviteId: string): Promise<vo
   return del<void>(`/invites/${encodeURIComponent(inviteId)}`, undefined, { account })
 }
 
-/** Groups only: the endpoint answers `bad_request` for a channel invite. */
+/** Joins a group or channel using its invitation token. */
 export function joinByInvite(account: AccountAuth, token: string): Promise<string> {
   return post<{ conversationId: string }>(
     `/invites/join/${encodeURIComponent(token)}`,

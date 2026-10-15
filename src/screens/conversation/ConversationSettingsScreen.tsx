@@ -36,7 +36,7 @@ import type { Account } from '../../types'
  * looking rather than trusting that. Every section is gated on the reader's own
  * member row, which is also what the server checks on each write: a group admin
  * sees the invite links only with `PERM_MANAGE_INVITES`, and a channel admin
- * sees the picture and the member list and nothing else.
+ * can also manage channel invitation links.
  */
 export function ConversationSettingsScreen() {
   const { id } = useParams<{ id: string }>()
@@ -242,6 +242,8 @@ function SettingsView({ account, conversationId }: { account: Account; conversat
                 labels={labels}
                 onChanged={members.refresh}
               />
+
+              <GroupInvitesPanel account={account} conversationId={conversationId} />
 
               {isOwner ? (
                 <ChannelBotsPanel
