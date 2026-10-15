@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { Download, FileText, Loader2, TriangleAlert } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { downloadChannelAttachment } from '../../attachments/channel'
 import { displayName, formatBytes } from '../../attachments/display'
@@ -6,43 +7,82 @@ import { detectMime, type AttachmentMime } from '../../attachments/mime'
 import { useActionReporter } from '../../hooks/useActionReporter'
 import type { Account } from '../../types'
 import { AttachmentViewer } from '../chat/AttachmentViewer'
-import { Button } from '../ui/Button'
+import { VoiceMessagePlayer } from '../chat/VoiceMessagePlayer'
 
 type Loaded = { url: string; mime: AttachmentMime; size: number }
+
+/** Public channel bytes use the same media treatment as an ordinary chat attachment. */
 export function ChannelAttachment({ account, attachmentId, index }: { account: Account; attachmentId: string; index: number }) {
   const { t } = useTranslation()
   const fail = useActionReporter('channel-attachment')
-  const [loaded, setLoaded] = useState<Loaded | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [state, setState] = useState<{ status: 'loading' } | { status: 'ready'; value: Loaded } | { status: 'error'; message: string }>({ status: 'loading' })
   const [view, setView] = useState(false)
-  const lock = useRef(false)
   const lifetime = useRef({ alive: true, url: '' })
-  useEffect(() => {
-    const owner = { alive: true, url: '' }
-    lifetime.current = owner
-    return () => { owner.alive = false; if (owner.url) URL.revokeObjectURL(owner.url) }
-  }, [])
-  async function load(): Promise<void> {
-    if (lock.current) return
-    lock.current = true; setBusy(true)
-    const owner = lifetime.current
+  const loading = useRef(false)
+
+  const load = useCallback(async () => {
+    if (loading.current) return
+    loading.current = true
     try {
       const bytes = await downloadChannelAttachment(account, attachmentId)
-      if (!owner.alive) return
+      if (!lifetime.current.alive) return
       const mime = detectMime(bytes)
       const url = URL.createObjectURL(new Blob([bytes], { type: mime.type }))
-      owner.url = url
-      setLoaded({ url, mime, size: bytes.length })
-    } catch (cause) { if (owner.alive) fail(cause) }
-    finally { lock.current = false; if (owner.alive) setBusy(false) }
+      lifetime.current.url = url
+      setState({ status: 'ready', value: { url, mime, size: bytes.length } })
+    } catch (cause) {
+      if (lifetime.current.alive) {
+        setState({ status: 'error', message: cause instanceof Error ? cause.message : String(cause) })
+        fail(cause)
+      }
+    } finally {
+      loading.current = false
+    }
+  }, [account, attachmentId, fail])
+
+  useEffect(() => {
+    lifetime.current = { alive: true, url: '' }
+    void (async () => {
+      await load()
+    })()
+    return () => {
+      lifetime.current.alive = false
+      if (lifetime.current.url) URL.revokeObjectURL(lifetime.current.url)
+    }
+  }, [load])
+
+  if (state.status === 'loading') {
+    return <div className="flex h-32 w-48 items-center justify-center rounded-lg bg-bg-hover"><Loader2 className="size-5 animate-spin text-fg-muted" aria-hidden /></div>
   }
-  return <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-border p-2">
-    {loaded ? <>
-      {loaded.mime.family === 'image' ? <button onClick={() => setView(true)} type="button"><img src={loaded.url} alt={t('channelFeed.file', { index })} className="max-h-80 max-w-full rounded-lg object-contain" /></button> : null}
-      {loaded.mime.family === 'video' ? <video src={loaded.url} controls preload="metadata" className="max-h-80 w-full rounded-lg" /> : null}
-      {loaded.mime.family === 'audio' ? <audio src={loaded.url} controls preload="metadata" className="w-full" /> : null}
-      <a href={loaded.url} download={displayName(null, attachmentId, loaded.mime)} className="text-sm text-accent">{t('channelFeed.downloadFile', { index })} · {formatBytes(loaded.size)}</a>
-    </> : <Button variant="secondary" size="sm" className="self-start" loading={busy} onClick={() => { void load() }}>{t('channelFeed.loadFile', { index })}</Button>}
-    <AttachmentViewer open={view} url={loaded?.url ?? null} mime={loaded?.mime ?? null} onClose={() => setView(false)} />
-  </div>
+
+  if (state.status === 'error') {
+    return <div className="flex h-20 w-48 flex-col items-center justify-center gap-1 rounded-lg border border-border bg-bg px-2 text-center">
+      <TriangleAlert className="size-4 text-fg-muted" aria-hidden />
+      <span className="text-[11px] text-fg-muted">{t('chat.attach.unavailable')}</span>
+    </div>
+  }
+
+  const { url, mime, size } = state.value
+  if (mime.family === 'image') {
+    return <>
+      <button type="button" onClick={() => setView(true)} className="block cursor-pointer overflow-hidden rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+        <img src={url} alt={t('channelFeed.file', { index })} className="max-h-72 max-w-full object-cover" />
+      </button>
+      <AttachmentViewer open={view} url={url} mime={mime} onClose={() => setView(false)} />
+    </>
+  }
+  if (mime.family === 'video') {
+    return <video src={url} controls preload="metadata" className="max-h-72 max-w-full rounded-lg bg-black" />
+  }
+  if (mime.family === 'audio') {
+    return <VoiceMessagePlayer src={url} />
+  }
+  return <a href={url} download={displayName(null, attachmentId, mime)} className="flex w-56 max-w-full items-center gap-2 rounded-lg border border-border bg-bg px-3 py-2 text-left transition-colors duration-150 hover:bg-bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+    <FileText className="size-5 shrink-0 text-fg-muted" aria-hidden />
+    <span className="flex min-w-0 flex-1 flex-col">
+      <span className="truncate text-xs text-fg">{displayName(null, attachmentId, mime)}</span>
+      <span className="text-[11px] text-fg-muted tabular-nums">{formatBytes(size)}</span>
+    </span>
+    <Download className="size-4 shrink-0 text-fg-muted" aria-hidden />
+  </a>
 }

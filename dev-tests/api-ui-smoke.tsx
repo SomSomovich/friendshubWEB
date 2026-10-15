@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ProfileFieldsPanel } from '../src/components/settings/ProfileFieldsPanel'
 import { SecurityEventsPanel } from '../src/components/settings/SecurityEventsPanel'
+import { UserProfileModal } from '../src/components/profile/UserProfileModal'
 import { PrivacySettingsScreen } from '../src/screens/settings/PrivacySettingsScreen'
 import { BotsSettingsScreen } from '../src/screens/settings/BotsSettingsScreen'
 import { ConversationSettingsScreen } from '../src/screens/conversation/ConversationSettingsScreen'
@@ -86,6 +87,7 @@ globalThis.fetch = async (input, options) => {
   else if (path === '/profile/presence-exceptions') value = []
   else if (path === '/blocks') value = []
   else if (path === '/contacts') value = [{ target_account_id: peerId, user_id: 2, fh_number: 'FH0000002', username: 'Peer', local_username: 'Друг', avatar_url: null }]
+  else if (path === `/accounts/${peerId}/profile`) value = { id: peerId, user_id: 2, fh_number: 'FH0000002', username: 'Peer', avatar_url: null, custom_status_text: null, custom_status_emoji: null, custom_status_expires_at: null, is_blocked_by_me: false, is_contact: true, fields: [{ label: 'GitHub', value: '@example' }] }
   else if (path === '/bots') {
     if (method === 'POST') { bots = [...bots, { id: '019a1234-1234-7000-8000-000000000015', token_prefix: 'fhbot_new', created_at: 1000, updated_at: 1000, handle: '' }]; value = { bot_id: '019a1234-1234-7000-8000-000000000015', token: 'fhbot_test_once', token_prefix: 'fhbot_new' } }
     else value = bots
@@ -174,6 +176,11 @@ async function run() {
   show(<SecurityEventsPanel account={account} />)
   await waitFor(() => document.body.innerText.includes('Успешный вход'), 'security events')
   check(document.body.innerText.includes('Local test'), 'security events render translated actions and device information')
+  useUiStore.getState().openProfile(peerId)
+  show(<UserProfileModal />)
+  await waitFor(() => document.body.innerText.includes('GitHub') && document.body.innerText.includes('@example'), 'public profile fields')
+  check(true, 'other participants can see public profile fields')
+  useUiStore.getState().closeProfile()
   show(<ChannelScreen account={account} conversation={channel} avatarUrl={null} />)
   await waitFor(() => document.body.innerText.includes('Первая публикация') && !!host.querySelector('textarea'), 'channel feed')
   check(document.body.innerText.includes('Обсуждение · 0'), 'channel discussion is attached to the bottom of each post')

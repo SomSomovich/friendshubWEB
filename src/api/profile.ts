@@ -104,7 +104,14 @@ export function getAccountProfile(
   account: AccountAuth,
   targetAccountId: string,
 ): Promise<PublicProfile> {
-  return get<PublicProfile>(`/accounts/${encodeURIComponent(targetAccountId)}/profile`, { account })
+  return get<PublicProfile & { fields?: ProfileField[] }>(`/accounts/${encodeURIComponent(targetAccountId)}/profile`, { account })
+    .then((profile) => ({
+      ...profile,
+      // Older API deployments called this collection `fields`; accepting that
+      // spelling keeps the public profile readable while the server rolls out
+      // the documented `profile_fields` response everywhere.
+      profileFields: profile.profileFields ?? profile.fields ?? [],
+    }))
 }
 
 /** One-off presence read; live updates arrive over the WebSocket instead. */

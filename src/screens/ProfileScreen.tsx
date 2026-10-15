@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { avatarImageUrl } from '../api/avatars'
 import { getMe, type MeResponse } from '../api/auth'
+import { getAccountProfile, type ProfileField } from '../api/profile'
 import { ScreenHeader } from '../components/layout/ScreenHeader'
 import { SettingsCard, SettingsRow } from '../components/settings/Section'
 import { Avatar } from '../components/ui/Avatar'
@@ -22,6 +23,7 @@ export function ProfileScreen() {
   // status comes from.
   const account = useActiveAccount()
   const [me, setMe] = useState<MeResponse | null>(null)
+  const [profileFields, setProfileFields] = useState<ProfileField[]>([])
 
   useEffect(() => {
     if (account === null) {
@@ -36,6 +38,13 @@ export function ProfileScreen() {
       })
       .catch((error: unknown) => {
         console.warn('[profile] the account details could not be read', error)
+      })
+    void getAccountProfile(account, account.id)
+      .then((profile) => {
+        if (!cancelled) setProfileFields(profile.profileFields)
+      })
+      .catch((error: unknown) => {
+        console.warn('[profile] the public profile fields could not be read', error)
       })
     return () => {
       cancelled = true
@@ -107,6 +116,17 @@ export function ProfileScreen() {
               </Button>
             </div>
           </section>
+
+          {profileFields.length > 0 ? (
+            <dl className="flex flex-col gap-2 rounded-xl border border-border bg-bg-elevated p-3">
+              {profileFields.map((field, index) => (
+                <div key={index} className="flex min-w-0 flex-col gap-0.5">
+                  <dt className="text-xs text-fg-muted break-words">{field.label}</dt>
+                  <dd className="text-sm text-fg whitespace-pre-wrap break-words">{field.value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
 
           <SettingsCard title={t('settings.account.fhNumber')} description={t('settings.account.fhNumberHint')}>
             <SettingsRow label={account.fhNumber}>
