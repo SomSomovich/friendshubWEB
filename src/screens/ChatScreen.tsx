@@ -1,3 +1,5 @@
+import { lazy, Suspense } from 'react'
+import { PanelSkeleton } from '../components/settings/PanelSkeleton'
 import {
   Eraser,
   MessageSquare,
@@ -33,7 +35,7 @@ import type { DropdownItem } from '../components/ui/DropdownMenu'
 import { EmptyState } from '../components/ui/EmptyState'
 import { useActiveAccount } from '../hooks/useActiveAccount'
 import { useChatSearch } from '../hooks/useChatSearch'
-import { useConversation } from '../hooks/useConversation'
+import { useConversation, type ConversationView } from '../hooks/useConversation'
 import { usePeerInfo } from '../hooks/usePeerInfo'
 import { usePins } from '../hooks/usePins'
 import { useReadReceipts } from '../hooks/useReadReceipts'
@@ -66,6 +68,8 @@ import type { Account } from '../types'
  * screen's hooks run — a chat id that is not a chat, or no signed-in account,
  * must not leave a half-mounted transcript behind.
  */
+const ChannelScreen = lazy(() => import('./ChannelScreen').then((module) => ({ default: module.ChannelScreen })))
+
 export function ChatScreen() {
   const { id } = useParams<{ id: string }>()
   const account = useActiveAccount()
@@ -78,7 +82,14 @@ export function ChatScreen() {
   }
   // Keyed by conversation so every piece of per-chat state — the draft, the open
   // menus, the search — starts fresh instead of leaking between chats.
-  return <ChatView key={id} account={account} conversationId={id} />
+  return <ConversationEntry key={`${account.id}:${id}`} account={account} conversationId={id} />
+}
+
+function ConversationEntry({ account, conversationId }: { account: Account; conversationId: string }) {
+  const view = useConversation(account, conversationId)
+  if (view.loading) return <PanelSkeleton />
+  if (view.conversation?.kind === 'channel') return <Suspense fallback={<PanelSkeleton />}><ChannelScreen account={account} conversation={view.conversation} avatarUrl={view.avatarUrl} /></Suspense>
+  return <ChatView account={account} conversationId={conversationId} conversationView={view} />
 }
 
 /**
@@ -95,14 +106,13 @@ const EMPTY_MARKERS: Record<string, number> = {}
 /** How often this device may report typing, per conversation (API_FRONTEND.txt §27). */
 const TYPING_THROTTLE_MS = 3_000
 
-function ChatView({ account, conversationId }: { account: Account; conversationId: string }) {
+function ChatView({ account, conversationId, conversationView }: { account: Account; conversationId: string; conversationView: ConversationView }) {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const toast = useToast()
   const openProfile = useUiStore((state) => state.openProfile)
   const store = requireAccountStore(account.id)
 
-  const conversationView = useConversation(account, conversationId)
   const { conversation, peerAccountId, contactName, avatarUrl, loading: loadingConversation } = conversationView
   const peer = usePeerInfo(account, peerAccountId)
   const pins = usePins(account, conversationId)

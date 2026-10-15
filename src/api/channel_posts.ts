@@ -101,21 +101,14 @@ export function listPinnedPosts(
   return get<ChannelPost[]>(`/channels/${encodeURIComponent(channelId)}/pinned`, { account })
 }
 
-/**
- * Paginated by sequence number, newest first.
- *
- * `seq` is the server's own ordering column, not a timestamp: reactions made in
- * the same second are common, and a timestamp cursor would skip them.
- */
-export function listPostReactions(
-  account: AccountAuth,
-  postId: string,
-  query: { before?: number; limit?: number } = {},
-): Promise<PostReaction[]> {
-  return get<PostReaction[]>(`/channel-posts/${encodeURIComponent(postId)}/reactions`, {
-    account,
-    query: { before: query.before ?? null, limit: query.limit ?? null },
-  })
+/** Until compound paging is deployed, reactions are one page, at most 200. */
+export function listPostReactions(account: AccountAuth, postId: string): Promise<PostReaction[]> {
+  return get(`/channel-posts/${encodeURIComponent(postId)}/reactions`, { account, query: { limit: 200 } })
+}
+
+/** Fetching a single post registers a unique view for the owner analytics. */
+export function getChannelPost(account: AccountAuth, postId: string): Promise<ChannelPost> {
+  return get(`/channel-posts/${encodeURIComponent(postId)}`, { account })
 }
 
 /** One reaction per actor: a repeat replaces the previous emoji. */

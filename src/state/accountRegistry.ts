@@ -1,3 +1,4 @@
+import { useChannelPostsStore } from './channelPostsStore'
 import type { Account } from '../types'
 import { createAccountStore, type AccountStore } from './accountStore'
 import type { StoreApi } from 'zustand/vanilla'
@@ -54,6 +55,7 @@ export function destroyAccountStore(accountId: string): void {
   if (store === undefined) {
     return
   }
+  useChannelPostsStore.getState().clearAccount(accountId)
   store.getState().actions.reset()
   stores.delete(accountId)
 }

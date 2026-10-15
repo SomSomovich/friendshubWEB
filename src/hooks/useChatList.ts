@@ -1,3 +1,4 @@
+import { channelFeedKey, useChannelPostsStore } from '../state/channelPostsStore'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useStore } from 'zustand'
@@ -164,6 +165,9 @@ async function assembleRow(
   ])
 
   const last = lastPage.at(0)
+  const channelPosts = conversation.kind === 'channel'
+    ? useChannelPostsStore.getState().feeds[channelFeedKey(account.id, conversation.id)] : undefined
+  const latestPost = channelPosts?.[0]
   const identity = await resolveConversationIdentity(account, conversation, context.contacts, context.peers, {
     saved: context.savedTitle,
     unknown: context.unknownTitle,
@@ -174,9 +178,9 @@ async function assembleRow(
     title: identity.title,
     avatarUrl: identity.avatarUrl,
     peerAccountId: identity.peerAccountId,
-    preview: last?.plaintext ?? null,
-    at: last?.clientTimestamp ?? conversation.lastEnvelopeAt,
-    unread,
+    preview: latestPost?.text ?? last?.plaintext ?? null,
+    at: latestPost?.createdAt ?? last?.clientTimestamp ?? conversation.lastEnvelopeAt,
+    unread: channelPosts ? channelPosts.filter((post) => post.authorId !== account.id && post.createdAt > (context.readState[conversation.id] ?? 0)).length : unread,
     muted: conversation.mutedUntil !== null,
     hasPinned: pinned.length > 0,
   }

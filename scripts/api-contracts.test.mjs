@@ -187,3 +187,12 @@ test('timestamp history overlaps boundary seconds and progresses past a saturate
   assert.equal(api.nextHistoryBefore([20, 10], 21), 11)
   assert.equal(api.nextHistoryBefore([], 21), undefined)
 })
+
+
+test('channel reactions use the confirmed single page of 200 without a fictional cursor', async () => {
+  const { api, calls } = await loadSource('api/channel_posts')
+  await api.listPostReactions(account, 'post/id')
+  assert.deepEqual(calls[0], { method: 'get', args: ['/channel-posts/post%2Fid/reactions', { account, query: { limit: 200 } }] })
+  await api.getChannelPost(account, 'post/id')
+  assert.equal(calls[1].args[0], '/channel-posts/post%2Fid')
+})

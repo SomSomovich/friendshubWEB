@@ -1,3 +1,4 @@
+import { useChannelPostsStore, channelFeedKey } from './channelPostsStore'
 import { runReceiveWork } from '../crypto/receiveQueue'
 import { sendHistory, clearHistoryTransfers } from '../crypto/historySync'
 import { useHistorySyncStore } from './historySyncStore'
@@ -119,6 +120,20 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     })
   })
 
+  const detachChannelPost = client.on('channelPost', (event) => {
+    const cache = useChannelPostsStore.getState()
+    const previous = cache.feeds[channelFeedKey(account.id, event.channelId)]?.find((post) => post.id === event.postId)
+    cache.merge(account.id, event.channelId, [{
+      id: event.postId, channelId: event.channelId, authorType: event.authorType === 'bot' ? 'bot' : 'account',
+      authorId: event.authorId, text: event.text, attachmentIds: event.attachmentIds,
+      replyToPostId: event.replyToPostId, createdAt: event.createdAt,
+      forwardFrom: previous?.forwardFrom ?? null, editedAt: previous?.editedAt ?? null,
+      pinnedAt: previous?.pinnedAt ?? null, discussionCommentCount: previous?.discussionCommentCount ?? 0,
+    }])
+    store.setState((state) => ({ messagesVersion: state.messagesVersion + 1 }))
+    requestConversationIfUnknown(store, account.id, event.channelId)
+  })
+
   const detachFatal = client.on('fatal', ({ code }) => {
     // Per the API, every fatal error except flood requires a fresh login.
     if (code !== 'flood') {
@@ -198,6 +213,7 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     detachConversationUpdated()
     detachReadReceipt()
     detachBotMessage()
+    detachChannelPost()
     detachConnected()
     detachDisconnected()
     detachFatal()
