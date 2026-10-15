@@ -53,6 +53,7 @@ const NotificationsSettingsScreen = lazyScreen('NotificationsSettingsScreen', ()
 const AccountsSettingsScreen = lazyScreen('AccountsSettingsScreen', () =>
   import('../screens/settings/AccountsSettingsScreen'),
 )
+const BotsSettingsScreen = lazyScreen('BotsSettingsScreen', () => import('../screens/settings/BotsSettingsScreen'))
 const AboutSettingsScreen = lazyScreen('AboutSettingsScreen', () =>
   import('../screens/settings/AboutSettingsScreen'),
 )
@@ -128,6 +129,7 @@ export const router = createBrowserRouter([
           { path: 'settings/security/2fa', element: <TwoFactorSetupScreen /> },
           { path: 'settings/notifications', element: lazyElement(NotificationsSettingsScreen) },
           { path: 'settings/accounts', element: lazyElement(AccountsSettingsScreen) },
+          { path: 'settings/bots', element: lazyElement(BotsSettingsScreen) },
           { path: 'settings/about', element: lazyElement(AboutSettingsScreen) },
           { path: 'profile', element: <ProfileScreen /> },
           { path: 'create-group', element: lazyElement(CreateGroupScreen) },

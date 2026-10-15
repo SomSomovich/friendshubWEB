@@ -30,6 +30,7 @@ export const SETTINGS_SECTIONS = [
   'security',
   'notifications',
   'accounts',
+  'bots',
   'about',
 ] as const
 

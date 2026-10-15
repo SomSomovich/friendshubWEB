@@ -1,6 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { listConversations } from '../api/conversations'
 import { uploadAll } from '../attachments/send'
+import { mergeBotMessages } from '../utils/botMessages'
 import { handleCallSignal } from '../calls/incoming'
 import {
   buildLocalMessageRecord,
@@ -593,7 +594,7 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
       },
 
       setBotThread(botId, messages) {
-        set({ botThreads: { ...get().botThreads, [botId]: messages } })
+        set({ botThreads: { ...get().botThreads, [botId]: mergeBotMessages(get().botThreads[botId] ?? [], messages) } })
       },
 
       appendBotMessage(botId, message) {

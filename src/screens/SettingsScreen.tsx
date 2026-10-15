@@ -1,5 +1,6 @@
 import {
   Bell,
+  Bot,
   Info,
   Palette,
   ShieldCheck,
@@ -23,6 +24,7 @@ const SECTIONS: ReadonlyArray<{ id: SettingsSection; icon: LucideIcon; labelKey:
   { id: 'security', icon: ShieldCheck, labelKey: 'settings.sections.security' },
   { id: 'notifications', icon: Bell, labelKey: 'settings.sections.notifications' },
   { id: 'accounts', icon: UserRoundCog, labelKey: 'settings.sections.accounts' },
+  { id: 'bots', icon: Bot, labelKey: 'settings.sections.bots' },
   { id: 'about', icon: Info, labelKey: 'settings.sections.about' },
 ]
 

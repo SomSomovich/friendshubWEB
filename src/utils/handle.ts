@@ -14,7 +14,7 @@ const RESERVED = new Set(['admin', 'support', 'help', 'system', 'botfather'])
 
 const HANDLE_PATTERN = /^[a-zA-Z][a-zA-Z0-9_]*$/
 
-export type HandleProblem = 'tooShort' | 'tooLong' | 'badFirst' | 'badChars' | 'reserved' | 'botSuffix'
+export type HandleProblem = 'tooShort' | 'tooLong' | 'badFirst' | 'badChars' | 'reserved' | 'botSuffix' | 'requiresBotSuffix'
 
 /** Normalised form: handles are compared and stored in lower case. */
 export function normalizeHandle(value: string): string {
@@ -27,7 +27,7 @@ export function normalizeHandle(value: string): string {
  * Groups and channels share the rule — only a bot may end in "bot" — so there is
  * nothing for a kind parameter to decide.
  */
-export function validateHandle(value: string): HandleProblem | null {
+export function validateHandle(value: string, kind: 'regular' | 'bot' = 'regular'): HandleProblem | null {
   const handle = normalizeHandle(value)
 
   if (handle.length < MIN_HANDLE_LENGTH) {
@@ -46,8 +46,9 @@ export function validateHandle(value: string): HandleProblem | null {
     return 'reserved'
   }
   // Saying so now beats a 400 after the group has already been created.
-  if (handle.endsWith('bot')) {
+  if (kind === 'regular' && handle.endsWith('bot')) {
     return 'botSuffix'
   }
+  if (kind === 'bot' && !handle.endsWith('bot')) return 'requiresBotSuffix'
   return null
 }

@@ -33,15 +33,16 @@ export function useHandleAvailability(
   account: Account,
   value: string,
   enabled: boolean,
+  kind: 'regular' | 'bot' = 'regular',
 ): HandleCheck {
   const handle = normalizeHandle(value)
-  const problem = validateHandle(handle)
+  const problem = validateHandle(handle, kind)
   const [remote, setRemote] = useState<RemoteCheck | null>(null)
 
   useEffect(() => {
     // Only a well-formed, non-empty handle is worth a request, and an answer for
     // a different handle is ignored by the derivation below.
-    if (!enabled || handle.length === 0 || validateHandle(handle) !== null) {
+    if (!enabled || handle.length === 0 || validateHandle(handle, kind) !== null) {
       return
     }
 
@@ -65,7 +66,7 @@ export function useHandleAvailability(
       cancelled = true
       clearTimeout(timer)
     }
-  }, [account, handle, enabled])
+  }, [account, handle, enabled, kind])
 
   if (!enabled || handle.length === 0) {
     return { state: 'empty' }

@@ -125,3 +125,36 @@ test('account resolution deduplicates and splits more than 200 IDs without losin
   await api.getAccountsBatch(account, [])
   assert.equal(calls.length, 3)
 })
+
+
+test('bot management keeps one-time credentials in dedicated mutation responses', async () => {
+  const { api, calls } = await loadSource('api/bots')
+  await api.listBots(account)
+  await api.createBot(account)
+  await api.setBotHandle(account, 'bot/id', 'examplebot')
+  await api.rotateBotToken(account, 'bot/id')
+  await api.deleteBot(account, 'bot/id')
+  assert.deepEqual(calls.map(({ args }) => args[0]), ['/bots', '/bots', '/bots/bot%2Fid/profile', '/bots/bot%2Fid/rotate-token', '/bots/bot%2Fid'])
+  assert.deepEqual(calls[2].args[1], { handle: 'examplebot' })
+})
+
+test('bot message pages send the documented timestamp cursor', async () => {
+  const { api, calls } = await loadSource('api/bots')
+  await api.listBotMessages(account, 'bot', { before: 1000, limit: 100 })
+  assert.deepEqual(calls[0].args[1].query, { before: 1000, limit: 100 })
+})
+
+test('bot handles require their suffix without weakening group and channel validation', async () => {
+  const { api } = await loadSource('utils/handle')
+  assert.equal(api.validateHandle('examplebot', 'bot'), null)
+  assert.equal(api.validateHandle('examplebot'), 'botSuffix')
+  assert.equal(api.validateHandle('example', 'bot'), 'requiresBotSuffix')
+  assert.equal(api.validateHandle('example'), null)
+  assert.equal(api.validateHandle('botfather', 'bot'), 'reserved')
+})
+
+test('DESC bot history merges with a live arrival without reversing or duplicating the thread', async () => {
+  const { api } = await loadSource('utils/botMessages')
+  const result = api.mergeBotMessages([{ id: 'live', createdAt: 30 }, { id: 'b', createdAt: 20 }], [{ id: 'b', createdAt: 20 }, { id: 'a', createdAt: 10 }])
+  assert.equal(JSON.stringify(result.map((message) => message.id)), JSON.stringify(['a', 'b', 'live']))
+})

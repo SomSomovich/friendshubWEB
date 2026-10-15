@@ -1,5 +1,5 @@
 import type { AccountAuth } from './auth'
-import { get, post } from './client'
+import { del, get, post } from './client'
 
 /**
  * Talking to a bot (API_FRONTEND.txt §19).
@@ -53,9 +53,12 @@ export function listOwnedBots(account: AccountAuth): Promise<OwnedBot[]> {
   return get<OwnedBot[]>('/user/bots', { account })
 }
 
-/** The whole thread, oldest first as the server sends it. */
-export function listBotMessages(account: AccountAuth, botId: string): Promise<BotMessage[]> {
-  return get<BotMessage[]>(`/bots/${encodeURIComponent(botId)}/messages`, { account })
+/** Newest first; the cursor is the oldest createdAt from the previous page. */
+export function listBotMessages(account: AccountAuth, botId: string,
+  query: { before?: number; limit?: number } = {}): Promise<BotMessage[]> {
+  return get<BotMessage[]>(`/bots/${encodeURIComponent(botId)}/messages`, {
+    account, query: { before: query.before, limit: query.limit },
+  })
 }
 
 /** @returns the stored message, which is what the thread appends. */
@@ -69,4 +72,23 @@ export function sendBotMessage(
     { text: input.text, reply_to_message_id: input.replyToMessageId ?? null },
     { account },
   )
+}
+
+export type ManagedBot = { id: string; tokenPrefix: string; createdAt: number; updatedAt: number; handle: string | null }
+export type BotCredential = { botId: string; token: string; tokenPrefix: string }
+
+export function listBots(account: AccountAuth): Promise<ManagedBot[]> {
+  return get('/bots', { account })
+}
+export function createBot(account: AccountAuth): Promise<BotCredential> {
+  return post('/bots', {}, { account })
+}
+export function setBotHandle(account: AccountAuth, botId: string, handle: string): Promise<{ handle: string; handleNormalized: string }> {
+  return post(`/bots/${encodeURIComponent(botId)}/profile`, { handle }, { account })
+}
+export function rotateBotToken(account: AccountAuth, botId: string): Promise<{ token: string }> {
+  return post(`/bots/${encodeURIComponent(botId)}/rotate-token`, undefined, { account })
+}
+export function deleteBot(account: AccountAuth, botId: string): Promise<void> {
+  return del(`/bots/${encodeURIComponent(botId)}`, undefined, { account })
 }

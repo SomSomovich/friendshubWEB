@@ -22,6 +22,7 @@ const PROBLEM_KEYS = {
   badChars: 'create.handleError.badChars',
   reserved: 'create.handleError.reserved',
   botSuffix: 'create.handleError.botSuffix',
+  requiresBotSuffix: 'create.handleError.requiresBotSuffix',
 } as const satisfies Record<HandleProblem, string>
 
 export function handleFeedback(check: HandleCheck, t: TFunction): HandleFeedback {

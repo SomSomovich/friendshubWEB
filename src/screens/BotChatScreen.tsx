@@ -1,5 +1,5 @@
 import { Bot, Send } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from 'zustand'
@@ -7,6 +7,8 @@ import { getBotInfo, listBotMessages, sendBotMessage, type BotMessage } from '..
 import { ScreenHeader } from '../components/layout/ScreenHeader'
 import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/EmptyState'
+import { PanelError } from '../components/settings/PanelError'
+import { describeCause } from '../utils/errors'
 import { PanelSkeleton } from '../components/settings/PanelSkeleton'
 import { useActionReporter } from '../hooks/useActionReporter'
 import { useActiveAccount } from '../hooks/useActiveAccount'
@@ -31,7 +33,7 @@ export function BotChatScreen() {
   if (id === undefined || account === null) {
     return null
   }
-  return <BotThread key={id} account={account} botId={id} />
+  return <BotThread key={`${account.id}:${id}`} account={account} botId={id} />
 }
 
 function BotThread({ account, botId }: { account: Account; botId: string }) {
@@ -46,6 +48,14 @@ function BotThread({ account, botId }: { account: Account; botId: string }) {
   const [value, setValue] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const olderScroll = useRef<{ height: number; top: number } | null>(null)
+  const [before, setBefore] = useState<number | null>(null)
+  const [hasOlder, setHasOlder] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const loadingOlderRef = useRef(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [revision, setRevision] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -54,16 +64,20 @@ function BotThread({ account, botId }: { account: Account; botId: string }) {
       try {
         const [info, history] = await Promise.all([
           getBotInfo(account, botId),
-          listBotMessages(account, botId),
+          listBotMessages(account, botId, { limit: 100 }),
         ])
         if (cancelled) {
           return
         }
         setHandle(info.handle)
+        setBefore(history.at(-1)?.createdAt ?? null)
+        setHasOlder(history.length >= 100)
+        setLoadError(null)
         store.getState().actions.setBotThread(botId, history)
       } catch (error) {
         if (!cancelled) {
           fail(error)
+          setLoadError(describeCause(error))
         }
       } finally {
         if (!cancelled) {
@@ -75,17 +89,41 @@ function BotThread({ account, botId }: { account: Account; botId: string }) {
     return () => {
       cancelled = true
     }
-  }, [account, botId, store, fail])
+  }, [account, botId, store, fail, revision])
 
   // A bot answers when it answers; the thread follows the newest message rather
   // than making the reader scroll for it.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: 'end' })
+    if (olderScroll.current === null && !loadingOlderRef.current) bottomRef.current?.scrollIntoView({ block: 'end' })
   }, [messages.length])
+
+  useLayoutEffect(() => {
+    const saved = olderScroll.current
+    const viewport = viewportRef.current
+    if (saved !== null && viewport !== null && !loadingOlder) {
+      viewport.scrollTop = saved.top + viewport.scrollHeight - saved.height
+      olderScroll.current = null
+    }
+  }, [messages.length, loadingOlder])
+
+  async function loadOlder(): Promise<void> {
+    if (loadingOlderRef.current || before === null || !hasOlder) return
+    loadingOlderRef.current = true
+    setLoadingOlder(true)
+    const viewport = viewportRef.current
+    if (viewport !== null) olderScroll.current = { height: viewport.scrollHeight, top: viewport.scrollTop }
+    try {
+      const history = await listBotMessages(account, botId, { before, limit: 100 })
+      store.getState().actions.setBotThread(botId, history)
+      setBefore(history.at(-1)?.createdAt ?? null)
+      setHasOlder(history.length >= 100)
+    } catch (cause) { fail(cause) }
+    finally { loadingOlderRef.current = false; setLoadingOlder(false) }
+  }
 
   async function submit(): Promise<void> {
     const text = value.trim()
-    if (text.length === 0 || sending) {
+    if ([...text].length === 0 || [...text].length > 4096 || sending) {
       return
     }
 
@@ -112,13 +150,16 @@ function BotThread({ account, botId }: { account: Account; botId: string }) {
         backMode="always"
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <div ref={viewportRef} className="min-h-0 flex-1 overflow-y-auto p-3">
         {loading ? (
           <PanelSkeleton rows={4} />
+        ) : loadError !== null ? (
+          <PanelError message={loadError} onRetry={() => { setLoading(true); setRevision((current) => current + 1) }} />
         ) : messages.length === 0 ? (
           <EmptyState icon={Bot} title={t('bots.empty')} description={t('bots.emptyHint')} />
         ) : (
           <ol className="mx-auto flex w-full max-w-xl flex-col gap-1.5">
+            {hasOlder ? <li className="self-center"><Button variant="secondary" size="sm" loading={loadingOlder} onClick={() => { void loadOlder() }}>{t('bots.older')}</Button></li> : null}
             {messages.map((message) => (
               <BotBubble key={message.id} message={message} botHandle={handle} />
             ))}
@@ -130,6 +171,7 @@ function BotThread({ account, botId }: { account: Account; botId: string }) {
       <div className="flex shrink-0 items-end gap-2 border-t border-border bg-bg-elevated p-2">
         <textarea
           rows={1}
+          maxLength={4096}
           value={value}
           disabled={loading}
           onChange={(event) => {
@@ -148,7 +190,7 @@ function BotThread({ account, botId }: { account: Account; botId: string }) {
         <Button
           aria-label={t('chat.send')}
           loading={sending}
-          disabled={value.trim().length === 0 || loading}
+          disabled={value.trim().length === 0 || [...value.trim()].length > 4096 || loading}
           onClick={() => {
             void submit()
           }}

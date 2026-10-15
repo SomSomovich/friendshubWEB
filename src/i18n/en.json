@@ -491,7 +491,8 @@
       "security": "Security",
       "notifications": "Notifications",
       "accounts": "Accounts",
-      "about": "About"
+      "about": "About",
+      "bots": "My bots"
     },
     "hints": {
       "account": "Avatar, name and status",
@@ -500,7 +501,8 @@
       "security": "2FA, sessions and devices",
       "notifications": "Sound and the notification permission",
       "accounts": "The accounts in this browser",
-      "about": "Version, licence and signing out"
+      "about": "Version, licence and signing out",
+      "bots": "Create bots and manage handles and tokens."
     },
     "account": {
       "profile": "Profile",
@@ -681,7 +683,8 @@
       "checking": "Checking…",
       "available": "Available",
       "taken": "Taken",
-      "unknown": "Could not check — it will be tried at creation."
+      "unknown": "Could not check — it will be tried at creation.",
+      "requiresBotSuffix": "A bot handle must end in bot."
     },
     "steps": {
       "info": "Details",
@@ -801,7 +804,23 @@
     "subtitle": "An automated counterpart",
     "empty": "No messages yet",
     "emptyHint": "Say something to the bot.",
-    "placeholder": "Message the bot"
+    "placeholder": "Message the bot",
+    "older": "Load older messages",
+    "manage": {
+      "title": "My bots",
+      "hint": "Up to 20 bots per account. Connect a bot token to your application to run it.",
+      "create": "Create bot",
+      "empty": "You have no bots yet.",
+      "unnamed": "Bot without a handle",
+      "prefix": "Token prefix: {{prefix}}",
+      "handle": "Bot handle",
+      "rotate": "Rotate token",
+      "delete": "Delete bot",
+      "rotateHint": "The previous token will stop working. Update your connected application with the new token.",
+      "deleteHint": "The bot will be deleted and stop working. This cannot be undone.",
+      "tokenTitle": "Bot token",
+      "tokenHint": "Copy this token now: you cannot view it again after closing. Keep it private."
+    }
   },
   "emoji": {
     "title": "Emoji",
