@@ -3,6 +3,8 @@ import type { ChannelPost } from '../api/channel_posts'
 
 type ChannelPostsState = {
   feeds: Record<string, ChannelPost[]>
+  refreshVersions: Record<string, number>
+  invalidate: (accountId: string) => void
   clearAccount: (accountId: string) => void
   merge: (accountId: string, channelId: string, posts: ChannelPost[], replace?: boolean) => void
   reconcile: (accountId: string, channelId: string, posts: ChannelPost[], snapshot: ChannelPost[], before?: string) => void
@@ -12,6 +14,8 @@ export const channelFeedKey = (accountId: string, channelId: string) => `${accou
 export const EMPTY_CHANNEL_POSTS: ChannelPost[] = []
 export const useChannelPostsStore = create<ChannelPostsState>((set) => ({
   feeds: {},
+  refreshVersions: {},
+  invalidate: (accountId) => set((state) => ({ refreshVersions: { ...state.refreshVersions, [accountId]: (state.refreshVersions[accountId] ?? 0) + 1 } })),
   clearAccount: (accountId) => set((state) => ({ feeds: Object.fromEntries(Object.entries(state.feeds).filter(([key]) => !key.startsWith(`${accountId}:`))) })),
   merge: (accountId, channelId, posts, replace = false) => set((state) => {
     const key = channelFeedKey(accountId, channelId)

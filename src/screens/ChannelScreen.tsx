@@ -1,3 +1,4 @@
+import { useStore } from 'zustand'
 import { uploadChannelAttachment } from '../attachments/channel'
 import { ChannelAttachment } from '../components/conversation/ChannelAttachment'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -28,12 +29,14 @@ export function ChannelScreen({ account, conversation, avatarUrl }: { account: A
   const navigate = useNavigate()
   const fail = useActionReporter('channel-posts')
   const channelId = conversation.id
+  const metadataVersion = useStore(requireAccountStore(account.id), (state) => state.conversationVersions[channelId] ?? 0)
+  const refreshVersion = useChannelPostsStore((state) => state.refreshVersions[account.id] ?? 0)
   const load = useCallback(async (current: Account) => {
     const snapshot = useChannelPostsStore.getState().feeds[channelFeedKey(current.id, channelId)] ?? EMPTY_CHANNEL_POSTS
     const [posts, pinned, publish, detail] = await Promise.all([listChannelPosts(current, channelId), listPinnedPosts(current, channelId), canPublish(current, channelId), getChannel(current, channelId)])
     return { posts, pinned, publish, detail, snapshot }
   }, [channelId])
-  const resource = useAccountResource(account, load, channelId)
+  const resource = useAccountResource(account, load, `${channelId}:${metadataVersion}:${refreshVersion}`)
   const cached = useChannelPostsStore((state) => state.feeds[channelFeedKey(account.id, channelId)] ?? EMPTY_CHANNEL_POSTS)
   const posts = [...new Map([...(resource.data?.posts ?? []), ...cached].map((post) => [post.id, post])).values()].sort((a, b) => b.id.localeCompare(a.id))
   const names = useSenderNames(account, posts.filter((post) => post.authorType === 'account').map((post) => post.authorId), 200)

@@ -161,6 +161,7 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
   // and one of the two moments a conversation's pins can have changed without
   // this device noticing. The other is opening the conversation.
   const detachConnected = client.on('connected', () => {
+    useChannelPostsStore.getState().invalidate(account.id)
     if (hasConnected) {
       pushToast('success', i18n.t('app.connectionRestored'))
     }
