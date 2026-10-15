@@ -138,10 +138,10 @@ test('bot management keeps one-time credentials in dedicated mutation responses'
   assert.deepEqual(calls[2].args[1], { handle: 'examplebot' })
 })
 
-test('bot message pages send the documented timestamp cursor', async () => {
+test('bot pages send both cursor fields, including a zero timestamp', async () => {
   const { api, calls } = await loadSource('api/bots')
-  await api.listBotMessages(account, 'bot', { before: 1000, limit: 100 })
-  assert.deepEqual(calls[0].args[1].query, { before: 1000, limit: 100 })
+  await api.listBotMessages(account, 'bot', { before: 0, beforeId: 'boundary', limit: 200 })
+  assert.deepEqual(calls[0].args[1].query, { before: 0, before_id: 'boundary', limit: 200 })
 })
 
 test('bot handles require their suffix without weakening group and channel validation', async () => {
@@ -160,16 +160,18 @@ test('DESC bot history merges with a live arrival without reversing or duplicati
 })
 
 
-test('device history requests preserve its session binding and timestamp cursor', async () => {
+test('device history requests preserve session binding and the complete boundary', async () => {
   const { api, calls } = await loadSource('api/conversations')
-  await api.getConversationEnvelopes(account, 'chat/id', { before: 1000, limit: 500 })
-  assert.deepEqual(calls[0], { method: 'get', args: ['/conversations/chat%2Fid/envelopes', { account, query: { before: 1000, limit: 500 } }] })
+  await api.getConversationEnvelopes(account, 'chat/id', { before: 1000, beforeId: 'boundary', limit: 500 })
+  assert.deepEqual(calls[0], { method: 'get', args: ['/conversations/chat%2Fid/envelopes', { account, query: { before: 1000, before_id: 'boundary', limit: 500 } }] })
 })
 
 test('saved history supports the documented envelope_type filter', async () => {
   const { api, calls } = await loadSource('api/saved', () => ({ envelopes: [] }))
-  await api.getSavedMessages(account, { envelopeType: 1 })
+  await api.getSavedMessages(account, { before: 1000, beforeId: 'boundary', envelopeType: 1 })
   assert.equal(calls[0].args[1].query.envelope_type, 1)
+  assert.equal(calls[0].args[1].query.before_id, 'boundary')
+  assert.equal(calls[0].args[1].query.before, 1000)
 })
 
 
@@ -180,19 +182,12 @@ test('channel invitations use the same join contract as groups', async () => {
 })
 
 
-test('timestamp history overlaps boundary seconds and progresses past a saturated second', async () => {
-  const { api } = await loadSource('utils/historyCursor')
-  assert.equal(api.nextHistoryBefore([30, 20]), 21)
-  assert.equal(api.nextHistoryBefore([20, 20], 21), 20)
-  assert.equal(api.nextHistoryBefore([20, 10], 21), 11)
-  assert.equal(api.nextHistoryBefore([], 21), undefined)
-})
-
-
-test('channel reactions use the confirmed single page of 200 without a fictional cursor', async () => {
+test('channel reactions use their timestamp/actor cursor rather than the history cursor', async () => {
   const { api, calls } = await loadSource('api/channel_posts')
   await api.listPostReactions(account, 'post/id')
   assert.deepEqual(calls[0], { method: 'get', args: ['/channel-posts/post%2Fid/reactions', { account, query: { limit: 200 } }] })
+  await api.listPostReactions(account, 'post/id', { beforeCreatedAt: 0, beforeActorId: 'actor', limit: 100 })
+  assert.deepEqual(calls[1].args[1].query, { before_created_at: 0, before_actor_id: 'actor', limit: 100 })
   await api.getChannelPost(account, 'post/id')
-  assert.equal(calls[1].args[0], '/channel-posts/post%2Fid')
+  assert.equal(calls[2].args[0], '/channel-posts/post%2Fid')
 })

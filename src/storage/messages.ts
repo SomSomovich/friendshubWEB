@@ -17,6 +17,8 @@ export type MessagePageQuery = {
    * second forever. Callers merge pages by `envelopeId` to drop the repeats.
    */
   until?: number
+  /** Exclusive local boundary; the primary ID orders rows sharing a second. */
+  before?: { timestamp: number; envelopeId: string }
   limit?: number
 }
 
@@ -112,13 +114,14 @@ export async function getMessages(
   const upper: [string, string, number] = [
     accountId,
     conversationId,
-    query.until ?? Number.MAX_SAFE_INTEGER,
+    query.before?.timestamp ?? query.until ?? Number.MAX_SAFE_INTEGER,
   ]
 
   const records: MessageRecord[] = []
   let cursor = await index.openCursor(IDBKeyRange.bound(lower, upper), 'prev')
   while (cursor !== null && records.length < limit) {
-    records.push(cursor.value)
+    const record = cursor.value
+    if (!query.before || record.clientTimestamp < query.before.timestamp || record.envelopeId < query.before.envelopeId) records.push(record)
     cursor = await cursor.continue()
   }
   return records

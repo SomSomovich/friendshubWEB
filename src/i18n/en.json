@@ -149,6 +149,8 @@
   },
   "chat": {
     "title": "Chat",
+    "loadOlder": "Load older messages",
+    "historyUnavailable": "Some history could not be decrypted ({{count}}). You can load older pages or transfer history from another own device.",
     "back": "Back to the conversation list",
     "notFound": "Conversation not found",
     "notFoundHint": "It may have been deleted, or the link may be out of date.",
@@ -590,6 +592,10 @@
         "title": "Security log",
         "hint": "The latest 100 account events.",
         "empty": "No events yet.",
+        "deviceNumber": "Device number: {{number}}",
+        "sessionCount": "Sessions revoked: {{count}}",
+        "newOwner": "New owner: {{id}}",
+        "conversation": "Chat: {{id}}",
         "types": {
           "registered": "Registration",
           "loginOk": "Successful login",
@@ -930,7 +936,7 @@
   "deviceHistory": {
     "title": "This device’s history",
     "hint": "Load available messages addressed to this device if its matching keys still exist. Use another own device as the primary way to transfer history.",
-    "limits": "A new device cannot decrypt an old session. History past the server TTL only survives on an older device. Losing every device and key makes full recovery impossible without a backup. This loads message text and attachment keys; transfer current edits and deletions from another device. Server paging may currently skip messages when 200 or more items share a second.",
+    "limits": "A new device cannot decrypt an old session. History past the server TTL only survives on an older device. Losing every device and key makes full recovery impossible without a backup. This loads message text and attachment keys; transfer current edits and deletions from another device.",
     "chat": "Chat",
     "choose": "Choose a chat",
     "load": "Load available history",
@@ -956,7 +962,7 @@
     "deleteHint": "The post will be deleted from the channel for every subscriber.",
     "post": "Post",
     "removeReaction": "Remove my reaction",
-    "reactionsLimit": "Showing up to 200 recent reactions. Full pagination requires a server update.",
+    "moreReactions": "Load more reactions",
     "noReactions": "No reactions yet.",
     "save": "Save",
     "attach": "Attach file",

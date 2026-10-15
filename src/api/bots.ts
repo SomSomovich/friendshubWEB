@@ -1,4 +1,5 @@
 import type { AccountAuth } from './auth'
+import type { HistoryQuery } from './pagination'
 import { del, get, post } from './client'
 
 /**
@@ -53,11 +54,11 @@ export function listOwnedBots(account: AccountAuth): Promise<OwnedBot[]> {
   return get<OwnedBot[]>('/user/bots', { account })
 }
 
-/** Newest first; the cursor is the oldest createdAt from the previous page. */
+/** Newest first; continue with the last row's createdAt and id. */
 export function listBotMessages(account: AccountAuth, botId: string,
-  query: { before?: number; limit?: number } = {}): Promise<BotMessage[]> {
+  query: HistoryQuery = {}): Promise<BotMessage[]> {
   return get<BotMessage[]>(`/bots/${encodeURIComponent(botId)}/messages`, {
-    account, query: { before: query.before, limit: query.limit },
+    account, query: { before: query.before, before_id: query.beforeId, limit: query.limit },
   })
 }
 

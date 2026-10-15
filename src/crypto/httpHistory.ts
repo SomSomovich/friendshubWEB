@@ -8,7 +8,7 @@ import { buildMessageRecord, handleEnvelope } from './receive'
 import { runReceiveWork } from './receiveQueue'
 
 export const DEVICE_HISTORY_PAGE_SIZE = 200
-export type HistoryPageResult = { messages: MessageRecord[]; identityChanges: IdentityChange[]; existing: number; unavailable: number; ignored: number }
+export type HistoryPageResult = { messages: MessageRecord[]; available: MessageRecord[]; identityChanges: IdentityChange[]; existing: number; unavailable: number; ignored: number }
 
 /**
  * Best effort only: spent Signal keys cannot be recreated from ciphertext.
@@ -17,7 +17,7 @@ export type HistoryPageResult = { messages: MessageRecord[]; identityChanges: Id
  */
 export async function restoreEnvelopePage(account: Account, conversationId: string,
   rows: ConversationEnvelope[], decode = handleEnvelope): Promise<HistoryPageResult> {
-  const result: HistoryPageResult = { messages: [], identityChanges: [], existing: 0, unavailable: 0, ignored: 0 }
+  const result: HistoryPageResult = { messages: [], available: [], identityChanges: [], existing: 0, unavailable: 0, ignored: 0 }
   const allowed = new Set([ENVELOPE_TYPE_MESSAGE, ENVELOPE_TYPE_SYNC, ENVELOPE_TYPE_SENDER_KEY, ENVELOPE_TYPE_ATTACHMENT_KEY])
   const ordered = [...rows].sort((a, b) => a.serverTimestamp - b.serverTimestamp || a.envelopeId.localeCompare(b.envelopeId))
   for (const row of ordered) {
@@ -25,7 +25,8 @@ export async function restoreEnvelopePage(account: Account, conversationId: stri
       if (row.conversationId !== conversationId || row.recipientDeviceNumber !== account.deviceNumber) {
         result.unavailable++; return
       }
-      if (await getMessage(account.id, row.envelopeId)) { result.existing++; return }
+      const stored = await getMessage(account.id, row.envelopeId)
+      if (stored) { result.existing++; result.available.push(stored); return }
       if (!allowed.has(row.envelopeType)) { result.ignored++; return }
       try {
         const envelope: Envelope = { ...row, recipientAccountId: account.id, senderIsBot: false }
@@ -35,12 +36,14 @@ export async function restoreEnvelopePage(account: Account, conversationId: stri
           if (received.kind !== 'sender_key' && received.kind !== 'attachment_key') result.ignored++
           return
         }
-        if (await getMessageByMessageId(account.id, conversationId, received.payload.message_id)) {
-          result.existing++; return
+        const existing = await getMessageByMessageId(account.id, conversationId, received.payload.message_id)
+        if (existing) {
+          result.existing++; result.available.push(existing); return
         }
         const record = buildMessageRecord(account, conversationId, envelope, received.payload, 'sent', row.serverTimestamp)
         await saveMessage(record)
         result.messages.push(record)
+        result.available.push(record)
       } catch {
         result.unavailable++
       }

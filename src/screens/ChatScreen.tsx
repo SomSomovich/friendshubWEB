@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { PanelSkeleton } from '../components/settings/PanelSkeleton'
+import { PanelError } from '../components/settings/PanelError'
 import {
   Eraser,
   MessageSquare,
@@ -121,6 +122,7 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
   const typing = useStore(store, (state) => state.typing)
   const readMarkers = useStore(store, (state) => state.readMarkers[conversationId] ?? EMPTY_MARKERS)
   const loadingMessages = useStore(store, (state) => state.loadingMessages)
+  const historyError = useStore(store, (state) => state.historyError)
   const hasOlder = useStore(store, (state) => state.hasOlder)
 
   const listRef = useRef<MessageListHandle>(null)
@@ -765,6 +767,10 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
           />
         ) : null}
 
+        {historyError && !loadingMessages ? <div className="px-3 py-2"><PanelError message={historyError} onRetry={() => {
+          if (messages.length === 0 && !hasOlder) void store.getState().actions.openConversation(conversationId)
+          else void store.getState().actions.loadOlderMessages()
+        }} /></div> : null}
         <MessageList
           ref={listRef}
           messages={messages}

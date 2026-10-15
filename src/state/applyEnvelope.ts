@@ -261,7 +261,8 @@ export function mergeById(
   for (const message of [...primary, ...secondary]) {
     byId.set(message.envelopeId, message)
   }
-  return [...byId.values()].sort((left, right) => right.clientTimestamp - left.clientTimestamp)
+  return [...byId.values()].sort((left, right) =>
+    right.clientTimestamp - left.clientTimestamp || right.envelopeId.localeCompare(left.envelopeId))
 }
 
 function describe(error: unknown): string {

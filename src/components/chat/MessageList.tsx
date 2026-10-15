@@ -5,6 +5,7 @@ import type { AttachmentMime } from '../../attachments/mime'
 import type { MessageRecord } from '../../storage/db'
 import { cn } from '../../utils/cn'
 import { EmptyState } from '../ui/EmptyState'
+import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Spinner'
 import { MessageDayGroup } from './MessageDayGroup'
 import { MessageListSkeleton } from './MessageListSkeleton'
@@ -99,7 +100,8 @@ export function MessageList({
     }
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center">
-        <EmptyState icon={MessageSquare} title={t('chat.empty')} description={t('chat.emptyHint')} />
+        <EmptyState icon={MessageSquare} title={t('chat.empty')} description={t('chat.emptyHint')}
+          action={hasOlder ? <Button variant="secondary" size="sm" onClick={onLoadOlder}>{t('chat.loadOlder')}</Button> : undefined} />
       </div>
     )
   }
@@ -117,7 +119,7 @@ export function MessageList({
         <div className="flex min-h-full flex-col justify-end">
           {hasOlder ? (
             <div className="flex justify-center py-2">
-              {loading ? <Spinner className="size-4 text-fg-muted" /> : null}
+              {loading ? <Spinner className="size-4 text-fg-muted" /> : <Button variant="ghost" size="sm" onClick={onLoadOlder}>{t('chat.loadOlder')}</Button>}
             </div>
           ) : null}
 

@@ -256,8 +256,8 @@ function SettingsView({ account, conversationId }: { account: Account; conversat
             </>
           )}
 
+          {kind === 'channel' ? <ChannelAnalyticsPanel account={account} conversationId={conversationId} /> : null}
           {isOwner ? <>
-            {kind === 'channel' ? <ChannelAnalyticsPanel account={account} conversationId={conversationId} /> : null}
             <ConversationOwnershipPanel account={account} conversationId={conversationId} kind={kind}
               members={members.members} labels={labels}
               onChanged={() => { members.refresh(); metadata.reload(); void store.getState().actions.loadConversations() }}

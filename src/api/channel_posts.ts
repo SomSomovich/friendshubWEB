@@ -101,9 +101,13 @@ export function listPinnedPosts(
   return get<ChannelPost[]>(`/channels/${encodeURIComponent(channelId)}/pinned`, { account })
 }
 
-/** Until compound paging is deployed, reactions are one page, at most 200. */
-export function listPostReactions(account: AccountAuth, postId: string): Promise<PostReaction[]> {
-  return get(`/channel-posts/${encodeURIComponent(postId)}/reactions`, { account, query: { limit: 200 } })
+export const REACTIONS_PAGE_SIZE = 200
+export type ReactionCursor = { beforeCreatedAt: number; beforeActorId: string }
+/** Newest first, ordered by (created_at, actor_id). */
+export function listPostReactions(account: AccountAuth, postId: string,
+  query: Partial<ReactionCursor> & { limit?: number } = {}): Promise<PostReaction[]> {
+  return get(`/channel-posts/${encodeURIComponent(postId)}/reactions`, { account,
+    query: { before_created_at: query.beforeCreatedAt, before_actor_id: query.beforeActorId, limit: query.limit ?? REACTIONS_PAGE_SIZE } })
 }
 
 /** Fetching a single post registers a unique view for the owner analytics. */

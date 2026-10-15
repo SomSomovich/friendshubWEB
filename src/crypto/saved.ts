@@ -1,10 +1,11 @@
 import { getSavedConversation, getSavedMessages, type SavedEnvelope } from '../api/saved'
 import { getConversation, saveConversations } from '../storage/conversations'
 import type { ConversationRecord, MessageRecord } from '../storage/db'
-import { saveMessages } from '../storage/messages'
+import type { HistoryCursor } from '../api/pagination'
+import { restoreEnvelopePage } from './httpHistory'
 import { getSetting, setSetting } from '../storage/settings'
-import type { Account, Envelope } from '../types'
-import { buildMessageRecord, handleEnvelope } from './receive'
+import type { Account } from '../types'
+import type { IdentityChange } from '../wasm'
 
 /**
  * Saved Messages (API_FRONTEND.txt §10): the conversation an account has with
@@ -65,65 +66,29 @@ export async function getOrCreateSavedConversation(account: Account): Promise<Co
   return record
 }
 
-/**
- * Loads one page of saved history, newest first, storing what it decrypts.
- *
- * `before` is the `serverTimestamp` of the previous page's last envelope.
- */
-export async function loadSavedHistory(
-  account: Account,
-  before?: number,
-): Promise<MessageRecord[]> {
-  const conversation = await getOrCreateSavedConversation(account)
-  const envelopes = await getSavedMessages(account, { before, limit: SAVED_PAGE_SIZE })
-
-  const messages: MessageRecord[] = []
-
-  for (const savedEnvelope of envelopes) {
-    const envelope = toEnvelope(account, conversation.id, savedEnvelope)
-    const received = await handleEnvelope(account, envelope)
-
-    // Sender-key and attachment-key envelopes are applied inside `handleEnvelope`
-    // and carry no text of their own.
-    if (received.kind !== 'message') {
-      continue
-    }
-
-    messages.push(
-      buildMessageRecord(
-        account,
-        conversation.id,
-        envelope,
-        received.payload,
-        // It reached the server and came back: from this device's point of view
-        // it is sent, and there is no receipt channel for saved messages.
-        'sent',
-        savedEnvelope.serverTimestamp,
-      ),
-    )
-  }
-
-  await saveMessages(messages)
-  return messages
+export type SavedHistoryPage = {
+  messages: MessageRecord[]
+  cursor: HistoryCursor | null
+  hasOlder: boolean
+  unavailable: number
+  identityChanges: IdentityChange[]
 }
 
-/**
- * The history endpoint carries the envelope fields without the routing ones: the
- * recipient is this device by construction, and the conversation is the saved
- * one.
- */
-function toEnvelope(account: Account, conversationId: string, saved: SavedEnvelope): Envelope {
+/** Page boundaries come from raw envelopes, including control-only pages. */
+export async function loadSavedHistory(
+  account: Account,
+  query: Partial<HistoryCursor> = {},
+): Promise<SavedHistoryPage> {
+  const conversation = await getOrCreateSavedConversation(account)
+  const envelopes = await getSavedMessages(account, { ...query, limit: SAVED_PAGE_SIZE })
+  const restored = await restoreEnvelopePage(account, conversation.id,
+    envelopes.map((row) => ({ ...row, conversationId: conversation.id })))
+  const last: SavedEnvelope | undefined = envelopes.at(-1)
   return {
-    envelopeId: saved.envelopeId,
-    senderAccountId: saved.senderAccountId,
-    senderDeviceNumber: saved.senderDeviceNumber,
-    recipientAccountId: account.id,
-    recipientDeviceNumber: saved.recipientDeviceNumber,
-    envelopeType: saved.envelopeType,
-    isPrekeyMessage: saved.isPrekeyMessage,
-    ciphertext: saved.ciphertext,
-    clientTimestamp: saved.clientTimestamp,
-    conversationId,
-    senderIsBot: false,
+    messages: restored.available,
+    cursor: last ? { before: last.serverTimestamp, beforeId: last.envelopeId } : null,
+    hasOlder: envelopes.length >= SAVED_PAGE_SIZE,
+    unavailable: restored.unavailable,
+    identityChanges: restored.identityChanges,
   }
 }

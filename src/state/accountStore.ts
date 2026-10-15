@@ -12,7 +12,8 @@ import {
   type MessageDraft,
   type SendOptions,
 } from '../crypto/send'
-import { SAVED_PAGE_SIZE, loadSavedHistory } from '../crypto/saved'
+import { loadSavedHistory, type SavedHistoryPage } from '../crypto/saved'
+import { i18n } from '../i18n'
 import { saveAccount } from '../storage/accounts'
 import { listConversations as readConversations, saveConversations } from '../storage/conversations'
 import type { ConversationRecord, MessageRecord } from '../storage/db'
@@ -82,6 +83,8 @@ export type AccountStoreState = {
    * the bot it belongs to.
    */
   botThreads: Record<string, BotMessage[]>
+  /** Raw HTTP page boundaries are independent of decrypted message rows. */
+  savedHistory: Record<string, Pick<SavedHistoryPage, 'cursor' | 'hasOlder'>>
   /** Unacknowledged peer identity changes; cleared by `acknowledgeIdentityChanges`. */
   identityChanges: IdentityChange[]
   /**
@@ -99,6 +102,7 @@ export type AccountStoreState = {
   hasOlder: boolean
   sending: boolean
   error: string | null
+  historyError: string | null
 }
 
 export type AccountActions = {
@@ -180,6 +184,7 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
     typing: {},
     readMarkers: {},
     botThreads: {},
+    savedHistory: {},
     identityChanges: [],
     messagesVersion: 0,
     loadingConversations: false,
@@ -187,6 +192,7 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
     hasOlder: false,
     sending: false,
     error: null,
+    historyError: null,
   }
 
   return createStore<AccountStore>((set, get) => ({
@@ -209,25 +215,34 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
       },
 
       async openConversation(conversationId) {
+        const fromSaved = isSaved(conversationId, get())
         set({
           activeConversationId: conversationId,
           loadingMessages: true,
           messages: [],
           hasOlder: false,
+          historyError: null,
+          savedHistory: fromSaved ? { ...get().savedHistory, [conversationId]: { cursor: null, hasOlder: true } } : get().savedHistory,
         })
 
         try {
           let messages = await getMessages(account.id, conversationId, { limit: MESSAGE_PAGE_SIZE })
           let hasOlder = messages.length >= MESSAGE_PAGE_SIZE
+          let history: SavedHistoryPage | null = null
 
           // Saved history lives on the server: this device may never have
           // received those envelopes, so an empty window is filled from there —
           // and, when its history was cleared locally, only from before the
           // point it was cleared at.
-          if (messages.length === 0 && isSaved(conversationId, get())) {
+          if (messages.length === 0 && fromSaved) {
             const cursors = await loadHistoryCursors(account.id)
-            messages = await loadSavedHistory(account, cursors[conversationId])
-            hasOlder = messages.length >= SAVED_PAGE_SIZE
+            history = await loadSavedHistory(account, { before: cursors[conversationId] })
+            messages = history.messages
+            hasOlder = history.hasOlder
+          } else if (fromSaved) {
+            // Local rows may have come from another device; the HTTP boundary
+            // starts independently when the local backlog is exhausted.
+            hasOlder = true
           }
 
           // The window may have moved on while the read was in flight (the user
@@ -235,9 +250,13 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
           if (get().activeConversationId !== conversationId) {
             return
           }
-          set({ messages, hasOlder, loadingMessages: false, error: null })
+          set({ messages: mergeById(messages, get().messages), hasOlder, loadingMessages: false,
+            savedHistory: history ? { ...get().savedHistory, [conversationId]: { cursor: history.cursor, hasOlder: history.hasOlder } } : get().savedHistory,
+            identityChanges: history?.identityChanges.length ? history.identityChanges : get().identityChanges,
+            historyError: history?.unavailable ? i18n.t('chat.historyUnavailable', { count: history.unavailable }) : null,
+            error: history?.unavailable ? i18n.t('chat.historyUnavailable', { count: history.unavailable }) : null })
         } catch (error) {
-          set({ loadingMessages: false, error: describe(error) })
+          if (get().activeConversationId === conversationId) set({ loadingMessages: false, historyError: describe(error), error: describe(error) })
         }
       },
 
@@ -245,43 +264,50 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
         if (get().activeConversationId !== conversationId) {
           return
         }
-        set({ activeConversationId: null, messages: [], loadingMessages: false })
+        set({ activeConversationId: null, messages: [], loadingMessages: false, historyError: null })
       },
 
       async loadOlderMessages() {
         const { activeConversationId, messages } = get()
         const oldest = messages[messages.length - 1]
-        if (activeConversationId === null || oldest === undefined) {
+        if (get().loadingMessages || activeConversationId === null || (oldest === undefined && !isSaved(activeConversationId, get()))) {
           return
         }
 
-        set({ loadingMessages: true })
+        set({ loadingMessages: true, historyError: null })
+        let cachedOlder: MessageRecord[] = []
         try {
           const fromSaved = isSaved(activeConversationId, get())
-          const older = fromSaved
-            ? // The history endpoint pages by server timestamp, which only those
-              // envelopes have.
-              await loadSavedHistory(account, oldest.serverTimestamp)
-            : await getMessages(account.id, activeConversationId, {
-                // `until` is inclusive: the boundary second comes back and
-                // `mergeById` drops the repeats, so no message is ever skipped.
-                until: oldest.clientTimestamp,
-                limit: MESSAGE_PAGE_SIZE,
-              })
+          cachedOlder = oldest ? await getMessages(account.id, activeConversationId, {
+            before: { timestamp: oldest.clientTimestamp, envelopeId: oldest.envelopeId }, limit: MESSAGE_PAGE_SIZE,
+          }) : []
+          let older = cachedOlder
+          let hasOlder = older.length >= MESSAGE_PAGE_SIZE
+          let history: SavedHistoryPage | null = null
+          const previous = get().savedHistory[activeConversationId]
+          if (fromSaved && !hasOlder && (previous?.hasOlder ?? true)) {
+            const cursors = previous?.cursor ? null : await loadHistoryCursors(account.id)
+            history = await loadSavedHistory(account, previous?.cursor ?? { before: cursors?.[activeConversationId] })
+            older = mergeById(older, history.messages)
+            hasOlder = history.hasOlder
+          }
 
           if (get().activeConversationId !== activeConversationId) {
             return
           }
           set({
-            messages: mergeById(messages, older),
+            messages: mergeById(older, get().messages),
             // A short page is the end of the history; an empty one means the
             // caller asked once too often, which is the normal way this stops.
-            hasOlder: older.length >= (fromSaved ? SAVED_PAGE_SIZE : MESSAGE_PAGE_SIZE),
+            hasOlder,
+            savedHistory: history ? { ...get().savedHistory, [activeConversationId]: { cursor: history.cursor, hasOlder: history.hasOlder } } : get().savedHistory,
+            identityChanges: history?.identityChanges.length ? history.identityChanges : get().identityChanges,
             loadingMessages: false,
-            error: null,
+            historyError: history?.unavailable ? i18n.t('chat.historyUnavailable', { count: history.unavailable }) : null,
+            error: history?.unavailable ? i18n.t('chat.historyUnavailable', { count: history.unavailable }) : null,
           })
         } catch (error) {
-          set({ loadingMessages: false, error: describe(error) })
+          if (get().activeConversationId === activeConversationId) set({ messages: mergeById(cachedOlder, get().messages), loadingMessages: false, historyError: describe(error), error: describe(error) })
         }
       },
 
@@ -648,7 +674,9 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
         if (get().activeConversationId !== conversationId) {
           return
         }
-        set({ messages: [], messagesVersion: get().messagesVersion + 1 })
+        const fromSaved = isSaved(conversationId, get())
+        set({ messages: [], messagesVersion: get().messagesVersion + 1, hasOlder: fromSaved, historyError: null,
+          savedHistory: fromSaved ? { ...get().savedHistory, [conversationId]: { cursor: null, hasOlder: true } } : get().savedHistory })
       },
 
       async updateAccount(patch) {

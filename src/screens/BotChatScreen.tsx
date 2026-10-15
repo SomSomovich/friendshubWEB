@@ -1,4 +1,4 @@
-import { nextHistoryBefore } from '../utils/historyCursor'
+import type { HistoryCursor } from '../api/pagination'
 import { Bot, Send } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -51,7 +51,7 @@ function BotThread({ account, botId }: { account: Account; botId: string }) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const olderScroll = useRef<{ height: number; top: number } | null>(null)
-  const [before, setBefore] = useState<number | null>(null)
+  const [cursor, setCursor] = useState<HistoryCursor | null>(null)
   const [hasOlder, setHasOlder] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const loadingOlderRef = useRef(false)
@@ -71,7 +71,8 @@ function BotThread({ account, botId }: { account: Account; botId: string }) {
           return
         }
         setHandle(info.handle)
-        setBefore(nextHistoryBefore(history.map((row) => row.createdAt)) ?? null)
+        const last = history.at(-1)
+        setCursor(last ? { before: last.createdAt, beforeId: last.id } : null)
         setHasOlder(history.length >= 200)
         setLoadError(null)
         store.getState().actions.setBotThread(botId, history)
@@ -108,15 +109,16 @@ function BotThread({ account, botId }: { account: Account; botId: string }) {
   }, [messages.length, loadingOlder])
 
   async function loadOlder(): Promise<void> {
-    if (loadingOlderRef.current || before === null || !hasOlder) return
+    if (loadingOlderRef.current || cursor === null || !hasOlder) return
     loadingOlderRef.current = true
     setLoadingOlder(true)
     const viewport = viewportRef.current
     if (viewport !== null) olderScroll.current = { height: viewport.scrollHeight, top: viewport.scrollTop }
     try {
-      const history = await listBotMessages(account, botId, { before, limit: 200 })
+      const history = await listBotMessages(account, botId, { ...cursor, limit: 200 })
       store.getState().actions.setBotThread(botId, history)
-      setBefore(nextHistoryBefore(history.map((row) => row.createdAt), before) ?? null)
+      const last = history.at(-1)
+      setCursor(last ? { before: last.createdAt, beforeId: last.id } : null)
       setHasOlder(history.length >= 200)
     } catch (cause) { fail(cause) }
     finally { loadingOlderRef.current = false; setLoadingOlder(false) }

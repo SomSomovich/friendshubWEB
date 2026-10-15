@@ -1,4 +1,5 @@
 import type { SavedEnvelope } from './saved'
+import type { HistoryQuery } from './pagination'
 import type { Conversation, ConversationKind } from '../types'
 import type { AccountAuth } from './auth'
 import { del, get, post } from './client'
@@ -127,8 +128,8 @@ export function unmuteConversation(account: AccountAuth, conversationId: string)
 /** Device-bound encrypted history; a new device must use own-device history sync. */
 export type ConversationEnvelope = SavedEnvelope & { conversationId: string }
 export function getConversationEnvelopes(account: AccountAuth, conversationId: string,
-  query: { before?: number; limit?: number } = {}): Promise<ConversationEnvelope[]> {
+  query: HistoryQuery = {}): Promise<ConversationEnvelope[]> {
   return get(`/conversations/${encodeURIComponent(conversationId)}/envelopes`, {
-    account, query: { before: query.before, limit: query.limit },
+    account, query: { before: query.before, before_id: query.beforeId, limit: query.limit },
   })
 }

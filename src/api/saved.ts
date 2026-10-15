@@ -1,4 +1,5 @@
 import type { AccountAuth } from './auth'
+import type { HistoryQuery } from './pagination'
 import { get } from './client'
 
 /**
@@ -37,15 +38,15 @@ export function getSavedConversation(account: AccountAuth): Promise<SavedConvers
 /**
  * History for the *current* device, newest first.
  *
- * `before` is the `serverTimestamp` of the last envelope of the previous page.
+ * Continue with both serverTimestamp and envelopeId of the last raw envelope.
  * Answers 404 when the saved conversation has not been created yet.
  */
 export function getSavedMessages(
   account: AccountAuth,
-  query: { before?: number; limit?: number; envelopeType?: number } = {},
+  query: HistoryQuery & { envelopeType?: number } = {},
 ): Promise<SavedEnvelope[]> {
   return get<{ envelopes: SavedEnvelope[] }>('/saved/messages', {
     account,
-    query: { before: query.before ?? null, limit: query.limit ?? null, envelope_type: query.envelopeType ?? null },
+    query: { before: query.before ?? null, before_id: query.beforeId ?? null, limit: query.limit ?? null, envelope_type: query.envelopeType ?? null },
   }).then((response) => response.envelopes)
 }
