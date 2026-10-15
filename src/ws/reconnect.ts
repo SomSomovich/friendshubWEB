@@ -1,5 +1,5 @@
 /**
- * Backoff scheduler for reconnects: 1, 2, 4, 8, 16, 32 then 60 seconds, with the
+ * Backoff scheduler for reconnects: 1, 2, 4, 8, 16, then 30 seconds, with the
  * delay staying at the cap for every further attempt. One small unit, so the
  * policy is readable and the client does not have to carry it.
  */
@@ -11,7 +11,7 @@ export type ReconnectorOptions = {
   shouldRetry: () => boolean
 }
 
-const DEFAULT_CAP_MS = 60_000
+const DEFAULT_CAP_MS = 30_000
 
 export class Reconnector {
   private readonly delaysMs: readonly number[]

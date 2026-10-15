@@ -27,7 +27,7 @@ const PROTOCOL_PATCH = 0
 const HANDSHAKE_TIMEOUT_MS = 10_000
 /** Covers TCP, TLS and the upgrade; on a slow link that is not instant. */
 const CONNECT_TIMEOUT_MS = 30_000
-const RECONNECT_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 16_000, 32_000, 60_000]
+const RECONNECT_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 16_000, 30_000]
 
 type AccountAuth = Pick<Account, 'sessionToken' | 'deviceNumber'>
 
@@ -117,6 +117,10 @@ export class WsClient extends TypedEmitter<WsClientEvents> {
   /** See `FrameSender.sendTyping`. Throws when the socket is not open. */
   sendTyping(conversationId: string): void {
     this.sender.sendTyping(conversationId)
+  }
+
+  requestHistory(targetDeviceNumber: number, conversationIds: string[]): void {
+    this.sender.requestHistory(targetDeviceNumber, conversationIds)
   }
 
   /** Round-trip time in milliseconds, measured by an echoed ping. */
@@ -271,6 +275,8 @@ export class WsClient extends TypedEmitter<WsClientEvents> {
   // -------------------------------------------------------------------------
 
   private readonly handlers: FrameHandlers = {
+    onConversationUpdated: (event) => this.emit('conversationUpdated', event),
+    onHistoryRequest: (event) => this.emit('historyRequest', event),
     onHello: (hello) => {
       this.completeHandshake(hello)
     },
@@ -312,6 +318,15 @@ export class WsClient extends TypedEmitter<WsClientEvents> {
       return
     }
 
+    if (error.code === 'flood') {
+      const wasConnected = this.connected
+      this.sender.reset()
+      this.rejectPendingHandshake(new WsError(error.message, { code: 'flood' }))
+      this.discardSocket()
+      if (wasConnected) this.emit('disconnected', { reason: error.message, final: false })
+      this.reconnector.schedule()
+      return
+    }
     // The server closes the connection after a fatal error; stopping here keeps
     // the client from reconnecting to an endpoint that just refused it.
     this.fatal = true

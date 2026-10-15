@@ -396,8 +396,11 @@ export namespace fh {
         /** ClientFrame typing. */
         typing?: (fh.TypingFrame.$Properties|null);
 
+        /** ClientFrame historyRequest. */
+        historyRequest?: (fh.HistoryRequest.$Properties|null);
+
         /** ClientFrame kind. */
-        kind?: ("hello"|"upload"|"ack"|"ping"|"typing");
+        kind?: ("hello"|"upload"|"ack"|"ping"|"typing"|"historyRequest");
 
         /**
          * Creates a new ClientFrame instance using the specified properties.
@@ -498,8 +501,11 @@ export namespace fh {
             /** ClientFrame typing */
             typing?: (fh.TypingFrame.$Properties|null);
 
+            /** ClientFrame historyRequest */
+            historyRequest?: (fh.HistoryRequest.$Properties|null);
+
             /** ClientFrame kind */
-            kind?: ("hello"|"upload"|"ack"|"ping"|"typing");
+            kind?: ("hello"|"upload"|"ack"|"ping"|"typing"|"historyRequest");
 
             /** Unknown fields preserved while decoding when enabled */
             $unknowns?: Uint8Array[];
@@ -512,9 +518,10 @@ export namespace fh {
           ack?: fh.EnvelopeAck.$Shape|null;
           ping?: fh.Ping.$Shape|null;
           typing?: fh.TypingFrame.$Shape|null;
+          historyRequest?: fh.HistoryRequest.$Shape|null;
           $unknowns?: Uint8Array[];
         } & (
-          ({ kind?: undefined; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null }|{ kind?: "hello"; hello: fh.ClientHello.$Shape; upload?: null; ack?: null; ping?: null; typing?: null }|{ kind?: "upload"; hello?: null; upload: fh.EnvelopeUpload.$Shape; ack?: null; ping?: null; typing?: null }|{ kind?: "ack"; hello?: null; upload?: null; ack: fh.EnvelopeAck.$Shape; ping?: null; typing?: null }|{ kind?: "ping"; hello?: null; upload?: null; ack?: null; ping: fh.Ping.$Shape; typing?: null }|{ kind?: "typing"; hello?: null; upload?: null; ack?: null; ping?: null; typing: fh.TypingFrame.$Shape })
+          ({ kind?: undefined; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest?: null }|{ kind?: "hello"; hello: fh.ClientHello.$Shape; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest?: null }|{ kind?: "upload"; hello?: null; upload: fh.EnvelopeUpload.$Shape; ack?: null; ping?: null; typing?: null; historyRequest?: null }|{ kind?: "ack"; hello?: null; upload?: null; ack: fh.EnvelopeAck.$Shape; ping?: null; typing?: null; historyRequest?: null }|{ kind?: "ping"; hello?: null; upload?: null; ack?: null; ping: fh.Ping.$Shape; typing?: null; historyRequest?: null }|{ kind?: "typing"; hello?: null; upload?: null; ack?: null; ping?: null; typing: fh.TypingFrame.$Shape; historyRequest?: null }|{ kind?: "historyRequest"; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest: fh.HistoryRequest.$Shape })
         );
     }
 
@@ -1077,8 +1084,14 @@ export namespace fh {
         /** ServerFrame readReceipt. */
         readReceipt?: (fh.ReadReceiptDelivery.$Properties|null);
 
+        /** ServerFrame conversationUpdated. */
+        conversationUpdated?: (fh.ConversationUpdatedDelivery.$Properties|null);
+
+        /** ServerFrame historyRequestRelay. */
+        historyRequestRelay?: (fh.HistoryRequestRelay.$Properties|null);
+
         /** ServerFrame kind. */
-        kind?: ("hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt");
+        kind?: ("hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt"|"conversationUpdated"|"historyRequestRelay");
 
         /**
          * Creates a new ServerFrame instance using the specified properties.
@@ -1194,8 +1207,14 @@ export namespace fh {
             /** ServerFrame readReceipt */
             readReceipt?: (fh.ReadReceiptDelivery.$Properties|null);
 
+            /** ServerFrame conversationUpdated */
+            conversationUpdated?: (fh.ConversationUpdatedDelivery.$Properties|null);
+
+            /** ServerFrame historyRequestRelay */
+            historyRequestRelay?: (fh.HistoryRequestRelay.$Properties|null);
+
             /** ServerFrame kind */
-            kind?: ("hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt");
+            kind?: ("hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt"|"conversationUpdated"|"historyRequestRelay");
 
             /** Unknown fields preserved while decoding when enabled */
             $unknowns?: Uint8Array[];
@@ -1213,9 +1232,11 @@ export namespace fh {
           channelPost?: fh.ChannelPostDelivery.$Shape|null;
           typing?: fh.TypingDelivery.$Shape|null;
           readReceipt?: fh.ReadReceiptDelivery.$Shape|null;
+          conversationUpdated?: fh.ConversationUpdatedDelivery.$Shape|null;
+          historyRequestRelay?: fh.HistoryRequestRelay.$Shape|null;
           $unknowns?: Uint8Array[];
         } & (
-          ({ kind?: undefined; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "hello"; hello: fh.ServerHello.$Shape; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "delivery"; hello?: null; delivery: fh.EnvelopeDelivery.$Shape; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "receipt"; hello?: null; delivery?: null; receipt: fh.EnvelopeAck.$Shape; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "pong"; hello?: null; delivery?: null; receipt?: null; pong: fh.Pong.$Shape; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "error"; hello?: null; delivery?: null; receipt?: null; pong?: null; error: fh.ErrorFrame.$Shape; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "presence"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence: fh.PresenceUpdate.$Shape; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "botMessage"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage: fh.BotMessageDelivery.$Shape; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "channelPost"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost: fh.ChannelPostDelivery.$Shape; typing?: null; readReceipt?: null }|{ kind?: "typing"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing: fh.TypingDelivery.$Shape; readReceipt?: null }|{ kind?: "readReceipt"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt: fh.ReadReceiptDelivery.$Shape })
+          ({ kind?: undefined; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "hello"; hello: fh.ServerHello.$Shape; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "delivery"; hello?: null; delivery: fh.EnvelopeDelivery.$Shape; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "receipt"; hello?: null; delivery?: null; receipt: fh.EnvelopeAck.$Shape; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "pong"; hello?: null; delivery?: null; receipt?: null; pong: fh.Pong.$Shape; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "error"; hello?: null; delivery?: null; receipt?: null; pong?: null; error: fh.ErrorFrame.$Shape; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "presence"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence: fh.PresenceUpdate.$Shape; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "botMessage"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage: fh.BotMessageDelivery.$Shape; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "channelPost"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost: fh.ChannelPostDelivery.$Shape; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "typing"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing: fh.TypingDelivery.$Shape; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "readReceipt"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt: fh.ReadReceiptDelivery.$Shape; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "conversationUpdated"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated: fh.ConversationUpdatedDelivery.$Shape; historyRequestRelay?: null }|{ kind?: "historyRequestRelay"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay: fh.HistoryRequestRelay.$Shape })
         );
     }
 
@@ -2561,5 +2582,392 @@ export namespace fh {
 
         /** Shape of a ReadReceiptDelivery. */
         type $Shape = fh.ReadReceiptDelivery.$Properties;
+    }
+
+    /**
+     * Properties of a ConversationUpdatedDelivery.
+     * @deprecated Use fh.ConversationUpdatedDelivery.$Properties instead.
+     */
+    interface IConversationUpdatedDelivery extends fh.ConversationUpdatedDelivery.$Properties {
+    }
+
+    /** Represents a ConversationUpdatedDelivery. */
+    class ConversationUpdatedDelivery {
+
+        /**
+         * Constructs a new ConversationUpdatedDelivery.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: fh.ConversationUpdatedDelivery.$Properties);
+
+        /** Unknown fields preserved while decoding when enabled */
+        $unknowns?: Uint8Array[];
+
+        /** ConversationUpdatedDelivery conversationId. */
+        conversationId: Uint8Array;
+
+        /** ConversationUpdatedDelivery title. */
+        title?: (string|null);
+
+        /** ConversationUpdatedDelivery description. */
+        description?: (string|null);
+
+        /** ConversationUpdatedDelivery isPublic. */
+        isPublic?: (boolean|null);
+
+        /** ConversationUpdatedDelivery membersChanged. */
+        membersChanged: boolean;
+
+        /**
+         * Creates a new ConversationUpdatedDelivery instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns ConversationUpdatedDelivery instance
+         */
+        static create(properties: fh.ConversationUpdatedDelivery.$Shape): fh.ConversationUpdatedDelivery & fh.ConversationUpdatedDelivery.$Shape;
+        static create(properties?: fh.ConversationUpdatedDelivery.$Properties): fh.ConversationUpdatedDelivery;
+
+        /**
+         * Encodes the specified ConversationUpdatedDelivery message. Does not implicitly {@link fh.ConversationUpdatedDelivery.verify|verify} messages.
+         * @param message ConversationUpdatedDelivery message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encode(message: fh.ConversationUpdatedDelivery.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified ConversationUpdatedDelivery message, length delimited. Does not implicitly {@link fh.ConversationUpdatedDelivery.verify|verify} messages.
+         * @param message ConversationUpdatedDelivery message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encodeDelimited(message: fh.ConversationUpdatedDelivery.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a ConversationUpdatedDelivery message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns {fh.ConversationUpdatedDelivery & fh.ConversationUpdatedDelivery.$Shape} ConversationUpdatedDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): fh.ConversationUpdatedDelivery & fh.ConversationUpdatedDelivery.$Shape;
+
+        /**
+         * Decodes a ConversationUpdatedDelivery message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns {fh.ConversationUpdatedDelivery & fh.ConversationUpdatedDelivery.$Shape} ConversationUpdatedDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): fh.ConversationUpdatedDelivery & fh.ConversationUpdatedDelivery.$Shape;
+
+        /**
+         * Verifies a ConversationUpdatedDelivery message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a ConversationUpdatedDelivery message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns ConversationUpdatedDelivery
+         */
+        static fromObject(object: { [k: string]: any }): fh.ConversationUpdatedDelivery;
+
+        /**
+         * Creates a plain object from a ConversationUpdatedDelivery message. Also converts values to other types if specified.
+         * @param message ConversationUpdatedDelivery
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        static toObject(message: fh.ConversationUpdatedDelivery, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this ConversationUpdatedDelivery to JSON.
+         * @returns JSON object
+         */
+        toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the type url for ConversationUpdatedDelivery
+         * @param [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns The type url
+         */
+        static getTypeUrl(prefix?: string): string;
+    }
+
+    namespace ConversationUpdatedDelivery {
+
+        /** Properties of a ConversationUpdatedDelivery. */
+        interface $Properties {
+
+            /** ConversationUpdatedDelivery conversationId */
+            conversationId?: (Uint8Array|null);
+
+            /** ConversationUpdatedDelivery title */
+            title?: (string|null);
+
+            /** ConversationUpdatedDelivery description */
+            description?: (string|null);
+
+            /** ConversationUpdatedDelivery isPublic */
+            isPublic?: (boolean|null);
+
+            /** ConversationUpdatedDelivery membersChanged */
+            membersChanged?: (boolean|null);
+
+            /** Unknown fields preserved while decoding when enabled */
+            $unknowns?: Uint8Array[];
+        }
+
+        /** Shape of a ConversationUpdatedDelivery. */
+        type $Shape = fh.ConversationUpdatedDelivery.$Properties;
+    }
+
+    /**
+     * Properties of a HistoryRequest.
+     * @deprecated Use fh.HistoryRequest.$Properties instead.
+     */
+    interface IHistoryRequest extends fh.HistoryRequest.$Properties {
+    }
+
+    /** Represents a HistoryRequest. */
+    class HistoryRequest {
+
+        /**
+         * Constructs a new HistoryRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: fh.HistoryRequest.$Properties);
+
+        /** Unknown fields preserved while decoding when enabled */
+        $unknowns?: Uint8Array[];
+
+        /** HistoryRequest targetDeviceNumber. */
+        targetDeviceNumber: number;
+
+        /** HistoryRequest conversationIds. */
+        conversationIds: Uint8Array[];
+
+        /**
+         * Creates a new HistoryRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns HistoryRequest instance
+         */
+        static create(properties: fh.HistoryRequest.$Shape): fh.HistoryRequest & fh.HistoryRequest.$Shape;
+        static create(properties?: fh.HistoryRequest.$Properties): fh.HistoryRequest;
+
+        /**
+         * Encodes the specified HistoryRequest message. Does not implicitly {@link fh.HistoryRequest.verify|verify} messages.
+         * @param message HistoryRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encode(message: fh.HistoryRequest.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified HistoryRequest message, length delimited. Does not implicitly {@link fh.HistoryRequest.verify|verify} messages.
+         * @param message HistoryRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encodeDelimited(message: fh.HistoryRequest.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a HistoryRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns {fh.HistoryRequest & fh.HistoryRequest.$Shape} HistoryRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): fh.HistoryRequest & fh.HistoryRequest.$Shape;
+
+        /**
+         * Decodes a HistoryRequest message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns {fh.HistoryRequest & fh.HistoryRequest.$Shape} HistoryRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): fh.HistoryRequest & fh.HistoryRequest.$Shape;
+
+        /**
+         * Verifies a HistoryRequest message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a HistoryRequest message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns HistoryRequest
+         */
+        static fromObject(object: { [k: string]: any }): fh.HistoryRequest;
+
+        /**
+         * Creates a plain object from a HistoryRequest message. Also converts values to other types if specified.
+         * @param message HistoryRequest
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        static toObject(message: fh.HistoryRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this HistoryRequest to JSON.
+         * @returns JSON object
+         */
+        toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the type url for HistoryRequest
+         * @param [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns The type url
+         */
+        static getTypeUrl(prefix?: string): string;
+    }
+
+    namespace HistoryRequest {
+
+        /** Properties of a HistoryRequest. */
+        interface $Properties {
+
+            /** HistoryRequest targetDeviceNumber */
+            targetDeviceNumber?: (number|null);
+
+            /** HistoryRequest conversationIds */
+            conversationIds?: (Uint8Array[]|null);
+
+            /** Unknown fields preserved while decoding when enabled */
+            $unknowns?: Uint8Array[];
+        }
+
+        /** Shape of a HistoryRequest. */
+        type $Shape = fh.HistoryRequest.$Properties;
+    }
+
+    /**
+     * Properties of a HistoryRequestRelay.
+     * @deprecated Use fh.HistoryRequestRelay.$Properties instead.
+     */
+    interface IHistoryRequestRelay extends fh.HistoryRequestRelay.$Properties {
+    }
+
+    /** Represents a HistoryRequestRelay. */
+    class HistoryRequestRelay {
+
+        /**
+         * Constructs a new HistoryRequestRelay.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: fh.HistoryRequestRelay.$Properties);
+
+        /** Unknown fields preserved while decoding when enabled */
+        $unknowns?: Uint8Array[];
+
+        /** HistoryRequestRelay fromDeviceNumber. */
+        fromDeviceNumber: number;
+
+        /** HistoryRequestRelay conversationIds. */
+        conversationIds: Uint8Array[];
+
+        /**
+         * Creates a new HistoryRequestRelay instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns HistoryRequestRelay instance
+         */
+        static create(properties: fh.HistoryRequestRelay.$Shape): fh.HistoryRequestRelay & fh.HistoryRequestRelay.$Shape;
+        static create(properties?: fh.HistoryRequestRelay.$Properties): fh.HistoryRequestRelay;
+
+        /**
+         * Encodes the specified HistoryRequestRelay message. Does not implicitly {@link fh.HistoryRequestRelay.verify|verify} messages.
+         * @param message HistoryRequestRelay message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encode(message: fh.HistoryRequestRelay.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified HistoryRequestRelay message, length delimited. Does not implicitly {@link fh.HistoryRequestRelay.verify|verify} messages.
+         * @param message HistoryRequestRelay message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encodeDelimited(message: fh.HistoryRequestRelay.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a HistoryRequestRelay message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns {fh.HistoryRequestRelay & fh.HistoryRequestRelay.$Shape} HistoryRequestRelay
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): fh.HistoryRequestRelay & fh.HistoryRequestRelay.$Shape;
+
+        /**
+         * Decodes a HistoryRequestRelay message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns {fh.HistoryRequestRelay & fh.HistoryRequestRelay.$Shape} HistoryRequestRelay
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): fh.HistoryRequestRelay & fh.HistoryRequestRelay.$Shape;
+
+        /**
+         * Verifies a HistoryRequestRelay message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a HistoryRequestRelay message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns HistoryRequestRelay
+         */
+        static fromObject(object: { [k: string]: any }): fh.HistoryRequestRelay;
+
+        /**
+         * Creates a plain object from a HistoryRequestRelay message. Also converts values to other types if specified.
+         * @param message HistoryRequestRelay
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        static toObject(message: fh.HistoryRequestRelay, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this HistoryRequestRelay to JSON.
+         * @returns JSON object
+         */
+        toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the type url for HistoryRequestRelay
+         * @param [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns The type url
+         */
+        static getTypeUrl(prefix?: string): string;
+    }
+
+    namespace HistoryRequestRelay {
+
+        /** Properties of a HistoryRequestRelay. */
+        interface $Properties {
+
+            /** HistoryRequestRelay fromDeviceNumber */
+            fromDeviceNumber?: (number|null);
+
+            /** HistoryRequestRelay conversationIds */
+            conversationIds?: (Uint8Array[]|null);
+
+            /** Unknown fields preserved while decoding when enabled */
+            $unknowns?: Uint8Array[];
+        }
+
+        /** Shape of a HistoryRequestRelay. */
+        type $Shape = fh.HistoryRequestRelay.$Properties;
     }
 }

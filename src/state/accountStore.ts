@@ -30,7 +30,7 @@ import { nowSeconds } from '../utils/time'
 import { uuidV7 } from '../utils/uuid'
 import { getActiveClientOrNull, requireActiveClient } from '../ws/activeClient'
 import { clearIdentityChanges, type IdentityChange } from '../wasm'
-import type { PresenceEvent } from '../ws/events'
+import type { PresenceEvent, ConversationUpdatedEvent } from '../ws/events'
 import { TYPING_TTL_SECONDS, withTyping, type TypingState } from '../utils/typing'
 import { applyReceivedEnvelope, mergeById } from './applyEnvelope'
 import { enqueue, listOutbox, removeFromOutbox } from './outbox'
@@ -56,6 +56,7 @@ export type AccountStoreState = {
    * be worse than keeping it here.
    */
   account: Account
+  conversationVersions: Record<string, number>
   conversations: ConversationRecord[]
   /** The open conversation's window, newest first. */
   messages: MessageRecord[]
@@ -140,6 +141,7 @@ export type AccountActions = {
    * what made "open the conversation and read it" leave a "1" behind.
    */
   markRead: (conversationId: string) => Promise<void>
+  conversationUpdated: (event: ConversationUpdatedEvent) => void
   setPresence: (event: PresenceEvent) => void
   /** Records that `accountId` is typing in a conversation, for a few seconds. */
   setTyping: (conversationId: string, accountId: string) => void
@@ -171,6 +173,7 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
     accountId: account.id,
     account,
     conversations: [],
+    conversationVersions: {},
     messages: [],
     activeConversationId: null,
     presence: {},
@@ -566,6 +569,15 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
 
       setPresence(event) {
         set({ presence: { ...get().presence, [event.accountId]: event } })
+      },
+
+      conversationUpdated(event) {
+        set({
+          conversationVersions: { ...get().conversationVersions,
+            [event.conversationId]: (get().conversationVersions[event.conversationId] ?? 0) + 1 },
+          conversations: get().conversations.map((conversation) => conversation.id === event.conversationId && event.title !== null
+            ? { ...conversation, title: event.title } : conversation),
+        })
       },
 
       setTyping(conversationId, accountId) {

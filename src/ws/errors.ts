@@ -6,6 +6,9 @@
 export type WsErrorCode =
   /** Used before `connect()` succeeded, or after `close()`/a fatal error. */
   | 'not_connected'
+  | 'payload_too_large'
+  | 'bad_request'
+  | 'flood'
   /** No `ServerHello` within the handshake deadline. */
   | 'handshake_timeout'
   /** The socket closed while a handshake or a send was in flight. */

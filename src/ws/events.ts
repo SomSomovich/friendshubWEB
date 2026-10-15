@@ -53,7 +53,15 @@ export type ChannelPostEvent = {
   createdAt: number
 }
 
+export type ConversationUpdatedEvent = {
+  conversationId: string; title: string | null; description: string | null
+  isPublic: boolean | null; membersChanged: boolean
+}
+export type HistoryRequestEvent = { fromDeviceNumber: number; conversationIds: string[] }
+
 export type WsClientEvents = {
+  conversationUpdated: ConversationUpdatedEvent
+  historyRequest: HistoryRequestEvent
   /** Emitted on the first handshake and again after every reconnect. */
   connected: {
     sessionId: string

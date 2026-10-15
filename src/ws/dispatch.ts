@@ -9,6 +9,8 @@ import {
   toTypingEvent,
 } from './envelope'
 import type {
+  ConversationUpdatedEvent,
+  HistoryRequestEvent,
   BotMessageEvent,
   ChannelPostEvent,
   PresenceEvent,
@@ -19,6 +21,8 @@ import { fh } from './proto/friendshub.js'
 
 /** What the client does with each kind of frame that arrives. */
 export type FrameHandlers = {
+  onConversationUpdated(event: ConversationUpdatedEvent): void
+  onHistoryRequest(event: HistoryRequestEvent): void
   onHello(hello: fh.ServerHello): void
   onDelivery(envelopes: ReturnType<typeof fromProtoEnvelopesLenient>): void
   onReceipt(envelopeIds: string[], serverTimestamps: number[]): void
@@ -41,6 +45,22 @@ export type FrameHandlers = {
  */
 export function dispatchFrame(frame: fh.ServerFrame, handlers: FrameHandlers): void {
   switch (frame.kind) {
+    case 'conversationUpdated':
+      if (frame.conversationUpdated) {
+        const event = frame.conversationUpdated
+        handlers.onConversationUpdated({
+          conversationId: bytesToUuid(event.conversationId ?? new Uint8Array()),
+          title: event.title ?? null, description: event.description ?? null,
+          isPublic: event.isPublic ?? null, membersChanged: event.membersChanged ?? false,
+        })
+      }
+      return
+    case 'historyRequestRelay':
+      if (frame.historyRequestRelay) handlers.onHistoryRequest({
+        fromDeviceNumber: frame.historyRequestRelay.fromDeviceNumber ?? 0,
+        conversationIds: (frame.historyRequestRelay.conversationIds ?? []).map((id) => bytesToUuid(id)),
+      })
+      return
     case 'hello':
       if (frame.hello) {
         handlers.onHello(frame.hello as fh.ServerHello)

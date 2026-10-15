@@ -1097,7 +1097,8 @@ export const fh = $root.fh = (() => {
          * @property {fh.EnvelopeAck.$Properties|null} [ack] ClientFrame ack
          * @property {fh.Ping.$Properties|null} [ping] ClientFrame ping
          * @property {fh.TypingFrame.$Properties|null} [typing] ClientFrame typing
-         * @property {"hello"|"upload"|"ack"|"ping"|"typing"} [kind] ClientFrame kind
+         * @property {fh.HistoryRequest.$Properties|null} [historyRequest] ClientFrame historyRequest
+         * @property {"hello"|"upload"|"ack"|"ping"|"typing"|"historyRequest"} [kind] ClientFrame kind
          * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
          */
 
@@ -1117,9 +1118,10 @@ export const fh = $root.fh = (() => {
          *   ack?: fh.EnvelopeAck.$Shape|null;
          *   ping?: fh.Ping.$Shape|null;
          *   typing?: fh.TypingFrame.$Shape|null;
+         *   historyRequest?: fh.HistoryRequest.$Shape|null;
          *   $unknowns?: Array.<Uint8Array>;
          * } & (
-         *   ({ kind?: undefined; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null }|{ kind?: "hello"; hello: fh.ClientHello.$Shape; upload?: null; ack?: null; ping?: null; typing?: null }|{ kind?: "upload"; hello?: null; upload: fh.EnvelopeUpload.$Shape; ack?: null; ping?: null; typing?: null }|{ kind?: "ack"; hello?: null; upload?: null; ack: fh.EnvelopeAck.$Shape; ping?: null; typing?: null }|{ kind?: "ping"; hello?: null; upload?: null; ack?: null; ping: fh.Ping.$Shape; typing?: null }|{ kind?: "typing"; hello?: null; upload?: null; ack?: null; ping?: null; typing: fh.TypingFrame.$Shape })
+         *   ({ kind?: undefined; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest?: null }|{ kind?: "hello"; hello: fh.ClientHello.$Shape; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest?: null }|{ kind?: "upload"; hello?: null; upload: fh.EnvelopeUpload.$Shape; ack?: null; ping?: null; typing?: null; historyRequest?: null }|{ kind?: "ack"; hello?: null; upload?: null; ack: fh.EnvelopeAck.$Shape; ping?: null; typing?: null; historyRequest?: null }|{ kind?: "ping"; hello?: null; upload?: null; ack?: null; ping: fh.Ping.$Shape; typing?: null; historyRequest?: null }|{ kind?: "typing"; hello?: null; upload?: null; ack?: null; ping?: null; typing: fh.TypingFrame.$Shape; historyRequest?: null }|{ kind?: "historyRequest"; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest: fh.HistoryRequest.$Shape })
          * )} fh.ClientFrame.$Shape
          */
 
@@ -1178,17 +1180,25 @@ export const fh = $root.fh = (() => {
          */
         ClientFrame.prototype.typing = null;
 
+        /**
+         * ClientFrame historyRequest.
+         * @member {fh.HistoryRequest.$Properties|null|undefined} historyRequest
+         * @memberof fh.ClientFrame
+         * @instance
+         */
+        ClientFrame.prototype.historyRequest = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         /**
          * ClientFrame kind.
-         * @member {"hello"|"upload"|"ack"|"ping"|"typing"|undefined} kind
+         * @member {"hello"|"upload"|"ack"|"ping"|"typing"|"historyRequest"|undefined} kind
          * @memberof fh.ClientFrame
          * @instance
          */
         $Object.defineProperty(ClientFrame.prototype, "kind", {
-            get: $util.oneOfGetter($oneOfFields = ["hello", "upload", "ack", "ping", "typing"]),
+            get: $util.oneOfGetter($oneOfFields = ["hello", "upload", "ack", "ping", "typing", "historyRequest"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -1234,6 +1244,8 @@ export const fh = $root.fh = (() => {
                 $root.fh.Ping.encode(message.ping, writer.uint32(/* id 4, wireType 2 =*/34).fork(), _depth + 1).ldelim();
             if (message.typing != null && $Object.hasOwnProperty.call(message, "typing"))
                 $root.fh.TypingFrame.encode(message.typing, writer.uint32(/* id 5, wireType 2 =*/42).fork(), _depth + 1).ldelim();
+            if (message.historyRequest != null && $Object.hasOwnProperty.call(message, "historyRequest"))
+                $root.fh.HistoryRequest.encode(message.historyRequest, writer.uint32(/* id 6, wireType 2 =*/50).fork(), _depth + 1).ldelim();
             if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
                 for (let i = 0; i < message.$unknowns.length; ++i)
                     writer.raw(message.$unknowns[i]);
@@ -1324,6 +1336,13 @@ export const fh = $root.fh = (() => {
                             break;
                         message.typing = $root.fh.TypingFrame.decode(reader, reader.uint32(), $undefined, _depth + 1, message.typing);
                         message.kind = "typing";
+                        continue;
+                    }
+                case 6: {
+                        if (wireType !== 2)
+                            break;
+                        message.historyRequest = $root.fh.HistoryRequest.decode(reader, reader.uint32(), $undefined, _depth + 1, message.historyRequest);
+                        message.kind = "historyRequest";
                         continue;
                     }
                 }
@@ -1423,6 +1442,16 @@ export const fh = $root.fh = (() => {
                         return "typing." + error;
                 }
             }
+            if (message.historyRequest != null && $Object.hasOwnProperty.call(message, "historyRequest")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                {
+                    let error = $root.fh.HistoryRequest.verify(message.historyRequest, _depth + 1);
+                    if (error)
+                        return "historyRequest." + error;
+                }
+            }
             return null;
         };
 
@@ -1469,6 +1498,11 @@ export const fh = $root.fh = (() => {
                     throw $TypeError(".fh.ClientFrame.typing: object expected");
                 message.typing = $root.fh.TypingFrame.fromObject(object.typing, _depth + 1);
             }
+            if (object.historyRequest != null) {
+                if (!$util.isObject(object.historyRequest))
+                    throw $TypeError(".fh.ClientFrame.historyRequest: object expected");
+                message.historyRequest = $root.fh.HistoryRequest.fromObject(object.historyRequest, _depth + 1);
+            }
             return message;
         };
 
@@ -1513,6 +1547,11 @@ export const fh = $root.fh = (() => {
                 object.typing = $root.fh.TypingFrame.toObject(message.typing, options, _depth + 1);
                 if (options.oneofs)
                     object.kind = "typing";
+            }
+            if (message.historyRequest != null && $Object.hasOwnProperty.call(message, "historyRequest")) {
+                object.historyRequest = $root.fh.HistoryRequest.toObject(message.historyRequest, options, _depth + 1);
+                if (options.oneofs)
+                    object.kind = "historyRequest";
             }
             return object;
         };
@@ -2942,7 +2981,9 @@ export const fh = $root.fh = (() => {
          * @property {fh.ChannelPostDelivery.$Properties|null} [channelPost] ServerFrame channelPost
          * @property {fh.TypingDelivery.$Properties|null} [typing] ServerFrame typing
          * @property {fh.ReadReceiptDelivery.$Properties|null} [readReceipt] ServerFrame readReceipt
-         * @property {"hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt"} [kind] ServerFrame kind
+         * @property {fh.ConversationUpdatedDelivery.$Properties|null} [conversationUpdated] ServerFrame conversationUpdated
+         * @property {fh.HistoryRequestRelay.$Properties|null} [historyRequestRelay] ServerFrame historyRequestRelay
+         * @property {"hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt"|"conversationUpdated"|"historyRequestRelay"} [kind] ServerFrame kind
          * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
          */
 
@@ -2967,9 +3008,11 @@ export const fh = $root.fh = (() => {
          *   channelPost?: fh.ChannelPostDelivery.$Shape|null;
          *   typing?: fh.TypingDelivery.$Shape|null;
          *   readReceipt?: fh.ReadReceiptDelivery.$Shape|null;
+         *   conversationUpdated?: fh.ConversationUpdatedDelivery.$Shape|null;
+         *   historyRequestRelay?: fh.HistoryRequestRelay.$Shape|null;
          *   $unknowns?: Array.<Uint8Array>;
          * } & (
-         *   ({ kind?: undefined; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "hello"; hello: fh.ServerHello.$Shape; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "delivery"; hello?: null; delivery: fh.EnvelopeDelivery.$Shape; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "receipt"; hello?: null; delivery?: null; receipt: fh.EnvelopeAck.$Shape; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "pong"; hello?: null; delivery?: null; receipt?: null; pong: fh.Pong.$Shape; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "error"; hello?: null; delivery?: null; receipt?: null; pong?: null; error: fh.ErrorFrame.$Shape; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "presence"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence: fh.PresenceUpdate.$Shape; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "botMessage"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage: fh.BotMessageDelivery.$Shape; channelPost?: null; typing?: null; readReceipt?: null }|{ kind?: "channelPost"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost: fh.ChannelPostDelivery.$Shape; typing?: null; readReceipt?: null }|{ kind?: "typing"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing: fh.TypingDelivery.$Shape; readReceipt?: null }|{ kind?: "readReceipt"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt: fh.ReadReceiptDelivery.$Shape })
+         *   ({ kind?: undefined; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "hello"; hello: fh.ServerHello.$Shape; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "delivery"; hello?: null; delivery: fh.EnvelopeDelivery.$Shape; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "receipt"; hello?: null; delivery?: null; receipt: fh.EnvelopeAck.$Shape; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "pong"; hello?: null; delivery?: null; receipt?: null; pong: fh.Pong.$Shape; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "error"; hello?: null; delivery?: null; receipt?: null; pong?: null; error: fh.ErrorFrame.$Shape; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "presence"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence: fh.PresenceUpdate.$Shape; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "botMessage"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage: fh.BotMessageDelivery.$Shape; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "channelPost"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost: fh.ChannelPostDelivery.$Shape; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "typing"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing: fh.TypingDelivery.$Shape; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "readReceipt"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt: fh.ReadReceiptDelivery.$Shape; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "conversationUpdated"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated: fh.ConversationUpdatedDelivery.$Shape; historyRequestRelay?: null }|{ kind?: "historyRequestRelay"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay: fh.HistoryRequestRelay.$Shape })
          * )} fh.ServerFrame.$Shape
          */
 
@@ -3068,17 +3111,33 @@ export const fh = $root.fh = (() => {
          */
         ServerFrame.prototype.readReceipt = null;
 
+        /**
+         * ServerFrame conversationUpdated.
+         * @member {fh.ConversationUpdatedDelivery.$Properties|null|undefined} conversationUpdated
+         * @memberof fh.ServerFrame
+         * @instance
+         */
+        ServerFrame.prototype.conversationUpdated = null;
+
+        /**
+         * ServerFrame historyRequestRelay.
+         * @member {fh.HistoryRequestRelay.$Properties|null|undefined} historyRequestRelay
+         * @memberof fh.ServerFrame
+         * @instance
+         */
+        ServerFrame.prototype.historyRequestRelay = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         /**
          * ServerFrame kind.
-         * @member {"hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt"|undefined} kind
+         * @member {"hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt"|"conversationUpdated"|"historyRequestRelay"|undefined} kind
          * @memberof fh.ServerFrame
          * @instance
          */
         $Object.defineProperty(ServerFrame.prototype, "kind", {
-            get: $util.oneOfGetter($oneOfFields = ["hello", "delivery", "receipt", "pong", "error", "presence", "botMessage", "channelPost", "typing", "readReceipt"]),
+            get: $util.oneOfGetter($oneOfFields = ["hello", "delivery", "receipt", "pong", "error", "presence", "botMessage", "channelPost", "typing", "readReceipt", "conversationUpdated", "historyRequestRelay"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -3134,6 +3193,10 @@ export const fh = $root.fh = (() => {
                 $root.fh.TypingDelivery.encode(message.typing, writer.uint32(/* id 9, wireType 2 =*/74).fork(), _depth + 1).ldelim();
             if (message.readReceipt != null && $Object.hasOwnProperty.call(message, "readReceipt"))
                 $root.fh.ReadReceiptDelivery.encode(message.readReceipt, writer.uint32(/* id 10, wireType 2 =*/82).fork(), _depth + 1).ldelim();
+            if (message.conversationUpdated != null && $Object.hasOwnProperty.call(message, "conversationUpdated"))
+                $root.fh.ConversationUpdatedDelivery.encode(message.conversationUpdated, writer.uint32(/* id 11, wireType 2 =*/90).fork(), _depth + 1).ldelim();
+            if (message.historyRequestRelay != null && $Object.hasOwnProperty.call(message, "historyRequestRelay"))
+                $root.fh.HistoryRequestRelay.encode(message.historyRequestRelay, writer.uint32(/* id 12, wireType 2 =*/98).fork(), _depth + 1).ldelim();
             if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
                 for (let i = 0; i < message.$unknowns.length; ++i)
                     writer.raw(message.$unknowns[i]);
@@ -3259,6 +3322,20 @@ export const fh = $root.fh = (() => {
                             break;
                         message.readReceipt = $root.fh.ReadReceiptDelivery.decode(reader, reader.uint32(), $undefined, _depth + 1, message.readReceipt);
                         message.kind = "readReceipt";
+                        continue;
+                    }
+                case 11: {
+                        if (wireType !== 2)
+                            break;
+                        message.conversationUpdated = $root.fh.ConversationUpdatedDelivery.decode(reader, reader.uint32(), $undefined, _depth + 1, message.conversationUpdated);
+                        message.kind = "conversationUpdated";
+                        continue;
+                    }
+                case 12: {
+                        if (wireType !== 2)
+                            break;
+                        message.historyRequestRelay = $root.fh.HistoryRequestRelay.decode(reader, reader.uint32(), $undefined, _depth + 1, message.historyRequestRelay);
+                        message.kind = "historyRequestRelay";
                         continue;
                     }
                 }
@@ -3408,6 +3485,26 @@ export const fh = $root.fh = (() => {
                         return "readReceipt." + error;
                 }
             }
+            if (message.conversationUpdated != null && $Object.hasOwnProperty.call(message, "conversationUpdated")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                {
+                    let error = $root.fh.ConversationUpdatedDelivery.verify(message.conversationUpdated, _depth + 1);
+                    if (error)
+                        return "conversationUpdated." + error;
+                }
+            }
+            if (message.historyRequestRelay != null && $Object.hasOwnProperty.call(message, "historyRequestRelay")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                {
+                    let error = $root.fh.HistoryRequestRelay.verify(message.historyRequestRelay, _depth + 1);
+                    if (error)
+                        return "historyRequestRelay." + error;
+                }
+            }
             return null;
         };
 
@@ -3479,6 +3576,16 @@ export const fh = $root.fh = (() => {
                     throw $TypeError(".fh.ServerFrame.readReceipt: object expected");
                 message.readReceipt = $root.fh.ReadReceiptDelivery.fromObject(object.readReceipt, _depth + 1);
             }
+            if (object.conversationUpdated != null) {
+                if (!$util.isObject(object.conversationUpdated))
+                    throw $TypeError(".fh.ServerFrame.conversationUpdated: object expected");
+                message.conversationUpdated = $root.fh.ConversationUpdatedDelivery.fromObject(object.conversationUpdated, _depth + 1);
+            }
+            if (object.historyRequestRelay != null) {
+                if (!$util.isObject(object.historyRequestRelay))
+                    throw $TypeError(".fh.ServerFrame.historyRequestRelay: object expected");
+                message.historyRequestRelay = $root.fh.HistoryRequestRelay.fromObject(object.historyRequestRelay, _depth + 1);
+            }
             return message;
         };
 
@@ -3548,6 +3655,16 @@ export const fh = $root.fh = (() => {
                 object.readReceipt = $root.fh.ReadReceiptDelivery.toObject(message.readReceipt, options, _depth + 1);
                 if (options.oneofs)
                     object.kind = "readReceipt";
+            }
+            if (message.conversationUpdated != null && $Object.hasOwnProperty.call(message, "conversationUpdated")) {
+                object.conversationUpdated = $root.fh.ConversationUpdatedDelivery.toObject(message.conversationUpdated, options, _depth + 1);
+                if (options.oneofs)
+                    object.kind = "conversationUpdated";
+            }
+            if (message.historyRequestRelay != null && $Object.hasOwnProperty.call(message, "historyRequestRelay")) {
+                object.historyRequestRelay = $root.fh.HistoryRequestRelay.toObject(message.historyRequestRelay, options, _depth + 1);
+                if (options.oneofs)
+                    object.kind = "historyRequestRelay";
             }
             return object;
         };
@@ -7462,6 +7579,1063 @@ export const fh = $root.fh = (() => {
         };
 
         return ReadReceiptDelivery;
+    })();
+
+    fh.ConversationUpdatedDelivery = (function() {
+
+        /**
+         * Properties of a ConversationUpdatedDelivery.
+         * @typedef {Object} fh.ConversationUpdatedDelivery.$Properties
+         * @property {Uint8Array|null} [conversationId] ConversationUpdatedDelivery conversationId
+         * @property {string|null} [title] ConversationUpdatedDelivery title
+         * @property {string|null} [description] ConversationUpdatedDelivery description
+         * @property {boolean|null} [isPublic] ConversationUpdatedDelivery isPublic
+         * @property {boolean|null} [membersChanged] ConversationUpdatedDelivery membersChanged
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+
+        /**
+         * Properties of a ConversationUpdatedDelivery.
+         * @memberof fh
+         * @interface IConversationUpdatedDelivery
+         * @augments fh.ConversationUpdatedDelivery.$Properties
+         * @deprecated Use fh.ConversationUpdatedDelivery.$Properties instead.
+         */
+
+        /**
+         * Shape of a ConversationUpdatedDelivery.
+         * @typedef {fh.ConversationUpdatedDelivery.$Properties} fh.ConversationUpdatedDelivery.$Shape
+         */
+
+        /**
+         * Constructs a new ConversationUpdatedDelivery.
+         * @memberof fh
+         * @classdesc Represents a ConversationUpdatedDelivery.
+         * @constructor
+         * @param {fh.ConversationUpdatedDelivery.$Properties=} [properties] Properties to set
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+        const ConversationUpdatedDelivery = function (properties) {
+            if (properties)
+                for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                        this[keys[i]] = properties[keys[i]];
+        };
+
+        /**
+         * ConversationUpdatedDelivery conversationId.
+         * @member {Uint8Array} conversationId
+         * @memberof fh.ConversationUpdatedDelivery
+         * @instance
+         */
+        ConversationUpdatedDelivery.prototype.conversationId = $util.newBuffer([]);
+
+        /**
+         * ConversationUpdatedDelivery title.
+         * @member {string|null|undefined} title
+         * @memberof fh.ConversationUpdatedDelivery
+         * @instance
+         */
+        ConversationUpdatedDelivery.prototype.title = null;
+
+        /**
+         * ConversationUpdatedDelivery description.
+         * @member {string|null|undefined} description
+         * @memberof fh.ConversationUpdatedDelivery
+         * @instance
+         */
+        ConversationUpdatedDelivery.prototype.description = null;
+
+        /**
+         * ConversationUpdatedDelivery isPublic.
+         * @member {boolean|null|undefined} isPublic
+         * @memberof fh.ConversationUpdatedDelivery
+         * @instance
+         */
+        ConversationUpdatedDelivery.prototype.isPublic = null;
+
+        /**
+         * ConversationUpdatedDelivery membersChanged.
+         * @member {boolean} membersChanged
+         * @memberof fh.ConversationUpdatedDelivery
+         * @instance
+         */
+        ConversationUpdatedDelivery.prototype.membersChanged = false;
+
+        // OneOf field names bound to virtual getters and setters
+        let $oneOfFields;
+
+        // Virtual OneOf for proto3 optional field
+        $Object.defineProperty(ConversationUpdatedDelivery.prototype, "_title", {
+            get: $util.oneOfGetter($oneOfFields = ["title"]),
+            set: $util.oneOfSetter($oneOfFields)
+        });
+
+        // Virtual OneOf for proto3 optional field
+        $Object.defineProperty(ConversationUpdatedDelivery.prototype, "_description", {
+            get: $util.oneOfGetter($oneOfFields = ["description"]),
+            set: $util.oneOfSetter($oneOfFields)
+        });
+
+        // Virtual OneOf for proto3 optional field
+        $Object.defineProperty(ConversationUpdatedDelivery.prototype, "_isPublic", {
+            get: $util.oneOfGetter($oneOfFields = ["isPublic"]),
+            set: $util.oneOfSetter($oneOfFields)
+        });
+
+        /**
+         * Creates a new ConversationUpdatedDelivery instance using the specified properties.
+         * @function create
+         * @memberof fh.ConversationUpdatedDelivery
+         * @static
+         * @param {fh.ConversationUpdatedDelivery.$Properties=} [properties] Properties to set
+         * @returns {fh.ConversationUpdatedDelivery} ConversationUpdatedDelivery instance
+         * @type {{
+         *   (properties: fh.ConversationUpdatedDelivery.$Shape): fh.ConversationUpdatedDelivery & fh.ConversationUpdatedDelivery.$Shape;
+         *   (properties?: fh.ConversationUpdatedDelivery.$Properties): fh.ConversationUpdatedDelivery;
+         * }}
+         */
+        ConversationUpdatedDelivery.create = function(properties) {
+            return new ConversationUpdatedDelivery(properties);
+        };
+
+        /**
+         * Encodes the specified ConversationUpdatedDelivery message. Does not implicitly {@link fh.ConversationUpdatedDelivery.verify|verify} messages.
+         * @function encode
+         * @memberof fh.ConversationUpdatedDelivery
+         * @static
+         * @param {fh.ConversationUpdatedDelivery.$Properties} message ConversationUpdatedDelivery message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ConversationUpdatedDelivery.encode = function (message, writer, _depth) {
+            if (!writer)
+                writer = $Writer.create();
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId") && message.conversationId.length)
+                writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.conversationId);
+            if (message.title != null && $Object.hasOwnProperty.call(message, "title"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.title);
+            if (message.description != null && $Object.hasOwnProperty.call(message, "description"))
+                writer.uint32(/* id 3, wireType 2 =*/26).string(message.description);
+            if (message.isPublic != null && $Object.hasOwnProperty.call(message, "isPublic"))
+                writer.uint32(/* id 4, wireType 0 =*/32).bool(message.isPublic);
+            if (message.membersChanged != null && $Object.hasOwnProperty.call(message, "membersChanged") && message.membersChanged !== false)
+                writer.uint32(/* id 5, wireType 0 =*/40).bool(message.membersChanged);
+            if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified ConversationUpdatedDelivery message, length delimited. Does not implicitly {@link fh.ConversationUpdatedDelivery.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof fh.ConversationUpdatedDelivery
+         * @static
+         * @param {fh.ConversationUpdatedDelivery.$Properties} message ConversationUpdatedDelivery message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ConversationUpdatedDelivery.encodeDelimited = function(message, writer) {
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+        };
+
+        /**
+         * Decodes a ConversationUpdatedDelivery message from the specified reader or buffer.
+         * @function decode
+         * @memberof fh.ConversationUpdatedDelivery
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {fh.ConversationUpdatedDelivery & fh.ConversationUpdatedDelivery.$Shape} ConversationUpdatedDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ConversationUpdatedDelivery.decode = function (reader, length, _end, _depth, _target) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw $Error("max depth exceeded");
+            let end, message, value;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.fh.ConversationUpdatedDelivery();
+            while (reader.pos < end) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = $undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 2)
+                            break;
+                        if ((value = reader.bytes()).length)
+                            message.conversationId = value;
+                        else
+                            delete message.conversationId;
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 2)
+                            break;
+                        message.title = reader.stringVerify();
+                        message._title = "title";
+                        continue;
+                    }
+                case 3: {
+                        if (wireType !== 2)
+                            break;
+                        message.description = reader.stringVerify();
+                        message._description = "description";
+                        continue;
+                    }
+                case 4: {
+                        if (wireType !== 0)
+                            break;
+                        message.isPublic = reader.bool();
+                        message._isPublic = "isPublic";
+                        continue;
+                    }
+                case 5: {
+                        if (wireType !== 0)
+                            break;
+                        if (value = reader.bool())
+                            message.membersChanged = value;
+                        else
+                            delete message.membersChanged;
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                if (!reader.discardUnknown) {
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                }
+            }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
+            if (_end !== $undefined)
+                throw $Error("missing end group");
+            return message;
+        };
+
+        /**
+         * Decodes a ConversationUpdatedDelivery message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof fh.ConversationUpdatedDelivery
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {fh.ConversationUpdatedDelivery & fh.ConversationUpdatedDelivery.$Shape} ConversationUpdatedDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ConversationUpdatedDelivery.decodeDelimited = function(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a ConversationUpdatedDelivery message.
+         * @function verify
+         * @memberof fh.ConversationUpdatedDelivery
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        ConversationUpdatedDelivery.verify = function (message, _depth) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                return "max depth exceeded";
+            let properties = {};
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId"))
+                if (!(message.conversationId && typeof message.conversationId.length === "number" || $util.isString(message.conversationId)))
+                    return "conversationId: buffer expected";
+            if (message.title != null && $Object.hasOwnProperty.call(message, "title")) {
+                properties._title = 1;
+                if (!$util.isString(message.title))
+                    return "title: string expected";
+            }
+            if (message.description != null && $Object.hasOwnProperty.call(message, "description")) {
+                properties._description = 1;
+                if (!$util.isString(message.description))
+                    return "description: string expected";
+            }
+            if (message.isPublic != null && $Object.hasOwnProperty.call(message, "isPublic")) {
+                properties._isPublic = 1;
+                if (typeof message.isPublic !== "boolean")
+                    return "isPublic: boolean expected";
+            }
+            if (message.membersChanged != null && $Object.hasOwnProperty.call(message, "membersChanged"))
+                if (typeof message.membersChanged !== "boolean")
+                    return "membersChanged: boolean expected";
+            return null;
+        };
+
+        /**
+         * Creates a ConversationUpdatedDelivery message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof fh.ConversationUpdatedDelivery
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {fh.ConversationUpdatedDelivery} ConversationUpdatedDelivery
+         */
+        ConversationUpdatedDelivery.fromObject = function (object, _depth) {
+            if (object instanceof $root.fh.ConversationUpdatedDelivery)
+                return object;
+            if (!$util.isObject(object))
+                throw $TypeError(".fh.ConversationUpdatedDelivery: object expected");
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let message = new $root.fh.ConversationUpdatedDelivery();
+            if (object.conversationId != null)
+                if (object.conversationId.length)
+                    if (typeof object.conversationId === "string")
+                        $util.base64.decode(object.conversationId, message.conversationId = $util.newBuffer($util.base64.length(object.conversationId)), 0);
+                    else if (object.conversationId.length >= 0)
+                        message.conversationId = object.conversationId;
+            if (object.title != null)
+                message.title = $String(object.title);
+            if (object.description != null)
+                message.description = $String(object.description);
+            if (object.isPublic != null)
+                message.isPublic = $Boolean(object.isPublic);
+            if (object.membersChanged != null)
+                if (object.membersChanged)
+                    message.membersChanged = $Boolean(object.membersChanged);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a ConversationUpdatedDelivery message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof fh.ConversationUpdatedDelivery
+         * @static
+         * @param {fh.ConversationUpdatedDelivery} message ConversationUpdatedDelivery
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        ConversationUpdatedDelivery.toObject = function (message, options, _depth) {
+            if (!options)
+                options = {};
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let object = {};
+            if (options.defaults) {
+                if (options.bytes === $String)
+                    object.conversationId = "";
+                else {
+                    object.conversationId = [];
+                    if (options.bytes !== $Array)
+                        object.conversationId = $util.newBuffer(object.conversationId);
+                }
+                object.membersChanged = false;
+            }
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId"))
+                object.conversationId = options.bytes === $String ? $util.base64.encode(message.conversationId, 0, message.conversationId.length) : options.bytes === $Array ? $Array.prototype.slice.call(message.conversationId) : message.conversationId;
+            if (message.title != null && $Object.hasOwnProperty.call(message, "title"))
+                object.title = message.title;
+            if (message.description != null && $Object.hasOwnProperty.call(message, "description"))
+                object.description = message.description;
+            if (message.isPublic != null && $Object.hasOwnProperty.call(message, "isPublic"))
+                object.isPublic = message.isPublic;
+            if (message.membersChanged != null && $Object.hasOwnProperty.call(message, "membersChanged"))
+                object.membersChanged = message.membersChanged;
+            return object;
+        };
+
+        /**
+         * Converts this ConversationUpdatedDelivery to JSON.
+         * @function toJSON
+         * @memberof fh.ConversationUpdatedDelivery
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        ConversationUpdatedDelivery.prototype.toJSON = function() {
+            return ConversationUpdatedDelivery.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the type url for ConversationUpdatedDelivery
+         * @function getTypeUrl
+         * @memberof fh.ConversationUpdatedDelivery
+         * @static
+         * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns {string} The type url
+         */
+        ConversationUpdatedDelivery.getTypeUrl = function(prefix) {
+            if (prefix === $undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/fh.ConversationUpdatedDelivery";
+        };
+
+        return ConversationUpdatedDelivery;
+    })();
+
+    fh.HistoryRequest = (function() {
+
+        /**
+         * Properties of a HistoryRequest.
+         * @typedef {Object} fh.HistoryRequest.$Properties
+         * @property {number|null} [targetDeviceNumber] HistoryRequest targetDeviceNumber
+         * @property {Array.<Uint8Array>|null} [conversationIds] HistoryRequest conversationIds
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+
+        /**
+         * Properties of a HistoryRequest.
+         * @memberof fh
+         * @interface IHistoryRequest
+         * @augments fh.HistoryRequest.$Properties
+         * @deprecated Use fh.HistoryRequest.$Properties instead.
+         */
+
+        /**
+         * Shape of a HistoryRequest.
+         * @typedef {fh.HistoryRequest.$Properties} fh.HistoryRequest.$Shape
+         */
+
+        /**
+         * Constructs a new HistoryRequest.
+         * @memberof fh
+         * @classdesc Represents a HistoryRequest.
+         * @constructor
+         * @param {fh.HistoryRequest.$Properties=} [properties] Properties to set
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+        const HistoryRequest = function (properties) {
+            this.conversationIds = [];
+            if (properties)
+                for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                        this[keys[i]] = properties[keys[i]];
+        };
+
+        /**
+         * HistoryRequest targetDeviceNumber.
+         * @member {number} targetDeviceNumber
+         * @memberof fh.HistoryRequest
+         * @instance
+         */
+        HistoryRequest.prototype.targetDeviceNumber = 0;
+
+        /**
+         * HistoryRequest conversationIds.
+         * @member {Array.<Uint8Array>} conversationIds
+         * @memberof fh.HistoryRequest
+         * @instance
+         */
+        HistoryRequest.prototype.conversationIds = $util.emptyArray;
+
+        /**
+         * Creates a new HistoryRequest instance using the specified properties.
+         * @function create
+         * @memberof fh.HistoryRequest
+         * @static
+         * @param {fh.HistoryRequest.$Properties=} [properties] Properties to set
+         * @returns {fh.HistoryRequest} HistoryRequest instance
+         * @type {{
+         *   (properties: fh.HistoryRequest.$Shape): fh.HistoryRequest & fh.HistoryRequest.$Shape;
+         *   (properties?: fh.HistoryRequest.$Properties): fh.HistoryRequest;
+         * }}
+         */
+        HistoryRequest.create = function(properties) {
+            return new HistoryRequest(properties);
+        };
+
+        /**
+         * Encodes the specified HistoryRequest message. Does not implicitly {@link fh.HistoryRequest.verify|verify} messages.
+         * @function encode
+         * @memberof fh.HistoryRequest
+         * @static
+         * @param {fh.HistoryRequest.$Properties} message HistoryRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        HistoryRequest.encode = function (message, writer, _depth) {
+            if (!writer)
+                writer = $Writer.create();
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            if (message.targetDeviceNumber != null && $Object.hasOwnProperty.call(message, "targetDeviceNumber") && message.targetDeviceNumber !== 0)
+                writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.targetDeviceNumber);
+            if (message.conversationIds != null && message.conversationIds.length)
+                for (let i = 0; i < message.conversationIds.length; ++i)
+                    writer.uint32(/* id 2, wireType 2 =*/18).bytes(message.conversationIds[i]);
+            if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified HistoryRequest message, length delimited. Does not implicitly {@link fh.HistoryRequest.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof fh.HistoryRequest
+         * @static
+         * @param {fh.HistoryRequest.$Properties} message HistoryRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        HistoryRequest.encodeDelimited = function(message, writer) {
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+        };
+
+        /**
+         * Decodes a HistoryRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof fh.HistoryRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {fh.HistoryRequest & fh.HistoryRequest.$Shape} HistoryRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        HistoryRequest.decode = function (reader, length, _end, _depth, _target) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw $Error("max depth exceeded");
+            let end, message, value;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.fh.HistoryRequest();
+            while (reader.pos < end) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = $undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        if (value = reader.uint32())
+                            message.targetDeviceNumber = value;
+                        else
+                            delete message.targetDeviceNumber;
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 2)
+                            break;
+                        if (!(message.conversationIds && message.conversationIds.length))
+                            message.conversationIds = [];
+                        message.conversationIds.push(reader.bytes());
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                if (!reader.discardUnknown) {
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                }
+            }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
+            if (_end !== $undefined)
+                throw $Error("missing end group");
+            return message;
+        };
+
+        /**
+         * Decodes a HistoryRequest message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof fh.HistoryRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {fh.HistoryRequest & fh.HistoryRequest.$Shape} HistoryRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        HistoryRequest.decodeDelimited = function(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a HistoryRequest message.
+         * @function verify
+         * @memberof fh.HistoryRequest
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        HistoryRequest.verify = function (message, _depth) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                return "max depth exceeded";
+            if (message.targetDeviceNumber != null && $Object.hasOwnProperty.call(message, "targetDeviceNumber"))
+                if (!$util.isInteger(message.targetDeviceNumber))
+                    return "targetDeviceNumber: integer expected";
+            if (message.conversationIds != null && $Object.hasOwnProperty.call(message, "conversationIds")) {
+                if (!$Array.isArray(message.conversationIds))
+                    return "conversationIds: array expected";
+                for (let i = 0; i < message.conversationIds.length; ++i)
+                    if (!(message.conversationIds[i] && typeof message.conversationIds[i].length === "number" || $util.isString(message.conversationIds[i])))
+                        return "conversationIds: buffer[] expected";
+            }
+            return null;
+        };
+
+        /**
+         * Creates a HistoryRequest message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof fh.HistoryRequest
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {fh.HistoryRequest} HistoryRequest
+         */
+        HistoryRequest.fromObject = function (object, _depth) {
+            if (object instanceof $root.fh.HistoryRequest)
+                return object;
+            if (!$util.isObject(object))
+                throw $TypeError(".fh.HistoryRequest: object expected");
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let message = new $root.fh.HistoryRequest();
+            if (object.targetDeviceNumber != null)
+                if ($Number(object.targetDeviceNumber) !== 0)
+                    message.targetDeviceNumber = object.targetDeviceNumber >>> 0;
+            if (object.conversationIds) {
+                if (!$Array.isArray(object.conversationIds))
+                    throw $TypeError(".fh.HistoryRequest.conversationIds: array expected");
+                message.conversationIds = $Array(object.conversationIds.length);
+                for (let i = 0; i < object.conversationIds.length; ++i)
+                    if (typeof object.conversationIds[i] === "string")
+                        $util.base64.decode(object.conversationIds[i], message.conversationIds[i] = $util.newBuffer($util.base64.length(object.conversationIds[i])), 0);
+                    else if (object.conversationIds[i].length >= 0)
+                        message.conversationIds[i] = object.conversationIds[i];
+            }
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a HistoryRequest message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof fh.HistoryRequest
+         * @static
+         * @param {fh.HistoryRequest} message HistoryRequest
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        HistoryRequest.toObject = function (message, options, _depth) {
+            if (!options)
+                options = {};
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let object = {};
+            if (options.arrays || options.defaults)
+                object.conversationIds = [];
+            if (options.defaults)
+                object.targetDeviceNumber = 0;
+            if (message.targetDeviceNumber != null && $Object.hasOwnProperty.call(message, "targetDeviceNumber"))
+                object.targetDeviceNumber = message.targetDeviceNumber;
+            if (message.conversationIds && message.conversationIds.length) {
+                object.conversationIds = $Array(message.conversationIds.length);
+                for (let j = 0; j < message.conversationIds.length; ++j)
+                    object.conversationIds[j] = options.bytes === $String ? $util.base64.encode(message.conversationIds[j], 0, message.conversationIds[j].length) : options.bytes === $Array ? $Array.prototype.slice.call(message.conversationIds[j]) : message.conversationIds[j];
+            }
+            return object;
+        };
+
+        /**
+         * Converts this HistoryRequest to JSON.
+         * @function toJSON
+         * @memberof fh.HistoryRequest
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        HistoryRequest.prototype.toJSON = function() {
+            return HistoryRequest.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the type url for HistoryRequest
+         * @function getTypeUrl
+         * @memberof fh.HistoryRequest
+         * @static
+         * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns {string} The type url
+         */
+        HistoryRequest.getTypeUrl = function(prefix) {
+            if (prefix === $undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/fh.HistoryRequest";
+        };
+
+        return HistoryRequest;
+    })();
+
+    fh.HistoryRequestRelay = (function() {
+
+        /**
+         * Properties of a HistoryRequestRelay.
+         * @typedef {Object} fh.HistoryRequestRelay.$Properties
+         * @property {number|null} [fromDeviceNumber] HistoryRequestRelay fromDeviceNumber
+         * @property {Array.<Uint8Array>|null} [conversationIds] HistoryRequestRelay conversationIds
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+
+        /**
+         * Properties of a HistoryRequestRelay.
+         * @memberof fh
+         * @interface IHistoryRequestRelay
+         * @augments fh.HistoryRequestRelay.$Properties
+         * @deprecated Use fh.HistoryRequestRelay.$Properties instead.
+         */
+
+        /**
+         * Shape of a HistoryRequestRelay.
+         * @typedef {fh.HistoryRequestRelay.$Properties} fh.HistoryRequestRelay.$Shape
+         */
+
+        /**
+         * Constructs a new HistoryRequestRelay.
+         * @memberof fh
+         * @classdesc Represents a HistoryRequestRelay.
+         * @constructor
+         * @param {fh.HistoryRequestRelay.$Properties=} [properties] Properties to set
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+        const HistoryRequestRelay = function (properties) {
+            this.conversationIds = [];
+            if (properties)
+                for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                        this[keys[i]] = properties[keys[i]];
+        };
+
+        /**
+         * HistoryRequestRelay fromDeviceNumber.
+         * @member {number} fromDeviceNumber
+         * @memberof fh.HistoryRequestRelay
+         * @instance
+         */
+        HistoryRequestRelay.prototype.fromDeviceNumber = 0;
+
+        /**
+         * HistoryRequestRelay conversationIds.
+         * @member {Array.<Uint8Array>} conversationIds
+         * @memberof fh.HistoryRequestRelay
+         * @instance
+         */
+        HistoryRequestRelay.prototype.conversationIds = $util.emptyArray;
+
+        /**
+         * Creates a new HistoryRequestRelay instance using the specified properties.
+         * @function create
+         * @memberof fh.HistoryRequestRelay
+         * @static
+         * @param {fh.HistoryRequestRelay.$Properties=} [properties] Properties to set
+         * @returns {fh.HistoryRequestRelay} HistoryRequestRelay instance
+         * @type {{
+         *   (properties: fh.HistoryRequestRelay.$Shape): fh.HistoryRequestRelay & fh.HistoryRequestRelay.$Shape;
+         *   (properties?: fh.HistoryRequestRelay.$Properties): fh.HistoryRequestRelay;
+         * }}
+         */
+        HistoryRequestRelay.create = function(properties) {
+            return new HistoryRequestRelay(properties);
+        };
+
+        /**
+         * Encodes the specified HistoryRequestRelay message. Does not implicitly {@link fh.HistoryRequestRelay.verify|verify} messages.
+         * @function encode
+         * @memberof fh.HistoryRequestRelay
+         * @static
+         * @param {fh.HistoryRequestRelay.$Properties} message HistoryRequestRelay message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        HistoryRequestRelay.encode = function (message, writer, _depth) {
+            if (!writer)
+                writer = $Writer.create();
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            if (message.fromDeviceNumber != null && $Object.hasOwnProperty.call(message, "fromDeviceNumber") && message.fromDeviceNumber !== 0)
+                writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.fromDeviceNumber);
+            if (message.conversationIds != null && message.conversationIds.length)
+                for (let i = 0; i < message.conversationIds.length; ++i)
+                    writer.uint32(/* id 2, wireType 2 =*/18).bytes(message.conversationIds[i]);
+            if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified HistoryRequestRelay message, length delimited. Does not implicitly {@link fh.HistoryRequestRelay.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof fh.HistoryRequestRelay
+         * @static
+         * @param {fh.HistoryRequestRelay.$Properties} message HistoryRequestRelay message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        HistoryRequestRelay.encodeDelimited = function(message, writer) {
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+        };
+
+        /**
+         * Decodes a HistoryRequestRelay message from the specified reader or buffer.
+         * @function decode
+         * @memberof fh.HistoryRequestRelay
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {fh.HistoryRequestRelay & fh.HistoryRequestRelay.$Shape} HistoryRequestRelay
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        HistoryRequestRelay.decode = function (reader, length, _end, _depth, _target) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw $Error("max depth exceeded");
+            let end, message, value;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.fh.HistoryRequestRelay();
+            while (reader.pos < end) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = $undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        if (value = reader.uint32())
+                            message.fromDeviceNumber = value;
+                        else
+                            delete message.fromDeviceNumber;
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 2)
+                            break;
+                        if (!(message.conversationIds && message.conversationIds.length))
+                            message.conversationIds = [];
+                        message.conversationIds.push(reader.bytes());
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                if (!reader.discardUnknown) {
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                }
+            }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
+            if (_end !== $undefined)
+                throw $Error("missing end group");
+            return message;
+        };
+
+        /**
+         * Decodes a HistoryRequestRelay message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof fh.HistoryRequestRelay
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {fh.HistoryRequestRelay & fh.HistoryRequestRelay.$Shape} HistoryRequestRelay
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        HistoryRequestRelay.decodeDelimited = function(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a HistoryRequestRelay message.
+         * @function verify
+         * @memberof fh.HistoryRequestRelay
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        HistoryRequestRelay.verify = function (message, _depth) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                return "max depth exceeded";
+            if (message.fromDeviceNumber != null && $Object.hasOwnProperty.call(message, "fromDeviceNumber"))
+                if (!$util.isInteger(message.fromDeviceNumber))
+                    return "fromDeviceNumber: integer expected";
+            if (message.conversationIds != null && $Object.hasOwnProperty.call(message, "conversationIds")) {
+                if (!$Array.isArray(message.conversationIds))
+                    return "conversationIds: array expected";
+                for (let i = 0; i < message.conversationIds.length; ++i)
+                    if (!(message.conversationIds[i] && typeof message.conversationIds[i].length === "number" || $util.isString(message.conversationIds[i])))
+                        return "conversationIds: buffer[] expected";
+            }
+            return null;
+        };
+
+        /**
+         * Creates a HistoryRequestRelay message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof fh.HistoryRequestRelay
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {fh.HistoryRequestRelay} HistoryRequestRelay
+         */
+        HistoryRequestRelay.fromObject = function (object, _depth) {
+            if (object instanceof $root.fh.HistoryRequestRelay)
+                return object;
+            if (!$util.isObject(object))
+                throw $TypeError(".fh.HistoryRequestRelay: object expected");
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let message = new $root.fh.HistoryRequestRelay();
+            if (object.fromDeviceNumber != null)
+                if ($Number(object.fromDeviceNumber) !== 0)
+                    message.fromDeviceNumber = object.fromDeviceNumber >>> 0;
+            if (object.conversationIds) {
+                if (!$Array.isArray(object.conversationIds))
+                    throw $TypeError(".fh.HistoryRequestRelay.conversationIds: array expected");
+                message.conversationIds = $Array(object.conversationIds.length);
+                for (let i = 0; i < object.conversationIds.length; ++i)
+                    if (typeof object.conversationIds[i] === "string")
+                        $util.base64.decode(object.conversationIds[i], message.conversationIds[i] = $util.newBuffer($util.base64.length(object.conversationIds[i])), 0);
+                    else if (object.conversationIds[i].length >= 0)
+                        message.conversationIds[i] = object.conversationIds[i];
+            }
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a HistoryRequestRelay message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof fh.HistoryRequestRelay
+         * @static
+         * @param {fh.HistoryRequestRelay} message HistoryRequestRelay
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        HistoryRequestRelay.toObject = function (message, options, _depth) {
+            if (!options)
+                options = {};
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let object = {};
+            if (options.arrays || options.defaults)
+                object.conversationIds = [];
+            if (options.defaults)
+                object.fromDeviceNumber = 0;
+            if (message.fromDeviceNumber != null && $Object.hasOwnProperty.call(message, "fromDeviceNumber"))
+                object.fromDeviceNumber = message.fromDeviceNumber;
+            if (message.conversationIds && message.conversationIds.length) {
+                object.conversationIds = $Array(message.conversationIds.length);
+                for (let j = 0; j < message.conversationIds.length; ++j)
+                    object.conversationIds[j] = options.bytes === $String ? $util.base64.encode(message.conversationIds[j], 0, message.conversationIds[j].length) : options.bytes === $Array ? $Array.prototype.slice.call(message.conversationIds[j]) : message.conversationIds[j];
+            }
+            return object;
+        };
+
+        /**
+         * Converts this HistoryRequestRelay to JSON.
+         * @function toJSON
+         * @memberof fh.HistoryRequestRelay
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        HistoryRequestRelay.prototype.toJSON = function() {
+            return HistoryRequestRelay.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the type url for HistoryRequestRelay
+         * @function getTypeUrl
+         * @memberof fh.HistoryRequestRelay
+         * @static
+         * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns {string} The type url
+         */
+        HistoryRequestRelay.getTypeUrl = function(prefix) {
+            if (prefix === $undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/fh.HistoryRequestRelay";
+        };
+
+        return HistoryRequestRelay;
     })();
 
     return fh;

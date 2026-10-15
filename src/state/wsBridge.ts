@@ -1,6 +1,6 @@
 import type { StoreApi } from 'zustand/vanilla'
 import { getConversationReads } from '../api/conversations'
-import { isDeadSessionCode, reportSessionExpired } from '../auth/sessionExpiry'
+import { reportSessionExpired } from '../auth/sessionExpiry'
 import { ensurePrekeysUploaded } from '../crypto/account'
 import { i18n } from '../i18n'
 import { announceIncoming } from '../pwa/notify'
@@ -76,6 +76,10 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     store.getState().actions.setPresence(event)
   })
 
+  const detachConversationUpdated = client.on('conversationUpdated', (event) => {
+    store.getState().actions.conversationUpdated(event)
+    void store.getState().actions.loadConversations()
+  })
   const detachTyping = client.on('typing', ({ conversationId, accountId }) => {
     store.getState().actions.setTyping(conversationId, accountId)
   })
@@ -99,10 +103,8 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
   })
 
   const detachFatal = client.on('fatal', ({ code }) => {
-    // The one fatal case worth acting on: a session that will never work again.
-    // Everything else — a protocol mismatch, a flood — is a broken connection,
-    // and the socket's own reconnect loop is the right answer to it.
-    if (isDeadSessionCode(code)) {
+    // Per the API, every fatal error except flood requires a fresh login.
+    if (code !== 'flood') {
       void reportSessionExpired(account)
     }
   })
@@ -173,6 +175,7 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     detachReceipt()
     detachPresence()
     detachTyping()
+    detachConversationUpdated()
     detachReadReceipt()
     detachBotMessage()
     detachConnected()

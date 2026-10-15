@@ -55,6 +55,7 @@ message ClientFrame {
     EnvelopeAck ack = 3;
     Ping ping = 4;
     TypingFrame typing = 5;
+    HistoryRequest history_request = 6;
   }
 }
 
@@ -96,6 +97,8 @@ message ServerFrame {
     ChannelPostDelivery channel_post = 8;
     TypingDelivery typing = 9;
     ReadReceiptDelivery read_receipt = 10;
+    ConversationUpdatedDelivery conversation_updated = 11;
+    HistoryRequestRelay history_request_relay = 12;
   }
 }
 
@@ -166,4 +169,38 @@ message ReadReceiptDelivery {
   bytes conversation_id = 1;
   bytes account_id = 2;
   int64 last_read_at = 3;
+}
+
+// Metadata of a group or channel changed, or its member list changed.
+// Fields are the current values, not a delta: a client that missed an
+// earlier frame still ends up consistent after any later one.
+message ConversationUpdatedDelivery {
+  bytes conversation_id = 1;
+  optional string title = 2;
+  optional string description = 3;
+  optional bool is_public = 4;
+  bool members_changed = 5;
+}
+// History sync between two devices of the same account.
+//
+// `HistoryRequest` travels from a newly registered device that has no
+// local history to an older device that does. The server validates that
+// `target_device_number` names another active device of the sender's
+// account and that every conversation id in the list is one the sender
+// is a member of, then relays the request as `HistoryRequestRelay`.
+//
+// The relayed frame carries only the request: the actual history is
+// sent back as ordinary `Envelope`s, addressed by the old device to the
+// new one, and encrypted with the sessions the old device establishes
+// for the new. The server neither reads nor stores any of it beyond the
+// normal envelope path.
+
+message HistoryRequest {
+  uint32 target_device_number = 1;
+  repeated bytes conversation_ids = 2;
+}
+
+message HistoryRequestRelay {
+  uint32 from_device_number = 1;
+  repeated bytes conversation_ids = 2;
 }

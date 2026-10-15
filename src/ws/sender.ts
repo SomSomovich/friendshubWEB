@@ -8,6 +8,7 @@ import { isSocketOpen } from './socket'
 
 /** The server accepts up to 128 envelopes per frame and drops flooders. */
 const MAX_ENVELOPES_PER_FRAME = 128
+const MAX_FRAME_BYTES = 256 * 1024
 /** Well under the server's 256 KiB write-buffer limit. */
 const MAX_BUFFERED_BYTES = 64 * 1024
 const KEEP_ALIVE_INTERVAL_MS = 30_000
@@ -37,13 +38,25 @@ export class FrameSender {
     if (!isSocketOpen(socket)) {
       throw new WsError('the socket is not open', { code: 'not_connected' })
     }
-    socket.send(asBinaryPayload(encodeClientFrame(frame)))
+    const encoded = encodeClientFrame(frame)
+    if (encoded.byteLength > MAX_FRAME_BYTES) throw new WsError('frame exceeds 256 KiB', { code: 'payload_too_large' })
+    socket.send(asBinaryPayload(encoded))
   }
 
   /** Uploads envelopes, chunked to the documented frame limit. */
   async uploadEnvelopes(envelopes: Envelope[]): Promise<void> {
-    for (let index = 0; index < envelopes.length; index += MAX_ENVELOPES_PER_FRAME) {
-      const batch = envelopes.slice(index, index + MAX_ENVELOPES_PER_FRAME)
+    let batch: Envelope[] = []
+    for (const envelope of envelopes) {
+      if (envelope.ciphertext.length / 2 > 64 * 1024) throw new WsError('ciphertext exceeds 64 KiB', { code: 'payload_too_large' })
+      const candidate = [...batch, envelope]
+      if (candidate.length > MAX_ENVELOPES_PER_FRAME || encodeClientFrame({ upload: { envelopes: toProtoEnvelopes(candidate) } }).byteLength > MAX_FRAME_BYTES) {
+        await this.waitForDrain()
+        this.sendFrame({ upload: { envelopes: toProtoEnvelopes(batch) } })
+        batch = []
+      }
+      batch.push(envelope)
+    }
+    if (batch.length > 0) {
       await this.waitForDrain()
       this.sendFrame({ upload: { envelopes: toProtoEnvelopes(batch) } })
     }
@@ -58,6 +71,13 @@ export class FrameSender {
    */
   sendTyping(conversationId: string): void {
     this.sendFrame({ typing: { conversationId: uuidToBytes(conversationId) } })
+  }
+
+  requestHistory(targetDeviceNumber: number, conversationIds: string[]): void {
+    if (!Number.isSafeInteger(targetDeviceNumber) || targetDeviceNumber < 1 || targetDeviceNumber > 0xffffffff || conversationIds.length > 200) {
+      throw new WsError('invalid history request', { code: 'bad_request' })
+    }
+    this.sendFrame({ historyRequest: { targetDeviceNumber, conversationIds: conversationIds.map(uuidToBytes) } })
   }
 
   /** Acknowledges delivered envelopes so the server stops replaying them. */

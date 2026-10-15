@@ -1,3 +1,5 @@
+import { useStore } from 'zustand'
+import { requireAccountStore } from '../state/accountRegistry'
 import { useCallback, useEffect, useState } from 'react'
 import { listChannelMembers } from '../api/channels'
 import { listGroupMembers, type GroupRole } from '../api/groups'
@@ -60,6 +62,7 @@ export function useConversationMembers(
   conversationId: string,
   kind: ConversationKind | null,
 ): ConversationMembersState {
+  const version = useStore(requireAccountStore(account.id), (state) => state.conversationVersions[conversationId] ?? 0)
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [token, setToken] = useState(0)
 
@@ -112,7 +115,7 @@ export function useConversationMembers(
     return () => {
       cancelled = true
     }
-  }, [account, conversationId, kind, token])
+  }, [account, conversationId, kind, token, version])
 
   const refresh = useCallback(() => {
     setToken((value) => value + 1)
