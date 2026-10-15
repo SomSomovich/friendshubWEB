@@ -2,7 +2,7 @@
 FRIENDSHUB API
 ================================================================================
 Полное описание HTTP и WebSocket API.
-Версия: 2026-10-15
+Версия: 2026-10-15, вечер
 Базовые URL:
     HTTP API:  https://api-fh.somuch-system.ru/api/v1
     Bot API:   https://api-fh.somuch-system.ru/api/bot/v1
@@ -1133,6 +1133,7 @@ Auth: Bearer
 
 Query:
     before  (i64, опционально)  Курсор server_timestamp
+    before_id (uuid, опционально) envelope_id последнего envelope
     limit   (i64, опционально)  1..500, дефолт 200
 
 Ответ 200:
@@ -1150,6 +1151,11 @@ Query:
         "conversation_id":         "<uuid>"
       }
     ]
+
+Порядок: server_timestamp DESC, envelope_id DESC.
+Пагинация: передавать before=server_timestamp и before_id=envelope_id
+последнего элемента предыдущей страницы. Граница исключается целиком.
+Один before поддерживается для совместимости, но теряет точность в секунде.
 
 Применение:
     - Восстановление истории на том же устройстве после потери
@@ -1192,6 +1198,7 @@ Auth: Bearer
 
 Query:
     before          (i64, опционально)  Курсор server_timestamp
+    before_id       (uuid, опционально) envelope_id последнего envelope
     limit           (i64, опционально)  1..500, дефолт 100
     envelope_type   (i64, опционально)  Фильтр по типу envelope
 
@@ -1212,8 +1219,9 @@ Query:
       ]
     }
 
-Порядок: server_timestamp DESC.
-Пагинация: before = server_timestamp последнего элемента.
+Порядок: server_timestamp DESC, envelope_id DESC.
+Пагинация: before = server_timestamp и before_id = envelope_id
+последнего элемента. Передавать оба поля, включая страницы служебных envelope.
 
 Ошибки: 404 — saved ещё не создан
 
@@ -2003,7 +2011,7 @@ DELETE — отписаться. Owner не может отписаться.
 --------------------------------------------------------------------------------
 GET /api/v1/channels/{id}/analytics
 --------------------------------------------------------------------------------
-Права: owner.
+Права: owner или admin (та же проверка can_publish, что для публикации).
 
 Ответ 200:
     {
@@ -2127,8 +2135,9 @@ GET /api/v1/channels/{id}/pinned
 GET /api/v1/channel-posts/{post_id}/reactions
 --------------------------------------------------------------------------------
 Query:
-    before  (i64, опционально)  seq последней реакции прошлой страницы
-    limit   (i64, опционально)  1..200, дефолт 50
+    before_created_at (i64, опционально) created_at последней реакции
+    before_actor_id   (uuid, опционально) actor_id последней реакции
+    limit             (i64, опционально) 1..200, дефолт 50
 
 Ответ 200:
     [
@@ -2140,7 +2149,10 @@ Query:
       }
     ]
 
-Порядок: seq DESC (эквивалент created_at DESC).
+Порядок: created_at DESC, actor_id DESC.
+Пагинация: брать created_at и actor_id последнего элемента и передавать
+оба параметра. Без before_actor_id сервер подставляет sentinel
+ffffffff-ffff-ffff-ffff-ffffffffffff; для точной границы нужны оба поля.
 
 
 --------------------------------------------------------------------------------
@@ -2273,6 +2285,7 @@ GET /api/v1/bots/{id}/messages
 
 Query:
     before  (i64, опционально)  Курсор created_at
+    before_id (uuid, опционально) id последнего сообщения
     limit   (i64, опционально)  1..200, дефолт 100
 
 Ответ 200:
@@ -2289,7 +2302,8 @@ Query:
     ]
 
 Порядок: created_at DESC, id DESC (новые сверху).
-Пагинация: before = created_at последнего элемента.
+Пагинация: before = created_at и before_id = id последнего элемента.
+Передавать оба поля, чтобы не терять сообщения с одинаковым created_at.
 
 ВАЖНО: порядок изменился на DESC. Раньше был ASC.
 
@@ -2519,7 +2533,11 @@ DELETE /api/v1/invites/{id}
 --------------------------------------------------------------------------------
 POST /api/v1/invites/join/{token}
 --------------------------------------------------------------------------------
-Только для group.
+Поддерживаются group и channel; direct и saved возвращают 400.
+Group добавляет member в conversation_members, channel — subscriber
+в channel_members. Уже существующий участник получает 200 без расхода
+инвайта. One_time расходуется только при первом новом вступлении;
+permanent не расходуется. Исчерпанный инвайт для нового участника — 409.
 
 Ответ 200: { "conversation_id": "<uuid>" }
 Ошибки: 400, 404, 409
@@ -2819,17 +2837,20 @@ Body: { "endpoint": "https://fcm.googleapis.com/..." }
     registered
     login_ok
     login_fail
-    totp_enabled              (пока не пишется)
-    totp_disabled             (пока не пишется)
+    totp_enabled
+    totp_disabled
     device_registered
-    device_revoked            (пока не пишется)
-    sessions_revoked          (пока не пишется)
-    account_deletion_initiated (пока не пишется)
-    account_deletion_confirmed (пока не пишется)
+    device_revoked
+    sessions_revoked
+    account_deletion_initiated
     group_owner_transferred
-    channel_owner_transferred (пока не пишется)
-    group_deleted             (пока не пишется)
-    channel_deleted           (пока не пишется)
+    channel_owner_transferred
+    group_deleted
+    channel_deleted
+
+login_ok пишется только после полной аутентификации: /login без 2FA
+или успешный /login/2fa. account_deletion_confirmed не пишется:
+событие удалилось бы каскадом вместе с аккаунтом.
 
 --------------------------------------------------------------------------------
 GET /api/v1/security/events
@@ -2853,6 +2874,11 @@ Query:
 
 Порядок: created_at DESC.
 
+metadata: device_revoked -> "device_number=3";
+sessions_revoked -> "count=5"; *_owner_transferred -> UUID нового
+владельца; group_deleted/channel_deleted -> UUID конверсации;
+для остальных событий null.
+
 
 ================================================================================
 29. METRICS
@@ -2869,6 +2895,8 @@ GET /metrics
 Метрики:
     friendshub_http_requests_total                 counter
     friendshub_http_requests_5xx_total             counter
+    friendshub_http_requests_by_route              counter {method,route}
+    friendshub_http_requests_5xx_by_route           counter {method,route}
     friendshub_envelopes_uploaded_total            counter
     friendshub_envelopes_delivered_total           counter
     friendshub_envelopes_pushed_total              counter
@@ -2881,6 +2909,12 @@ GET /metrics
     friendshub_push_failed_total                   counter
     friendshub_websocket_connections               gauge
     friendshub_uptime_seconds                      gauge
+
+route нормализован: UUID и handle после handles/by-handle -> {param},
+короткие числовые сегменты -> {id}. Кардинальность ограничена маршрутами.
+Пример Grafana: sum by (route) (rate(friendshub_http_requests_by_route[5m]))
+Ошибки 5xx: sum by (route) (rate(friendshub_http_requests_5xx_by_route[5m]))
+friendshub_login_success_total учитывает только полную аутентификацию.
 
 
 ================================================================================

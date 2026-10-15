@@ -8,7 +8,7 @@ Changes are scoped to friendshubWEB. The original working tree was saved in
 - Profile custom fields and server-backed invisibility, DM policy and group-add
   policy with exceptions.
 - Canonical group/channel metadata, group member add/remove, ownership transfer,
-  deletion and owner channel analytics.
+  deletion and channel analytics for owners and administrators.
 - Settings → My bots: create, set handle, rotate credentials and delete. Complete
   bot tokens appear only in the one-time response dialog.
 - Main menu → Call history and public group/channel directory; security event log.
@@ -30,18 +30,26 @@ Changes are scoped to friendshubWEB. The original working tree was saved in
 
 ## Confirmed API boundaries
 
-The user approved using `/invites/join/{token}` for channel invitations and is
-adding that server permission. No backend source was changed here.
+The evening API is deployed. Channel invitations use `/invites/join/{token}`;
+an existing subscriber gets 200 without consuming a one-time invite. No backend
+source was changed here.
 
-Reactions currently return one page of at most 200. No fictitious `seq` cursor is
-sent. A full page is labelled as potentially incomplete in the interface.
+Bot history, device envelopes and Saved Messages continue with `before` and
+`before_id` from the last raw row. Reactions use `before_created_at` and
+`before_actor_id`, with explicit load-more/retry controls and actor deduplication.
+The former timestamp-overlap workaround and 200-reaction UI cap are removed.
+Saved Messages retain raw page boundaries separately from decrypted messages:
+a full control-only page or a decryption failure cannot terminate pagination.
+Existing decrypted rows are reused instead of consuming their ratchet keys again.
+An initial local history-clear cutoff can still be a timestamp; it is a time
+boundary, not a page continuation. All actual continuations carry both fields.
 
-Bot and device-envelope history currently expose exclusive timestamp cursors.
-The client requests 200 and overlaps the boundary second with ID deduplication.
-A second containing a complete page remains unpageable without a server fix.
-Pending future contract: `before` + `before_id`; reactions will instead use
-`before_created_at` + `before_actor_id`. Connect those only after the updated API
-is deployed/documented.
+All 13 currently emitted security-event types are translated. Event context
+shows the revoked device, session count or affected owner/conversation. Login
+success events now mean full authentication, including 2FA; no login request
+format changed. Metrics have two per-route counters with normalized route
+labels. This messenger has no metrics dashboard, so their integration is limited
+to updating API_FRONTEND.txt rather than adding an operations UI.
 
 A new device cannot decrypt ciphertext addressed to an old session. Server TTL
 can remove old ciphertext. Losing all devices/keys prevents full recovery without
@@ -67,6 +75,7 @@ node --import tsx scripts/channel-contracts.test.mjs
 node --import tsx scripts/wasm-smoke.mjs
 node dev-tests/api-history-smoke.mjs
 node dev-tests/api-history-smoke.mjs dev-tests/api-ui-smoke.tsx
+node dev-tests/api-history-smoke.mjs dev-tests/api-cursors-smoke.tsx
 node node_modules/eslint/bin/eslint.js .
 node node_modules/typescript/bin/tsc -b
 node node_modules/vite/bin/vite.js build
@@ -74,5 +83,8 @@ node node_modules/vite/bin/vite.js build
 
 Browser tests use real Firefox/IndexedDB with mocked HTTP responses. They verify
 forms, permissions, confirmation dialogs, one-time credentials, the history
-import contract, channel publishing and raw attachment byte round trips. A live
+import contract, channel publishing and raw attachment byte round trips. The
+cursor suite loads 501 same-second bot messages/envelopes/reactions, retries a
+failed reaction page, checks control-only saved pages, admin/subscriber access,
+security-event context and repeated channel invite navigation in StrictMode. A live
 multi-device/server acceptance run remains necessary before deployment.
