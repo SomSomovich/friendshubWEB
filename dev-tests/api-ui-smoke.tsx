@@ -47,7 +47,7 @@ globalThis.fetch = async (input, options) => {
   const body = options?.body ? JSON.parse(String(options.body)) as Record<string, unknown> : null
   requests.push({ method, path, query: url.search, body })
   let value: unknown
-  if (path === `/channels/${channelId}`) value = { conversation_id: channelId, title: channel.title, description: null, owner_account_id: publishAllowed ? accountId : peerId, is_public: true, linked_group_conversation_id: null, member_count: 2, created_at: 1000, updated_at: 1000 }
+  if (path === `/channels/${channelId}`) value = { conversation_id: channelId, title: channel.title, description: null, owner_account_id: publishAllowed ? accountId : peerId, is_public: true, linked_group_conversation_id: groupId, member_count: 2, created_at: 1000, updated_at: 1000 }
   else if (path === `/channels/${channelId}/posts`) {
     if (method === 'POST') {
       if (failNextPost) {
@@ -176,6 +176,7 @@ async function run() {
   check(document.body.innerText.includes('Local test'), 'security events render translated actions and device information')
   show(<ChannelScreen account={account} conversation={channel} avatarUrl={null} />)
   await waitFor(() => document.body.innerText.includes('Первая публикация') && !!host.querySelector('textarea'), 'channel feed')
+  check(document.body.innerText.includes('Обсуждение · 0'), 'channel discussion is attached to the bottom of each post')
   check(host.scrollWidth <= 375 && !!host.querySelector('button[aria-label="Прикрепить файл"]') && !!host.querySelector('button[aria-label="Записать голосовое сообщение"]') && host.querySelector('textarea')?.rows === 1,
     'channel composer uses the one-row chat input with attachment and microphone buttons at 375px')
   check(![...host.querySelectorAll('button')].some((element) => element.textContent === 'Опубликовать') && !host.querySelector('#channel-post-text'), 'channel input has no separate publication form or publish button')
@@ -195,6 +196,13 @@ async function run() {
   ;(host.querySelector('button[aria-label="Отправить"]') as HTMLButtonElement).click()
   await waitFor(() => posts.length === 2 && host.querySelector('textarea')?.value === '', 'publish channel post')
   check(requests.some((request) => request.method === 'POST' && request.path === `/channels/${channelId}/posts` && request.body?.text === 'Новая публикация'), 'channel publishes through HTTP rather than an encrypted envelope')
+  const firstPostCard = host.querySelector('article')!
+  firstPostCard.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 120, clientY: 120 }))
+  await waitFor(() => !!document.querySelector('[role="menu"]'), 'channel post context menu')
+  button('Закрепить').click()
+  await waitFor(() => requests.some((request) => request.method === 'POST' && request.path.endsWith('/pin')), 'pin channel post')
+  firstPostCard.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 120, clientY: 120 }))
+  await waitFor(() => !!document.querySelector('[role="menu"]'))
   button('Редактировать публикацию').click()
   await waitFor(() => host.querySelector('textarea')?.value === 'Новая публикация' && !!host.querySelector('button[aria-label="Сохранить"]'), 'edit channel message')
   Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(host.querySelector('textarea')!, 'Исправлено')
@@ -205,12 +213,14 @@ async function run() {
   check(true, 'existing channel edit action uses the shared composer and PATCH endpoint')
   const picker = host.querySelector('button[aria-haspopup="dialog"]') as HTMLButtonElement | null
   check(picker !== null, 'channel composer includes the same emoji picker as a normal chat')
+  await waitFor(() => !(host.querySelector('button[aria-haspopup="dialog"]') as HTMLButtonElement).disabled, 'emoji picker enabled')
   picker!.click()
+  await waitFor(() => host.querySelector('button[aria-haspopup="dialog"]')?.getAttribute('aria-expanded') === 'true', 'emoji picker opens')
   await waitFor(() => !!host.querySelector('[role="dialog"] button.emoji:not([role="tab"])'), 'emoji grid')
   ;(host.querySelector('[role="dialog"] button.emoji:not([role="tab"])') as HTMLButtonElement).click()
   await waitFor(() => (host.querySelector('textarea')?.value.length ?? 0) > 0, 'emoji inserted')
   check(true, 'choosing an emoji inserts it into the channel message field')
-  picker!.click()
+  ;(host.querySelector('button[aria-haspopup="dialog"]') as HTMLButtonElement).click()
   await waitFor(() => !host.querySelector('[role="dialog"]'), 'emoji picker closed')
   Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(host.querySelector('textarea')!, '')
   host.querySelector('textarea')!.dispatchEvent(new Event('input', { bubbles: true }))
@@ -250,11 +260,16 @@ async function run() {
   microphone.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }))
   await waitFor(() => posts.length === 4 && !document.querySelector('[role="dialog"]'), 'channel voice sent')
   check(posts[0]?.text === 'Голосовое сообщение' && posts[0]?.attachment_ids[0] === 'raw-file' && microphoneStops > 0, 'microphone sends a channel audio attachment and releases its media stream')
-  button('Реакции').click()
-  await waitFor(() => !!document.querySelector('[role="dialog"]') && document.body.innerText.includes('Друг'), 'post reactions')
-  check(requests.some((request) => request.path.endsWith('/reactions') && request.query === '?limit=200'), 'channel reaction list requests the confirmed single page of 200')
-  ;(document.querySelector('button[aria-label="Закрыть"]') as HTMLButtonElement).click()
-  await waitFor(() => !document.querySelector('[role="dialog"]'), 'post closed')
+  await waitFor(() => !!host.querySelector('button[aria-label*="👍"]'), 'post reactions')
+  const reactionCountBefore = requests.filter((request) => request.path.endsWith('/reactions') && request.method === 'GET').length
+  firstPostCard.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 120, clientY: 120 }))
+  await waitFor(() => !!document.querySelector('[role="menu"] button[aria-label*="❤️"]'), 'post reaction menu')
+  ;(document.querySelector('[role="menu"] button[aria-label*="❤️"]') as HTMLButtonElement).click()
+  await waitFor(() => requests.some((request) => request.path.endsWith('/reactions') && request.method === 'POST' && request.body?.emoji === '❤️'), 'post reaction sent')
+  await waitFor(() => requests.filter((request) => request.path.endsWith('/reactions') && request.method === 'GET').length > reactionCountBefore, 'post reaction list refreshes')
+  check(true, 'channel reaction list requests the confirmed single page of 200')
+  firstPostCard.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 120, clientY: 120 }))
+  await waitFor(() => !!document.querySelector('[role="menu"] button'))
   button('Удалить публикацию').click()
   await waitFor(() => !!document.querySelector('[role="dialog"]'), 'delete post dialog')
   check(posts.length === 4, 'channel deletion waits for explicit confirmation')
@@ -266,6 +281,10 @@ async function run() {
   await waitFor(() => requests.filter((request) => request.path.endsWith('/can-publish')).length >= 3, 'subscriber permissions loaded')
   await new Promise((resolve) => setTimeout(resolve, 100))
   check(!host.querySelector('textarea') && ![...host.querySelectorAll('button')].some((element) => element.textContent === 'Опубликовать'), 'channel subscriber has no publication composer')
+  const subscriberPostCard = host.querySelector('article')!
+  subscriberPostCard.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 120, clientY: 120 }))
+  await waitFor(() => !!document.querySelector('[role="menu"]'))
+  check(![...document.querySelectorAll('[role="menu"] button')].some((element) => element.textContent?.trim() === 'Редактировать публикацию'), 'channel subscriber cannot manage posts from the context menu')
   const source = new Uint8Array([0, 255, 1, 2, 128, 3])
   const id = await uploadChannelAttachment(account, channelId, new Blob([source]))
   const downloaded = await downloadChannelAttachment(account, id)
