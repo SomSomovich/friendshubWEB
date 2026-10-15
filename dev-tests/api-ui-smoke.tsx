@@ -189,6 +189,14 @@ async function run() {
   check(host.scrollWidth <= 375 && !!host.querySelector('button[aria-label="Прикрепить файл"]') && !!host.querySelector('button[aria-label="Записать голосовое сообщение"]') && host.querySelector('textarea')?.rows === 1,
     'channel composer uses the one-row chat input with attachment and microphone buttons at 375px')
   check(![...host.querySelectorAll('button')].some((element) => element.textContent === 'Опубликовать') && !host.querySelector('#channel-post-text'), 'channel input has no separate publication form or publish button')
+  const attachmentButton = host.querySelector('button[aria-label="Прикрепить файл"]') as HTMLButtonElement
+  attachmentButton.click()
+  await waitFor(() => !!document.querySelector('[role="menu"]'), 'attachment menu')
+  const attachmentMenu = document.querySelector('[role="menu"]')!.getBoundingClientRect()
+  const attachmentTrigger = attachmentButton.getBoundingClientRect()
+  check(attachmentMenu.bottom <= attachmentTrigger.top + 1, 'attachment menu opens above the composer without shifting the chat')
+  document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+  await waitFor(() => !document.querySelector('[role="menu"]'), 'attachment menu closes')
   const textarea = host.querySelector('textarea')!
   Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(textarea, 'Новая публикация')
   textarea.dispatchEvent(new Event('input', { bubbles: true }))

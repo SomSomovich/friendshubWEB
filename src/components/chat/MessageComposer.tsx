@@ -246,6 +246,7 @@ export function MessageComposer({
             triggerLabel={t('chat.attach.label')}
             items={menuItems}
             align="start"
+            side="top"
           />
         ) : null}
 

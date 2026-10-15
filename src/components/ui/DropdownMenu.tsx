@@ -19,6 +19,8 @@ export type DropdownMenuProps = {
   triggerLabel: string
   items: DropdownItem[]
   align?: 'start' | 'end'
+  /** Which side of the trigger the menu should occupy. */
+  side?: 'top' | 'bottom'
   className?: string
 }
 
@@ -35,6 +37,7 @@ export function DropdownMenu({
   triggerLabel,
   items,
   align = 'end',
+  side = 'bottom',
   className,
 }: DropdownMenuProps) {
   const menuId = useId()
@@ -81,7 +84,11 @@ export function DropdownMenu({
       {open ? (
         <div
           id={menuId}
-          className={cn('absolute top-full z-50 mt-1', align === 'end' ? 'right-0' : 'left-0')}
+          className={cn(
+            'absolute z-50',
+            side === 'top' ? 'bottom-full mb-1' : 'top-full mt-1',
+            align === 'end' ? 'right-0' : 'left-0',
+          )}
         >
           <MenuItems
             items={items}
