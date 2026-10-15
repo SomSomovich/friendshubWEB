@@ -87,7 +87,7 @@ export function MessageBubble({
           {...longPress}
           className={cn(
             'rounded-2xl px-3 py-2 text-sm text-fg',
-            own ? 'bg-accent/20 ring-1 ring-accent/30' : 'bg-bg-elevated',
+            own ? 'bg-message-bubble ring-1 ring-accent/30' : 'bg-bg-elevated',
             highlighted && 'ring-2 ring-accent',
           )}
         >

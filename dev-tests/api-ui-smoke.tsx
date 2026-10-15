@@ -88,7 +88,7 @@ globalThis.fetch = async (input, options) => {
   else if (path === '/profile/presence-exceptions') value = []
   else if (path === '/blocks') value = []
   else if (path === '/contacts') value = [{ target_account_id: peerId, user_id: 2, fh_number: 'FH0000002', username: 'Peer', local_username: 'Друг', avatar_url: null }]
-  else if (path === `/accounts/${peerId}/profile`) value = { id: peerId, user_id: 2, fh_number: 'FH0000002', username: 'Peer', avatar_url: null, custom_status_text: null, custom_status_emoji: null, custom_status_expires_at: null, is_blocked_by_me: false, is_contact: true, fields: [{ label: 'GitHub', value: '@example' }] }
+  else if (path === `/accounts/${peerId}/profile`) value = { id: peerId, user_id: 2, fh_number: 'FH0000002', username: 'Peer', avatar_url: '/avatars/peer', custom_status_text: null, custom_status_emoji: null, custom_status_expires_at: null, is_blocked_by_me: false, is_contact: true, fields: [{ label: 'GitHub', value: '@example' }] }
   else if (path === '/bots') {
     if (method === 'POST') { bots = [...bots, { id: '019a1234-1234-7000-8000-000000000015', token_prefix: 'fhbot_new', created_at: 1000, updated_at: 1000, handle: '' }]; value = { bot_id: '019a1234-1234-7000-8000-000000000015', token: 'fhbot_test_once', token_prefix: 'fhbot_new' } }
     else value = bots
@@ -182,6 +182,11 @@ async function run() {
   show(<UserProfileModal />)
   await waitFor(() => document.body.innerText.includes('GitHub') && document.body.innerText.includes('@example'), 'public profile fields')
   check(true, 'other participants can see public profile fields')
+  ;(document.querySelector('button[aria-label="Открыть аватар Peer"]') as HTMLButtonElement).click()
+  await waitFor(() => !!document.querySelector('[role="dialog"][aria-label="Аватар"]'), 'public avatar viewer')
+  check(true, 'other participants can open a full-screen avatar')
+  ;(document.querySelector('[role="dialog"][aria-label="Аватар"] button[aria-label="Закрыть"]') as HTMLButtonElement).click()
+  await waitFor(() => !document.querySelector('[role="dialog"][aria-label="Аватар"]'), 'public avatar viewer closes')
   useUiStore.getState().closeProfile()
   show(<ChannelScreen account={account} conversation={channel} avatarUrl={null} />)
   await waitFor(() => document.body.innerText.includes('Первая публикация') && !!host.querySelector('textarea'), 'channel feed')

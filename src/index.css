@@ -20,6 +20,7 @@
   --color-fg-muted: #9a9ac4;
   --color-accent: #fc9003;
   --color-accent-fg: #1a1a3a;
+  --color-message-bubble: color-mix(in srgb, var(--color-accent) 20%, var(--color-bg));
   --color-border: #32325f;
   /* Destructive actions: the palette had no red at all, and "delete" cannot
      borrow the accent — in the light theme the accent is blue. */
@@ -43,6 +44,7 @@ html[data-theme='light'] {
   --color-fg-muted: #62627a;
   --color-accent: #030bfc;
   --color-accent-fg: #ffffff;
+  --color-message-bubble: color-mix(in srgb, var(--color-accent) 20%, var(--color-bg));
   --color-border: #dfe1ea;
   --color-danger: #d92d20;
   --color-danger-fg: #ffffff;

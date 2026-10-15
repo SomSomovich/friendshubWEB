@@ -494,6 +494,18 @@
     "language": "Язык",
     "languageRu": "Русский",
     "languageEn": "English",
+    "customColors": "Цвета интерфейса",
+    "customColorsHint": "Настройте основные цвета интерфейса в формате RGB.",
+    "customColorsHelpLabel": "Как найти RGB",
+    "customColorsHelp": "Выберите нужный цвет на стороннем сайте-генераторе RGB и скопируйте его числовые значения.",
+    "customColorsBackground": "Фон",
+    "customColorsButton": "Кнопки",
+    "customColorsBubble": "Пузыри сообщений",
+    "customColorsText": "Текст",
+    "customColorsContrast": "Разница между фоном и текстом: {{value}} из 765.",
+    "customColorsContrastError": "Цвет текста слишком близок к фону: нужно минимум 20, сейчас {{value}}.",
+    "customColorsApply": "Применить",
+    "customColorsReset": "Сбросить цвета",
     "sections": {
       "account": "Аккаунт",
       "appearance": "Оформление",
@@ -686,6 +698,8 @@
   "profile": {
     "title": "Профиль",
     "open": "Профиль: {{name}}",
+    "avatar": "Аватар",
+    "openAvatar": "Открыть аватар {{name}}",
     "write": "Написать",
     "blockedHint": "Аккаунт заблокирован: сообщения между вами не доставляются."
   },

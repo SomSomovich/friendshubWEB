@@ -6,10 +6,11 @@ import {
   persistLanguage,
   type Language,
 } from '../i18n/language'
-import { applyTheme, isTheme, persistTheme, readActiveTheme, type Theme } from '../theme/theme'
-import { writePreference } from '../utils/browserStorage'
+import { applyCustomColors, applyTheme, clearCustomColors, colorDistance, isCustomColors, isTheme, persistCustomColors, persistTheme, readActiveTheme, readCustomColors, type CustomColors, type Theme } from '../theme/theme'
+import { removePreference, writePreference } from '../utils/browserStorage'
 import {
   ACTIVE_ACCOUNT_PREFERENCE_KEY,
+  CUSTOM_COLORS_PREFERENCE_KEY,
   LANGUAGE_PREFERENCE_KEY,
   THEME_PREFERENCE_KEY,
   mirrorPreference,
@@ -29,6 +30,7 @@ import {
 
 export type UiState = {
   theme: Theme
+  customColors: CustomColors | null
   language: Language
   activeAccountId: string | null
   /** False until the stored accounts have been read; guards wait for it. */
@@ -55,6 +57,8 @@ export type UiState = {
   accountRevision: number
 
   setTheme: (theme: Theme) => void
+  setCustomColors: (colors: CustomColors) => void
+  resetCustomColors: () => void
   toggleTheme: () => void
   setLanguage: (language: Language) => void
   setActiveAccount: (accountId: string | null) => void
@@ -75,8 +79,15 @@ function initialLanguage(): Language {
   return normalizeLanguage(i18n.language) ?? 'ru'
 }
 
+function initialCustomColors(): CustomColors | null {
+  const colors = readCustomColors()
+  if (colors !== null) applyCustomColors(colors)
+  return colors
+}
+
 export const useUiStore = create<UiState>((set, get) => ({
   theme: initialTheme(),
+  customColors: initialCustomColors(),
   language: initialLanguage(),
   activeAccountId: null,
   sessionReady: false,
@@ -88,9 +99,26 @@ export const useUiStore = create<UiState>((set, get) => ({
     // Applied and persisted here so every caller — the switcher, a settings
     // screen, the cross-tab listener — goes through one path.
     applyTheme(theme)
+    const customColors = get().customColors
+    if (customColors !== null) applyCustomColors(customColors)
     persistTheme(theme)
     mirrorPreference(THEME_PREFERENCE_KEY, theme)
     set({ theme })
+  },
+
+  setCustomColors: (colors) => {
+    if (colorDistance(colors.background, colors.text) < 20) return
+    applyCustomColors(colors)
+    persistCustomColors(colors)
+    mirrorPreference(CUSTOM_COLORS_PREFERENCE_KEY, colors)
+    set({ customColors: colors })
+  },
+
+  resetCustomColors: () => {
+    clearCustomColors()
+    removePreference(CUSTOM_COLORS_PREFERENCE_KEY)
+    mirrorPreference(CUSTOM_COLORS_PREFERENCE_KEY, null)
+    set({ customColors: null })
   },
 
   toggleTheme: () => {
@@ -145,5 +173,26 @@ window.addEventListener('storage', (event) => {
   }
   // Another tab already wrote the value; applying it here must not write again.
   applyTheme(event.newValue)
+  const customColors = useUiStore.getState().customColors
+  if (customColors !== null) applyCustomColors(customColors)
   useUiStore.setState({ theme: event.newValue })
+})
+
+window.addEventListener('storage', (event) => {
+  if (event.key !== CUSTOM_COLORS_PREFERENCE_KEY) return
+  const raw = event.newValue
+  if (raw === null) {
+    clearCustomColors()
+    useUiStore.setState({ customColors: null })
+    return
+  }
+  try {
+    const value: unknown = JSON.parse(raw)
+    if (isCustomColors(value)) {
+      applyCustomColors(value)
+      useUiStore.setState({ customColors: value })
+    }
+  } catch {
+    // Ignore malformed preferences from another tab.
+  }
 })

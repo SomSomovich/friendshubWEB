@@ -12,10 +12,11 @@ import { setSetting } from '../storage/settings'
  */
 
 export const THEME_PREFERENCE_KEY = 'fh.theme'
+export const CUSTOM_COLORS_PREFERENCE_KEY = 'fh.colors'
 export const LANGUAGE_PREFERENCE_KEY = 'fh.lang'
 export const ACTIVE_ACCOUNT_PREFERENCE_KEY = 'fh.activeAccount'
 
-export function mirrorPreference(key: string, value: string | null): void {
+export function mirrorPreference(key: string, value: unknown): void {
   // JSON so that "cleared" is recorded as such rather than left as a stale row.
   void setSetting(key, JSON.stringify(value)).catch((error: unknown) => {
     console.warn(`[state] could not mirror "${key}" into IndexedDB`, error)

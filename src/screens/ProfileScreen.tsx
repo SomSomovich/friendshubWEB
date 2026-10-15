@@ -8,6 +8,7 @@ import { getAccountProfile, type ProfileField } from '../api/profile'
 import { ScreenHeader } from '../components/layout/ScreenHeader'
 import { SettingsCard, SettingsRow } from '../components/settings/Section'
 import { Avatar } from '../components/ui/Avatar'
+import { AvatarViewer } from '../components/profile/AvatarViewer'
 import { Button } from '../components/ui/Button'
 import { useActiveAccount } from '../hooks/useActiveAccount'
 import { useCopy } from '../hooks/useCopy'
@@ -24,6 +25,7 @@ export function ProfileScreen() {
   const account = useActiveAccount()
   const [me, setMe] = useState<MeResponse | null>(null)
   const [profileFields, setProfileFields] = useState<ProfileField[]>([])
+  const [avatarOpen, setAvatarOpen] = useState(false)
 
   useEffect(() => {
     if (account === null) {
@@ -74,12 +76,11 @@ export function ProfileScreen() {
               one directly under it would be the same word twice. */}
           <section className="flex flex-col gap-3 rounded-xl border border-border bg-bg-elevated p-3">
             <div className="flex items-center gap-4">
-              <Avatar
-                name={account.username}
-                src={avatarImageUrl(account.id)}
-                size="xl"
-                label={account.username}
-              />
+              {account.avatarUrl === null ? <Avatar name={account.username} size="xl" label={account.username} /> : (
+                <button type="button" aria-label={t('profile.openAvatar', { name: account.username })} onClick={() => setAvatarOpen(true)} className="cursor-pointer rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+                  <Avatar name={account.username} src={avatarImageUrl(account.id)} size="xl" label={account.username} />
+                </button>
+              )}
               <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="truncate text-base font-semibold text-fg">{account.username}</span>
                 <span className="text-sm text-fg-muted">{account.fhNumber}</span>
@@ -90,6 +91,8 @@ export function ProfileScreen() {
                 )}
               </div>
             </div>
+
+            <AvatarViewer open={avatarOpen} src={account.avatarUrl === null ? null : avatarImageUrl(account.id)} label={account.username} onClose={() => setAvatarOpen(false)} />
 
             <div className="flex flex-wrap gap-2 border-t border-border pt-3">
               <Button

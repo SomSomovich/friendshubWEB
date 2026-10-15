@@ -23,3 +23,11 @@ export function writePreference(key: string, value: string): void {
     console.warn(`[storage] cannot write "${key}" to localStorage`, error)
   }
 }
+
+export function removePreference(key: string): void {
+  try {
+    window.localStorage.removeItem(key)
+  } catch (error) {
+    console.warn(`[storage] cannot remove "${key}" from localStorage`, error)
+  }
+}

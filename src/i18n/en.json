@@ -486,6 +486,18 @@
     "language": "Language",
     "languageRu": "Русский",
     "languageEn": "English",
+    "customColors": "Interface colours",
+    "customColorsHint": "Choose the main interface colours with RGB values.",
+    "customColorsHelpLabel": "How to find RGB",
+    "customColorsHelp": "Choose a colour on a third-party RGB generator site and copy its numeric values.",
+    "customColorsBackground": "Background",
+    "customColorsButton": "Buttons",
+    "customColorsBubble": "Message bubbles",
+    "customColorsText": "Text",
+    "customColorsContrast": "Background/text difference: {{value}} of 765.",
+    "customColorsContrastError": "The text colour is too close to the background: at least 20 is required, currently {{value}}.",
+    "customColorsApply": "Apply",
+    "customColorsReset": "Reset colours",
     "sections": {
       "account": "Account",
       "appearance": "Appearance",
@@ -678,6 +690,8 @@
   "profile": {
     "title": "Profile",
     "open": "Profile: {{name}}",
+    "avatar": "Avatar",
+    "openAvatar": "Open {{name}}'s avatar",
     "write": "Message",
     "blockedHint": "This account is blocked: messages between you are not delivered."
   },

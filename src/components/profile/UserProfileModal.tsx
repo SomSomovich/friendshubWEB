@@ -22,6 +22,7 @@ import { chatPath } from '../../router/paths'
 import { getExistingAccountStore, requireAccountStore } from '../../state/accountRegistry'
 import { useUiStore } from '../../state/uiStore'
 import { Avatar } from '../ui/Avatar'
+import { AvatarViewer } from './AvatarViewer'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { Skeleton } from '../ui/Skeleton'
@@ -53,6 +54,7 @@ export function UserProfileModal() {
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [busy, setBusy] = useState(false)
   const [revision, setRevision] = useState(0)
+  const [avatarOpen, setAvatarOpen] = useState(false)
 
   const accountId = account?.id ?? null
   // A profile read for one person must never be shown for another: the target
@@ -241,12 +243,11 @@ export function UserProfileModal() {
       ) : (
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
-            <Avatar
-              name={profile.username}
-              src={avatarImageUrl(profile.id)}
-              size="xl"
-              label={profile.username}
-            />
+            {profile.avatarUrl === null ? <Avatar name={profile.username} size="xl" label={profile.username} /> : (
+              <button type="button" aria-label={t('profile.openAvatar', { name: profile.username })} onClick={() => setAvatarOpen(true)} className="cursor-pointer rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+                <Avatar name={profile.username} src={avatarImageUrl(profile.id)} size="xl" label={profile.username} />
+              </button>
+            )}
             <div className="flex min-w-0 flex-col gap-0.5">
               <span className="truncate text-base font-semibold text-fg">{profile.username}</span>
               <span className="text-sm text-fg-muted">{profile.fhNumber}</span>
@@ -257,6 +258,8 @@ export function UserProfileModal() {
               )}
             </div>
           </div>
+
+          <AvatarViewer open={avatarOpen} src={profile.avatarUrl === null ? null : avatarImageUrl(profile.id)} label={profile.username} onClose={() => setAvatarOpen(false)} />
 
           {(profile.profileFields ?? []).length > 0 ? (
             <dl className="flex flex-col gap-2 rounded-lg border border-border bg-bg p-3">
