@@ -158,3 +158,16 @@ test('DESC bot history merges with a live arrival without reversing or duplicati
   const result = api.mergeBotMessages([{ id: 'live', createdAt: 30 }, { id: 'b', createdAt: 20 }], [{ id: 'b', createdAt: 20 }, { id: 'a', createdAt: 10 }])
   assert.equal(JSON.stringify(result.map((message) => message.id)), JSON.stringify(['a', 'b', 'live']))
 })
+
+
+test('device history requests preserve its session binding and timestamp cursor', async () => {
+  const { api, calls } = await loadSource('api/conversations')
+  await api.getConversationEnvelopes(account, 'chat/id', { before: 1000, limit: 500 })
+  assert.deepEqual(calls[0], { method: 'get', args: ['/conversations/chat%2Fid/envelopes', { account, query: { before: 1000, limit: 500 } }] })
+})
+
+test('saved history supports the documented envelope_type filter', async () => {
+  const { api, calls } = await loadSource('api/saved', () => ({ envelopes: [] }))
+  await api.getSavedMessages(account, { envelopeType: 1 })
+  assert.equal(calls[0].args[1].query.envelope_type, 1)
+})

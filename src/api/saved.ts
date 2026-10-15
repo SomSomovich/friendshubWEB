@@ -42,10 +42,10 @@ export function getSavedConversation(account: AccountAuth): Promise<SavedConvers
  */
 export function getSavedMessages(
   account: AccountAuth,
-  query: { before?: number; limit?: number } = {},
+  query: { before?: number; limit?: number; envelopeType?: number } = {},
 ): Promise<SavedEnvelope[]> {
   return get<{ envelopes: SavedEnvelope[] }>('/saved/messages', {
     account,
-    query: { before: query.before ?? null, limit: query.limit ?? null },
+    query: { before: query.before ?? null, limit: query.limit ?? null, envelope_type: query.envelopeType ?? null },
   }).then((response) => response.envelopes)
 }
