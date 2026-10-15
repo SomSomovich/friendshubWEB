@@ -1,3 +1,4 @@
+import type { IdentityChange } from '../wasm'
 import type { ConversationEnvelope } from '../api/conversations'
 import { getMessage, getMessageByMessageId, saveMessage } from '../storage/messages'
 import type { MessageRecord } from '../storage/db'
@@ -7,7 +8,7 @@ import { buildMessageRecord, handleEnvelope } from './receive'
 import { runReceiveWork } from './receiveQueue'
 
 export const DEVICE_HISTORY_PAGE_SIZE = 200
-export type HistoryPageResult = { messages: MessageRecord[]; existing: number; unavailable: number; ignored: number }
+export type HistoryPageResult = { messages: MessageRecord[]; identityChanges: IdentityChange[]; existing: number; unavailable: number; ignored: number }
 
 /**
  * Best effort only: spent Signal keys cannot be recreated from ciphertext.
@@ -16,7 +17,7 @@ export type HistoryPageResult = { messages: MessageRecord[]; existing: number; u
  */
 export async function restoreEnvelopePage(account: Account, conversationId: string,
   rows: ConversationEnvelope[], decode = handleEnvelope): Promise<HistoryPageResult> {
-  const result: HistoryPageResult = { messages: [], existing: 0, unavailable: 0, ignored: 0 }
+  const result: HistoryPageResult = { messages: [], identityChanges: [], existing: 0, unavailable: 0, ignored: 0 }
   const allowed = new Set([ENVELOPE_TYPE_MESSAGE, ENVELOPE_TYPE_SYNC, ENVELOPE_TYPE_SENDER_KEY, ENVELOPE_TYPE_ATTACHMENT_KEY])
   const ordered = [...rows].sort((a, b) => a.serverTimestamp - b.serverTimestamp || a.envelopeId.localeCompare(b.envelopeId))
   for (const row of ordered) {
@@ -29,6 +30,7 @@ export async function restoreEnvelopePage(account: Account, conversationId: stri
       try {
         const envelope: Envelope = { ...row, recipientAccountId: account.id, senderIsBot: false }
         const received = await decode(account, envelope)
+        if (received.identityChanges.length > 0) result.identityChanges = received.identityChanges
         if (received.kind !== 'message') {
           if (received.kind !== 'sender_key' && received.kind !== 'attachment_key') result.ignored++
           return

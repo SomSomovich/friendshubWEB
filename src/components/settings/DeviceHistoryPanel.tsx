@@ -1,3 +1,4 @@
+import { useChatList } from '../../hooks/useChatList'
 import { nextHistoryBefore } from '../../utils/historyCursor'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -15,6 +16,7 @@ export function DeviceHistoryPanel({ account }: { account: Account }) {
   const { t } = useTranslation()
   const fail = useActionReporter('device-history')
   const store = requireAccountStore(account.id)
+  const labels = useChatList(account)
   const conversations = useStore(store, (state) => state.conversations)
   const [selected, setSelected] = useState('')
   const [page, setPage] = useState<{ before?: number; done: boolean; stats: HistoryPageResult } | null>(null)
@@ -26,7 +28,7 @@ export function DeviceHistoryPanel({ account }: { account: Account }) {
     try {
       const rows = await getConversationEnvelopes(account, selected, { before: older ? page?.before : undefined, limit: DEVICE_HISTORY_PAGE_SIZE })
       const stats = await restoreEnvelopePage(account, selected, rows)
-      store.setState((state) => ({ messagesVersion: state.messagesVersion + stats.messages.length,
+      store.setState((state) => ({ identityChanges: stats.identityChanges.length > 0 ? stats.identityChanges : state.identityChanges, messagesVersion: state.messagesVersion + stats.messages.length,
         messages: state.activeConversationId === selected ? mergeById(stats.messages, state.messages) : state.messages }))
       setPage({ before: nextHistoryBefore(rows.map((row) => row.serverTimestamp), older ? page?.before : undefined), done: rows.length < DEVICE_HISTORY_PAGE_SIZE, stats })
     } catch (cause) { fail(cause) }
@@ -38,7 +40,7 @@ export function DeviceHistoryPanel({ account }: { account: Account }) {
       <select className="h-10 w-full min-w-0 rounded-lg border border-border bg-bg px-3 text-sm text-fg"
         disabled={busy} value={selected} onChange={(event) => { setSelected(event.target.value); setPage(null) }}>
         <option value="">{t('deviceHistory.choose')}</option>
-        {conversations.filter((item) => item.kind !== 'channel').map((item) => <option key={item.id} value={item.id}>{item.title ?? (item.kind === 'saved' ? t('chatList.saved') : item.id)}</option>)}
+        {conversations.filter((item) => item.kind !== 'channel').map((item) => <option key={item.id} value={item.id}>{labels.rows.find((row) => row.conversation.id === item.id)?.title ?? item.title ?? t('chatList.unknownPeer')}</option>)}
       </select>
     </label>
     <div className="flex flex-wrap gap-2">
