@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { listContacts } from '../api/contacts'
-import { getAccountProfile } from '../api/profile'
+import { getAccountsBatch } from '../api/accounts'
 import type { Account } from '../types'
 
 /**
@@ -13,7 +13,7 @@ import type { Account } from '../types'
  */
 
 /** Beyond this, a group is asking for more lookups than a screen can show. */
-const MAX_PROFILE_LOOKUPS = 25
+const MAX_PROFILE_LOOKUPS = 200
 
 const profileNames = new Map<string, string>()
 
@@ -30,22 +30,20 @@ export async function primeSenderNames(
   }
 
   const unknown = senderIds.filter((id) => id !== account.id && !names.has(id))
-  const pending = unknown.slice(0, limit).map(async (id) => {
+  const missing: string[] = []
+  for (const id of unknown.slice(0, limit)) {
     const cached = profileNames.get(id)
-    if (cached !== undefined) {
-      names.set(id, cached)
-      return
+    if (cached !== undefined) names.set(id, cached)
+    else missing.push(id)
+  }
+  try {
+    for (const profile of await getAccountsBatch(account, missing)) {
+      profileNames.set(profile.accountId, profile.username)
+      names.set(profile.accountId, profile.username)
     }
-    try {
-      const profile = await getAccountProfile(account, id)
-      profileNames.set(id, profile.username)
-      names.set(id, profile.username)
-    } catch (error) {
-      // No name is survivable; a missing message is not.
-      console.warn(`[chat] could not read the profile of ${id}`, error)
-    }
-  })
-  await Promise.all(pending)
+  } catch (error) {
+    console.warn('[chat] account names could not be resolved', error)
+  }
 
   return names
 }

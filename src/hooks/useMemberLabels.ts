@@ -19,7 +19,7 @@ import { useSenderNames } from './useSenderNames'
  * bounds how many strangers a single screen will look up. A group of two
  * hundred would otherwise fire two hundred requests the moment it is opened.
  */
-const MAX_MEMBER_LOOKUPS = 50
+const MAX_MEMBER_LOOKUPS = 5000
 
 export function memberKey(member: Pick<ConversationMember, 'actorType' | 'id'>): string {
   return `${member.actorType}:${member.id}`

@@ -293,7 +293,7 @@
       "channel": "Unsubscribe",
       "groupHint": "The group disappears from your list. Only an invite brings you back.",
       "channelHint": "The channel disappears from your list. A public channel or an invite brings you back.",
-      "ownerNote": "The owner cannot leave: no endpoint hands ownership to another account."
+      "ownerNote": "Transfer ownership to another member in settings before leaving."
     },
     "left": "You left the group",
     "unsubscribed": "You unsubscribed from the channel",
@@ -318,9 +318,9 @@
     "handle": {
       "title": "Handle",
       "description": "The name the group or channel is found by.",
-      "current": "Set from this device: {{handle}}",
-      "none": "No handle has been set from this device.",
-      "note": "The server does not return the current handle — the API can only set it. A new value replaces the old one, if there was one.",
+      "current": "Current handle: {{handle}}",
+      "none": "No handle set yet.",
+      "note": "The current handle is read from the server. Saving replaces it.",
       "save": "Save",
       "saved": "Handle saved"
     },
@@ -373,7 +373,7 @@
         "makePublic": "Make public",
         "makePrivate": "Make private",
         "unknown": "The server does not return the current value, so this starts as a choice rather than a switch.",
-        "note": "Showing what was set from this device: the server stores the flag but never returns it.",
+        "note": "The current setting is read from the server.",
         "saved": "Channel visibility updated"
       },
       "discussion": {
@@ -381,7 +381,7 @@
         "hint": "The group where readers comment on posts.",
         "none": "No discussion",
         "noGroups": "You have no groups to link yet.",
-        "note": "Showing what was set from this device: the server does not return the current link.",
+        "note": "The current setting is read from the server.",
         "saved": "Discussion group updated"
       },
       "bots": {
@@ -399,6 +399,34 @@
       "failed": "The invite did not work",
       "failedHint": "The link may have been revoked or already used.",
       "toChats": "Go to the chat list"
+    },
+    "management": {
+      "profile": "Group profile",
+      "name": "Name",
+      "description": "Description",
+      "public": "Public group",
+      "invalid": "Name: 1–128 characters. Description: up to 512 characters.",
+      "ownership": "Ownership and deletion",
+      "newOwner": "New owner",
+      "pickOwner": "Choose a member",
+      "transfer": "Transfer ownership",
+      "transferGroupHint": "{{name}} will become the owner. You will remain an admin without permissions. Only the new owner can transfer ownership back.",
+      "transferChannelHint": "{{name}} will become the channel owner. Only the new owner can transfer ownership back.",
+      "deleteGroup": "Delete group",
+      "deleteChannel": "Delete channel",
+      "deleteHint": "The conversation will be deleted for all members. This cannot be undone.",
+      "addMember": "Add member",
+      "removeMember": "Remove member",
+      "removeMemberHint": "Remove {{name}} from the group?",
+      "membersHint": "Owners and admins can add people. Removing someone requires the ban-users permission.",
+      "analytics": "Post views",
+      "analyticsHint": "The latest 50 posts, newest first. Each account counts once per post.",
+      "noPosts": "No posts yet.",
+      "postNumber": "Post {{number}}",
+      "views_one": "{{count}} view",
+      "views_other": "{{count}} views",
+      "refresh": "Refresh",
+      "confirmDelete": "Delete"
     }
   },
   "chatList": {

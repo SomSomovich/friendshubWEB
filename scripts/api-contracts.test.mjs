@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import { SourceTextModule, SyntheticModule, createContext } from 'node:vm'
 import ts from 'typescript'
 
-async function loadSource(path) {
+async function loadSource(path, respond = () => ({})) {
   const calls = []
   const context = createContext({ console, Date, Number, Set, Map, Error, Promise })
   const cache = new Map()
@@ -13,7 +13,7 @@ async function loadSource(path) {
     if (cache.has(url.href)) return cache.get(url.href)
     if (url.pathname.endsWith('/api/client.ts')) {
       const exports = Object.fromEntries(['get', 'post', 'put', 'patch', 'del'].map((method) => [method,
-        async (...args) => { calls.push(JSON.parse(JSON.stringify({ method, args }))); return {} },
+        async (...args) => { calls.push(JSON.parse(JSON.stringify({ method, args }))); return respond(method, args) },
       ]))
       const stub = new SyntheticModule(Object.keys(exports), function () {
         for (const [name, value] of Object.entries(exports)) this.setExport(name, value)
@@ -83,4 +83,45 @@ test('profile field limits count Unicode code points and accept the documented b
   assert.equal(api.validProfileFields(Array.from({ length: 11 }, () => ({ label: 'a', value: 'v' }))), false)
   assert.equal(api.validProfileFields([{ label: ' ', value: 'v' }]), false)
   assert.equal(api.validProfileFields([]), true)
+})
+
+
+test('group changes use PATCH and preserve an explicit false visibility flag', async () => {
+  const { api, calls } = await loadSource('api/groups')
+  await api.updateGroup(account, 'group/id', { title: 'Updated', description: '', isPublic: false })
+  assert.deepEqual(calls[0], { method: 'patch', args: ['/groups/group%2Fid', { title: 'Updated', description: '', is_public: false }, { account }] })
+})
+
+test('group member and ownership endpoints encode IDs and send account fields', async () => {
+  const { api, calls } = await loadSource('api/groups')
+  await api.addGroupMember(account, 'group', 'other')
+  await api.removeGroupMember(account, 'group', 'other/id')
+  await api.transferGroupOwnership(account, 'group', 'owner')
+  await api.deleteGroup(account, 'group')
+  assert.deepEqual(calls[0].args[1], { account_id: 'other' })
+  assert.equal(calls[1].args[0], '/groups/group/members/other%2Fid')
+  assert.deepEqual(calls[2].args[1], { new_owner_account_id: 'owner' })
+  assert.equal(calls[3].method, 'del')
+})
+
+test('channels expose detail, discovery, owner analytics and ownership actions', async () => {
+  const { api, calls } = await loadSource('api/channels')
+  await api.getChannel(account, 'channel')
+  await api.listPublicChannels(account, 100)
+  await api.getChannelByHandle(account, 'a/b')
+  await api.getChannelAnalytics(account, 'channel')
+  await api.transferChannelOwnership(account, 'channel', 'owner')
+  await api.deleteChannel(account, 'channel')
+  assert.deepEqual(calls.map(({ args }) => args[0]), ['/channels/channel', '/channels/public', '/channels/by-handle/a%2Fb', '/channels/channel/analytics', '/channels/channel/owner', '/channels/channel'])
+  assert.deepEqual(calls[4].args[1], { new_owner_account_id: 'owner' })
+})
+
+test('account resolution deduplicates and splits more than 200 IDs without losing results', async () => {
+  const { api, calls } = await loadSource('api/accounts', (_method, args) => args[1].account_ids.map((accountId) => ({ accountId })))
+  const ids = Array.from({ length: 405 }, (_, index) => `account-${index}`)
+  const result = await api.getAccountsBatch(account, [...ids, ids[0]])
+  assert.equal(result.length, 405)
+  assert.deepEqual(calls.map(({ args }) => args[1].account_ids.length), [200, 200, 5])
+  await api.getAccountsBatch(account, [])
+  assert.equal(calls.length, 3)
 })

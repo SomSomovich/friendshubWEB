@@ -1,5 +1,5 @@
 import type { AccountAuth } from './auth'
-import { del, get, post } from './client'
+import { del, get, patch, post } from './client'
 
 export type GroupCreated = {
   conversationId: string
@@ -236,3 +236,32 @@ export function joinByInvite(account: AccountAuth, token: string): Promise<strin
   ).then((response) => response.conversationId)
 }
 
+
+export type GroupDetail = PublicGroup & { isPublic: boolean }
+
+export function getGroup(account: AccountAuth, conversationId: string): Promise<GroupDetail> {
+  return get(`/groups/${encodeURIComponent(conversationId)}`, { account })
+}
+
+export function updateGroup(account: AccountAuth, conversationId: string,
+  input: { title?: string; description?: string; isPublic?: boolean }): Promise<void> {
+  return patch(`/groups/${encodeURIComponent(conversationId)}`, {
+    title: input.title, description: input.description, is_public: input.isPublic,
+  }, { account })
+}
+
+export function deleteGroup(account: AccountAuth, conversationId: string): Promise<void> {
+  return del(`/groups/${encodeURIComponent(conversationId)}`, undefined, { account })
+}
+
+export function transferGroupOwnership(account: AccountAuth, conversationId: string, newOwnerAccountId: string): Promise<void> {
+  return post(`/groups/${encodeURIComponent(conversationId)}/owner`, { new_owner_account_id: newOwnerAccountId }, { account })
+}
+
+export function addGroupMember(account: AccountAuth, conversationId: string, accountId: string): Promise<void> {
+  return post(`/groups/${encodeURIComponent(conversationId)}/members`, { account_id: accountId }, { account })
+}
+
+export function removeGroupMember(account: AccountAuth, conversationId: string, accountId: string): Promise<void> {
+  return del(`/groups/${encodeURIComponent(conversationId)}/members/${encodeURIComponent(accountId)}`, undefined, { account })
+}

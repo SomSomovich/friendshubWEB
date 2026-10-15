@@ -3,8 +3,8 @@ import type { Account } from '../types'
 import { describeCause } from '../utils/errors'
 
 /** Remote panels never display another account's data while a new read is pending. */
-export function useAccountResource<T>(account: Account, load: (account: Account) => Promise<T>) {
-  const key = `${account.id}:${account.sessionToken}`
+export function useAccountResource<T>(account: Account, load: (account: Account) => Promise<T>, resourceId = '') {
+  const key = `${account.id}:${account.sessionToken}:${resourceId}`
   const [result, setResult] = useState<{ key: string; data: T | null; error: string | null } | null>(null)
   const [revision, setRevision] = useState(0)
   useEffect(() => {

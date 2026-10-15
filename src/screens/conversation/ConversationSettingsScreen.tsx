@@ -1,4 +1,4 @@
-import { Info, Settings2 } from 'lucide-react'
+import { Settings2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useStore } from 'zustand'
@@ -18,7 +18,11 @@ import { Skeleton } from '../../components/ui/Skeleton'
 import { isConversationStaff, useConversationMembers } from '../../hooks/useConversationMembers'
 import { useActiveAccount } from '../../hooks/useActiveAccount'
 import { useConversation } from '../../hooks/useConversation'
-import { useConversationMirror } from '../../hooks/useConversationMirror'
+import { useConversationDetails } from '../../hooks/useConversationDetails'
+import { GroupMetadataPanel } from '../../components/conversation/GroupMetadataPanel'
+import { ConversationOwnershipPanel } from '../../components/conversation/ConversationOwnershipPanel'
+import { PanelError } from '../../components/settings/PanelError'
+import { ChannelAnalyticsPanel } from '../../components/conversation/ChannelAnalyticsPanel'
 import { useMemberLabels } from '../../hooks/useMemberLabels'
 import { chatPath, ROUTES } from '../../router/paths'
 import { requireAccountStore } from '../../state/accountRegistry'
@@ -60,9 +64,9 @@ function SettingsView({ account, conversationId }: { account: Account; conversat
 
   const members = useConversationMembers(account, conversationId, kind)
   const labels = useMemberLabels(account, members.members)
-  const { mirror, update } = useConversationMirror(account.id, conversationId)
+  const metadata = useConversationDetails(account, conversationId, kind)
 
-  const title = conversation?.title ?? t('chatList.unknownPeer')
+  const title = metadata.data?.title ?? conversation?.title ?? t('chatList.unknownPeer')
   const back = () => {
     void navigate(chatPath(conversationId))
   }
@@ -80,7 +84,7 @@ function SettingsView({ account, conversationId }: { account: Account; conversat
     />
   )
 
-  if (view.loading || members.loading) {
+  if (view.loading || members.loading || (kind !== null && metadata.data === null && metadata.error === null)) {
     return (
       <div className="flex min-h-0 flex-1 flex-col bg-bg text-fg">
         {header}
@@ -109,6 +113,10 @@ function SettingsView({ account, conversationId }: { account: Account; conversat
     )
   }
 
+  if (metadata.error !== null) {
+    return <div className="flex flex-1 flex-col bg-bg text-fg">{header}<div className="p-4"><PanelError message={metadata.error} onRetry={metadata.reload} /></div></div>
+  }
+  const detail = metadata.data
   const self = members.self
   if (self === null || !isConversationStaff(self)) {
     return (
@@ -139,7 +147,7 @@ function SettingsView({ account, conversationId }: { account: Account; conversat
     )
   }
 
-  const isOwner = self.role === 'owner'
+  const isOwner = self.role === 'owner' && detail?.ownerAccountId === account.id
   /** A group bit, with the owner's implicit "all of them" folded in. */
   const can = (bit: GroupPermission): boolean => isOwner || hasPermission(self.permissions, bit)
   const groups = conversations.filter((entry) => entry.kind === 'group')
@@ -157,6 +165,8 @@ function SettingsView({ account, conversationId }: { account: Account; conversat
             <>
               {can(GROUP_PERM.changeProfile) ? (
                 <>
+                  {detail !== null ? <GroupMetadataPanel account={account} group={detail} isOwner={isOwner}
+                    onChanged={() => { metadata.reload(); void store.getState().actions.loadConversations() }} /> : null}
                   <ConversationPhotoPanel
                     account={account}
                     conversationId={conversationId}
@@ -169,10 +179,8 @@ function SettingsView({ account, conversationId }: { account: Account; conversat
                     account={account}
                     conversationId={conversationId}
                     kind="group"
-                    current={mirror?.handle ?? null}
-                    onSaved={(handle) => {
-                      void update({ handle })
-                    }}
+                    current={detail?.handle ?? null}
+                    onSaved={() => metadata.reload()}
                   />
                 </>
               ) : null}
@@ -207,27 +215,21 @@ function SettingsView({ account, conversationId }: { account: Account; conversat
                     account={account}
                     conversationId={conversationId}
                     kind="channel"
-                    current={mirror?.handle ?? null}
-                    onSaved={(handle) => {
-                      void update({ handle })
-                    }}
+                    current={detail?.handle ?? null}
+                    onSaved={() => metadata.reload()}
                   />
                   <ChannelPublicPanel
                     account={account}
                     conversationId={conversationId}
-                    current={mirror?.isPublic ?? null}
-                    onSaved={(isPublic) => {
-                      void update({ isPublic })
-                    }}
+                    current={detail?.isPublic ?? null}
+                    onSaved={() => metadata.reload()}
                   />
                   <ChannelDiscussionPanel
                     account={account}
                     conversationId={conversationId}
                     groups={groups}
-                    current={mirror?.discussionGroupId ?? null}
-                    onSaved={(discussionGroupId) => {
-                      void update({ discussionGroupId })
-                    }}
+                    current={detail !== null && 'linkedGroupConversationId' in detail ? detail.linkedGroupConversationId : null}
+                    onSaved={() => metadata.reload()}
                   />
                 </>
               ) : null}
@@ -252,10 +254,13 @@ function SettingsView({ account, conversationId }: { account: Account; conversat
             </>
           )}
 
-          <p className="flex items-center gap-2 text-xs text-pretty text-fg-muted">
-            <Info className="size-4 shrink-0" aria-hidden />
-            {t('conversation.settings.auditNote')}
-          </p>
+          {isOwner ? <>
+            {kind === 'channel' ? <ChannelAnalyticsPanel account={account} conversationId={conversationId} /> : null}
+            <ConversationOwnershipPanel account={account} conversationId={conversationId} kind={kind}
+              members={members.members} labels={labels}
+              onChanged={() => { members.refresh(); metadata.reload(); void store.getState().actions.loadConversations() }}
+              onDeleted={() => { void navigate(ROUTES.app, { replace: true }) }} />
+          </> : null}
         </div>
       </div>
     </div>

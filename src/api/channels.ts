@@ -138,3 +138,35 @@ export function subscribeChannel(account: AccountAuth, channelId: string): Promi
 export function unsubscribeChannel(account: AccountAuth, channelId: string): Promise<void> {
   return del<void>(`/channels/${encodeURIComponent(channelId)}/subscribe`, undefined, { account })
 }
+
+export type ChannelDetail = ChannelCreated & {
+  handle: string | null
+  handleNormalized: string | null
+  memberCount: number
+  updatedAt: number
+}
+export type PublicChannel = Omit<ChannelDetail, 'isPublic' | 'linkedGroupConversationId'>
+export type ChannelByHandle = {
+  conversationId: string; title: string; description: string | null
+  memberCount: number; alreadyMember: boolean
+}
+export type ChannelAnalytics = { posts: { postId: string; views: number }[] }
+
+export function getChannel(account: AccountAuth, channelId: string): Promise<ChannelDetail> {
+  return get(`/channels/${encodeURIComponent(channelId)}`, { account })
+}
+export function listPublicChannels(account: AccountAuth, limit = 50): Promise<PublicChannel[]> {
+  return get('/channels/public', { account, query: { limit } })
+}
+export function getChannelByHandle(account: AccountAuth, handle: string): Promise<ChannelByHandle> {
+  return get(`/channels/by-handle/${encodeURIComponent(handle)}`, { account })
+}
+export function deleteChannel(account: AccountAuth, channelId: string): Promise<void> {
+  return del(`/channels/${encodeURIComponent(channelId)}`, undefined, { account })
+}
+export function transferChannelOwnership(account: AccountAuth, channelId: string, newOwnerAccountId: string): Promise<void> {
+  return post(`/channels/${encodeURIComponent(channelId)}/owner`, { new_owner_account_id: newOwnerAccountId }, { account })
+}
+export function getChannelAnalytics(account: AccountAuth, channelId: string): Promise<ChannelAnalytics> {
+  return get(`/channels/${encodeURIComponent(channelId)}/analytics`, { account })
+}

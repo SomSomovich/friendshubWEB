@@ -1,7 +1,7 @@
-import { ShieldCheck, Volume2, VolumeX } from 'lucide-react'
-import { useState } from 'react'
+import { ShieldCheck, Volume2, VolumeX, UserMinus } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { GROUP_PERM, hasPermission, muteMember, setMemberRole } from '../../api/groups'
+import { GROUP_PERM, hasPermission, muteMember, setMemberRole, addGroupMember, removeGroupMember } from '../../api/groups'
 import { canOpenMemberProfile, type ConversationMember } from '../../hooks/useConversationMembers'
 import { memberKey } from '../../hooks/useMemberLabels'
 import { useActionReporter } from '../../hooks/useActionReporter'
@@ -10,6 +10,11 @@ import { useUiStore } from '../../state/uiStore'
 import type { Account } from '../../types'
 import { nowSeconds } from '../../utils/time'
 import { MuteDialog, type MuteChoice } from '../layout/MuteDialog'
+import { listContacts } from '../../api/contacts'
+import { useAccountResource } from '../../hooks/useAccountResource'
+import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { PanelError } from '../settings/PanelError'
 import { SettingsCard } from '../settings/Section'
 import { MemberAction, MemberRow } from './MemberRow'
 import { AdminRightsDialog } from './AdminRightsDialog'
@@ -25,15 +30,7 @@ export type GroupMembersPanelProps = {
   onChanged: () => void
 }
 
-/**
- * A group's members, and the two things that can be done to one.
- *
- * Two, because the API offers two: there is no endpoint that adds a member to an
- * existing group (an invite is the way in) and none that removes one — the
- * server has `members/role` and `members/mute` for groups and a `remove` only
- * for channels. The card says so rather than leaving the reader to wonder where
- * the kick button went.
- */
+/** Group membership and moderation, gated by the acting member’s permissions. */
 export function GroupMembersPanel({
   account,
   conversationId,
@@ -54,6 +51,24 @@ export function GroupMembersPanel({
   const [rights, setRights] = useState<ConversationMember | null>(null)
   const [muting, setMuting] = useState<ConversationMember | null>(null)
   const [busy, setBusy] = useState(false)
+  const [removing, setRemoving] = useState<ConversationMember | null>(null)
+  const [adding, setAdding] = useState('')
+  const contacts = useAccountResource(account, listContacts)
+  const changingMembers = useRef(false)
+  const candidates = (contacts.data ?? []).filter((contact) => !members.some((member) => member.id === contact.targetAccountId))
+  async function changeMember(remove: boolean): Promise<void> {
+    const id = remove ? removing?.id : adding
+    if (!id || changingMembers.current) return
+    changingMembers.current = true
+    setBusy(true)
+    try {
+      await (remove ? removeGroupMember : addGroupMember)(account, conversationId, id)
+      setRemoving(null)
+      setAdding('')
+      onChanged()
+    } catch (cause) { fail(cause) }
+    finally { changingMembers.current = false; setBusy(false) }
+  }
 
   function labelOf(member: ConversationMember): string {
     return (
@@ -112,13 +127,12 @@ export function GroupMembersPanel({
   }
 
   return (
-    <SettingsCard title={t('conversation.members.title')} description={t('conversation.members.groupNote')}>
+    <SettingsCard title={t('conversation.members.title')} description={t('conversation.management.membersHint')}>
       <ul className="flex flex-col gap-0.5">
         {members.map((member) => {
           const muted = member.mutedUntil !== null && member.mutedUntil > nowSeconds()
-          // The owner row has no controls: the server refuses to change or mute
-          // the owner, and ownership is transferred by no endpoint at all.
-          const actionable = member.role !== 'owner' && (canManageRoles || canMute)
+          // The owner and the acting member are never moderation targets.
+          const actionable = member.role !== 'owner' && member.id !== account.id && (canManageRoles || canMute)
 
           return (
             <MemberRow
@@ -150,6 +164,8 @@ export function GroupMembersPanel({
                         }}
                       />
                     ) : null}
+                    {canMute ? <MemberAction icon={UserMinus} danger disabled={busy}
+                      label={t('conversation.management.removeMember')} onClick={() => setRemoving(member)} /> : null}
                     {canMute ? (
                       <MemberAction
                         icon={muted ? Volume2 : VolumeX}
@@ -170,6 +186,24 @@ export function GroupMembersPanel({
         })}
       </ul>
 
+      {contacts.error !== null ? <PanelError message={contacts.error} onRetry={contacts.reload} /> : (
+        <div className="flex flex-col gap-2 border-t border-border pt-3">
+          <label className="flex flex-col gap-1 text-xs font-medium text-fg-muted">
+            {t('conversation.management.addMember')}
+            <select value={adding} disabled={busy || contacts.data === null} onChange={(event) => setAdding(event.target.value)}
+              className="h-10 rounded-lg border border-border bg-bg px-3 text-sm text-fg focus-visible:outline-2 focus-visible:outline-accent">
+              <option value="">{t('settings.privacy.pickContact')}</option>
+              {candidates.map((contact) => <option key={contact.targetAccountId} value={contact.targetAccountId}>{contact.localUsername ?? contact.username}</option>)}
+            </select>
+          </label>
+          <Button className="self-start" size="sm" loading={busy} disabled={!adding || members.length >= 5000}
+            onClick={() => { void changeMember(false) }}>{t('conversation.management.addMember')}</Button>
+        </div>
+      )}
+      <ConfirmDialog open={removing !== null} danger busy={busy} title={t('conversation.management.removeMember')}
+        description={t('conversation.management.removeMemberHint', { name: removing ? labelOf(removing) : '' })}
+        confirmLabel={t('conversation.management.removeMember')} onConfirm={() => { void changeMember(true) }}
+        onClose={() => { if (!changingMembers.current) setRemoving(null) }} />
       {rights === null ? null : (
         <AdminRightsDialog
           key={memberKey(rights)}

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { unsubscribeChannel } from '../../api/channels'
 import { leaveConversation } from '../../api/conversations'
 import { MemberRow } from '../conversation/MemberRow'
+import { useConversationDetails } from '../../hooks/useConversationDetails'
 import { useActionReporter } from '../../hooks/useActionReporter'
 import {
   canOpenMemberProfile,
@@ -67,17 +68,16 @@ export function ConversationProfileModal({
     open && manageable ? conversation.kind : null,
   )
   const labels = useMemberLabels(account, members.members)
+  const metadata = useConversationDetails(account, conversation.id, conversation.kind, open && manageable)
 
   const [confirmLeave, setConfirmLeave] = useState(false)
   const [busy, setBusy] = useState(false)
 
   const staff = isConversationStaff(members.self)
-  // A known owner is never offered the door: leaving a group leaves it with no
-  // owner and with no way to hand ownership on (no endpoint transfers it), and
-  // the channel endpoint refuses the owner outright.
+  // Ownership must be transferred in settings before an owner can leave.
   const canLeave = manageable && (members.self === null || members.self.role !== 'owner')
 
-  const title = conversation.title ?? t('chatList.unknownPeer')
+  const title = metadata.data?.title ?? conversation.title ?? t('chatList.unknownPeer')
   const created = formatDateOnly(conversation.createdAt, i18n.language)
   const preview = members.members.slice(0, MEMBER_PREVIEW)
 
@@ -159,6 +159,8 @@ export function ConversationProfileModal({
             </div>
           </div>
 
+          {metadata.data?.handle ? <p className="text-sm text-accent">@{metadata.data.handle}</p> : null}
+          {metadata.data?.description ? <p className="text-sm text-fg-muted whitespace-pre-wrap break-words">{metadata.data.description}</p> : null}
           {members.loading ? (
             <div className="flex flex-col gap-1" role="status" aria-label={t('common.loading')}>
               <Skeleton className="h-10 w-full rounded-lg" />
