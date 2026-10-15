@@ -266,7 +266,7 @@ async function run() {
   await new Promise((resolve) => setTimeout(resolve, 550))
   microphone.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }))
   await waitFor(() => posts.length === 4 && !document.querySelector('[role="dialog"]'), 'channel voice sent')
-  check(posts[0]?.text === 'Голосовое сообщение' && posts[0]?.attachment_ids[0] === 'raw-file' && microphoneStops > 0, 'microphone sends a channel audio attachment and releases its media stream')
+  check(posts[0]?.text === '' && posts[0]?.attachment_ids[0] === 'raw-file' && microphoneStops > 0, 'microphone sends a captionless channel audio attachment and releases its media stream')
   await waitFor(() => !!host.querySelector('button[aria-label*="👍"]'), 'post reactions')
   const reactionCountBefore = requests.filter((request) => request.path.endsWith('/reactions') && request.method === 'GET').length
   firstPostCard.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 120, clientY: 120 }))

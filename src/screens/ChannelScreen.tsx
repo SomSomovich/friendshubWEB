@@ -125,7 +125,10 @@ export function ChannelScreen({ account, conversation, avatarUrl }: { account: A
   async function sendFiles(input = caption): Promise<void> {
     const batch = [...pendingFiles.current]
     if (batch.length === 0 || lock.current) return
-    const text = input.trim() || (batch.every((file) => file.blob.type.startsWith('audio/')) ? t('channelFeed.voiceMessage') : t('chat.attach.file'))
+    // Keep attachment-only posts captionless, just like ordinary chat sends.
+    // Synthetic labels such as "File" or "Voice message" should not become
+    // visible post text when the user did not enter a caption.
+    const text = input.trim()
     if ([...text].length > 4096) { setUploadError(t('channelFeed.textLimit')); return }
     setUploadError(null)
     await mutate(async () => {
@@ -209,7 +212,7 @@ export function ChannelScreen({ account, conversation, avatarUrl }: { account: A
       onCancelEdit={() => setEditing(null)} onSubmitEdit={submit} onSend={submit}
       onPickFile={addFile} onVoiceRecorded={(blob, name) => {
         if (addFile(new File([blob], name, { type: blob.type }))) {
-          const text = t('channelFeed.voiceMessage'); setCaption(text); void sendFiles(text)
+          void sendFiles('')
         }
       }} disabled={busy || resource.data === null} focusToken={0} onTyping={() => {}} /> : null}
     <AttachmentComposer open={files.length > 0} attachments={files} caption={caption} onCaptionChange={setCaption}
