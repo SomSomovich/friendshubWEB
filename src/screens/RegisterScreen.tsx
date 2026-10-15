@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/errors'
@@ -22,9 +22,11 @@ export function RegisterScreen() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const submitting = useRef(false)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
+    if (submitting.current) return
     setError(null)
 
     if (password.length < MIN_PASSWORD_LENGTH) {
@@ -32,6 +34,7 @@ export function RegisterScreen() {
       return
     }
 
+    submitting.current = true
     setBusy(true)
     try {
       const { fhNumber, result } = await registerAndStartLogin(password)
@@ -42,7 +45,11 @@ export function RegisterScreen() {
         throw new Error(t('auth.errors.unexpectedChallenge'))
       }
 
-      await persistSession(fhNumber, result)
+      const completed = await persistSession(fhNumber, result)
+      if ('kind' in completed) {
+        void navigate(withAddAccount(ROUTES.twoFactor, location.search), { state: { from } })
+        return
+      }
       toast.notify({
         kind: 'success',
         message: t('auth.registered', { fhNumber }),
@@ -60,6 +67,7 @@ export function RegisterScreen() {
       setError(message)
       toast.notify({ kind: 'error', message })
     } finally {
+      submitting.current = false
       setBusy(false)
     }
   }

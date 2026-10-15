@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/errors'
-import { clearChallenge, persistSession, readChallenge, startLoginWithTotp } from '../auth/session'
+import { cancelLogin, persistSession, readChallenge, startLoginWithTotp } from '../auth/session'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { useToast } from '../hooks/useToast'
@@ -21,7 +21,8 @@ export function TwoFactorScreen() {
   /** Where the visitor was headed before the sign-in flow caught them. */
   const from = (location.state as AuthRedirectState)?.from
 
-  const [challenge] = useState(readChallenge)
+  const [challenge, setChallenge] = useState(readChallenge)
+  const submitting = useRef(false)
   const [code, setCode] = useState('')
   const [backupMode, setBackupMode] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,6 +46,7 @@ export function TwoFactorScreen() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
+    if (submitting.current) return
     setError(null)
 
     const trimmed = code.trim()
@@ -54,6 +56,7 @@ export function TwoFactorScreen() {
       return
     }
 
+    submitting.current = true
     setBusy(true)
     try {
       const session = await startLoginWithTotp(
@@ -61,8 +64,13 @@ export function TwoFactorScreen() {
         trimmed,
         challenge?.fhNumber ?? '',
       )
-      await persistSession(challenge?.fhNumber ?? '', session)
-      clearChallenge()
+      const completed = await persistSession(challenge?.fhNumber ?? '', session)
+      if ('kind' in completed) {
+        setChallenge(readChallenge())
+        setCode('')
+        setBackupMode(false)
+        return
+      }
       void navigate(ROUTES.connect, { replace: true, state: { from } })
     } catch (cause) {
       const message =
@@ -77,7 +85,11 @@ export function TwoFactorScreen() {
                 : String(cause)
       setError(message)
       toast.notify({ kind: 'error', message })
+      // Setup failure after successful 2FA must never leave a spent token usable.
+      setChallenge(readChallenge())
+      setCode('')
     } finally {
+      submitting.current = false
       setBusy(false)
     }
   }
@@ -92,7 +104,11 @@ export function TwoFactorScreen() {
       >
         <h1 className="text-lg font-semibold">{t('auth.twoFactorTitle')}</h1>
         <p className="text-xs text-fg-muted">
-          {backupMode ? t('auth.twoFactorBackupHint') : t('auth.twoFactorHint')}
+          {challenge.deviceSetup
+            ? t('auth.twoFactorDeviceHint')
+            : backupMode
+              ? t('auth.twoFactorBackupHint')
+              : t('auth.twoFactorHint')}
         </p>
 
         <Input
@@ -124,6 +140,7 @@ export function TwoFactorScreen() {
         <div className="flex flex-col gap-2 text-center text-xs text-fg-muted">
           <button
             type="button"
+            disabled={busy}
             onClick={() => {
               setBackupMode((value) => !value)
               setCode('')
@@ -136,8 +153,19 @@ export function TwoFactorScreen() {
           <Link
             to={withAddAccount(ROUTES.login, location.search)}
             state={{ from }}
-            onClick={() => {
-              clearChallenge()
+            onClick={(event) => {
+              event.preventDefault()
+              if (submitting.current) return
+              submitting.current = true
+              setBusy(true)
+              void cancelLogin().then(() => {
+                void navigate(withAddAccount(ROUTES.login, location.search), { state: { from } })
+              }).catch((cause: unknown) => {
+                setError(cause instanceof Error ? cause.message : String(cause))
+              }).finally(() => {
+                submitting.current = false
+                setBusy(false)
+              })
             }}
             className="hover:text-fg"
           >

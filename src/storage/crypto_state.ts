@@ -55,3 +55,11 @@ export async function loadSnapshot(accountId: string): Promise<string | null> {
   const record = await database.get('crypto_state', accountId)
   return record?.json ?? null
 }
+
+/** Used only after an unfinished registration has been revoked on the server. */
+export async function deleteSnapshot(accountId: string): Promise<void> {
+  await withCryptoLock(accountId, async () => {
+    const database = await openDatabase()
+    await database.delete('crypto_state', accountId)
+  })
+}

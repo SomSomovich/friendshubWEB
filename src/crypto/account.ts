@@ -53,12 +53,9 @@ function randomRegistrationId(): number {
 /**
  * Registers this browser as a device, and stops there.
  *
- * Split from the prekey upload because the two can need different sessions. The
- * server gives every registration a *new* number, while the session is bound to
- * the number it was created with — so a session that was allowed to register a
- * device may not be allowed to upload for it, and the caller has to log in again
- * as the device it just became before anything can be stored against it. See
- * `signIn` in `src/auth/session.ts`, which is where that second login happens.
+ * The caller compares the returned number with the session binding before
+ * uploading keys. If they differ, `src/auth/session.ts` obtains a session for
+ * the assigned number and asks for a fresh second factor when needed.
  *
  * Storage is deliberately not touched: the caller decides what to persist, and
  * the Node smokes have no IndexedDB at all.
@@ -165,7 +162,7 @@ async function registerDeviceOrRecover(
 export async function revokeRegisteredDevice(
   account: Account,
   deviceNumber: number,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const devices = await listOwnDevices({
       sessionToken: account.sessionToken,
@@ -173,15 +170,17 @@ export async function revokeRegisteredDevice(
     })
     const device = devices.find((entry) => entry.deviceNumber === deviceNumber)
     if (device === undefined) {
-      return
+      return true
     }
     await revokeDevice(
       { sessionToken: account.sessionToken, deviceNumber: account.deviceNumber },
       device.id,
     )
-    console.warn(`[crypto] device ${deviceNumber} was registered and then revoked: unused`)
+    console.info(`[crypto] cancelled unfinished registration for device ${deviceNumber}`)
+    return true
   } catch (error) {
     console.warn(`[crypto] device ${deviceNumber} could not be removed after a failed sign-in`, error)
+    return false
   }
 }
 

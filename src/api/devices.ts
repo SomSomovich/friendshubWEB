@@ -53,13 +53,7 @@ export function listOwnDevices(account: AccountAuth): Promise<OwnDevice[]> {
   return get<OwnDevice[]>('/devices', { account })
 }
 
-/**
- * Registers a device against the current session.
- *
- * Only the token is sent, never `X-Device-Number`: the device does not exist
- * yet, so the session is not bound to one and the server rejects a header that
- * names an unknown device.
- */
+/** Registers an identity using the current session; its routing binding is unchanged. */
 export function registerDevice(
   account: Pick<Account, 'sessionToken'>,
   input: RegisterDeviceInput,

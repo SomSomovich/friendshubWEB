@@ -1,11 +1,11 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { ApiError } from '../api/errors'
-import { persistSession, startLogin, storeChallenge } from '../auth/session'
+import { persistSession, startLogin } from '../auth/session'
 import { useToast } from '../hooks/useToast'
 import { ROUTES, isAddingAccount, withAddAccount, type AuthRedirectState } from '../router/paths'
 import { cn } from '../utils/cn'
@@ -20,12 +20,14 @@ export function LoginScreen() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const submitting = useRef(false)
 
   const addingAccount = isAddingAccount(location.search)
   const from = (location.state as AuthRedirectState)?.from
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
+    if (submitting.current) return
     setError(null)
 
     const trimmed = fhNumber.trim().toUpperCase()
@@ -34,12 +36,12 @@ export function LoginScreen() {
       return
     }
 
+    submitting.current = true
     setBusy(true)
     try {
       const result = await startLogin(trimmed, password)
 
       if (result.kind === 'totp_required') {
-        storeChallenge({ fhNumber: trimmed, challengeToken: result.challengeToken })
         // Carries `add` with it: a second account behind 2FA must not be dropped
         // on the conversation list half way through its own sign-in. `from`
         // travels too, so the screen the visitor was turned away from — an
@@ -48,13 +50,18 @@ export function LoginScreen() {
         return
       }
 
-      await persistSession(trimmed, result)
+      const completed = await persistSession(trimmed, result)
+      if ('kind' in completed) {
+        void navigate(withAddAccount(ROUTES.twoFactor, location.search), { state: { from } })
+        return
+      }
       void navigate(ROUTES.connect, { replace: true, state: { from } })
     } catch (cause) {
       const message = describeLoginError(cause, t)
       setError(message)
       toast.notify({ kind: 'error', message })
     } finally {
+      submitting.current = false
       setBusy(false)
     }
   }

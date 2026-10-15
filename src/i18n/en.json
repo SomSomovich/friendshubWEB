@@ -124,6 +124,7 @@
     "registered": "Account created: {{fhNumber}}",
     "twoFactorTitle": "Two-factor authentication",
     "twoFactorHint": "Enter the six-digit code from your authenticator app.",
+    "twoFactorDeviceHint": "One more code is needed to finish setting up this browser. Wait for the next authenticator code or enter another backup code.",
     "twoFactorBackupHint": "Enter one of your backup codes. Each works once.",
     "useBackupCode": "Use a backup code",
     "useTotp": "Use an app code",

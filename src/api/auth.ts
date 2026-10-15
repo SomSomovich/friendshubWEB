@@ -41,11 +41,7 @@ export function register(password: string): Promise<RegisterResult> {
   return post<RegisterResult>('/register', { password })
 }
 
-/**
- * Phase one of login. `deviceNumber` must be an existing device, except for `1`
- * on an account that has none yet — the bootstrap case where the first device is
- * registered after logging in.
- */
+/** Phase one. Any positive device routing number is accepted by the API. */
 export function login(
   fhNumber: string,
   password: string,
