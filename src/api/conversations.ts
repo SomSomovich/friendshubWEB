@@ -24,6 +24,8 @@ export type ConversationDetail = {
   createdBy: string | null
   createdAt: number
   updatedAt: number
+  expiresAt?: number | null
+  closedAt?: number | null
   members: string[]
 }
 

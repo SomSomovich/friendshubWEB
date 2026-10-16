@@ -18,8 +18,10 @@ export type MessageBubbleProps = {
   message: MessageRecord
   /** True when this account sent it, which is what decides the side it sits on. */
   own: boolean
-  /** The sender's name, shown only for somebody else's message in a group. */
+  /** The sender's name, shown inside a group message bubble. */
   senderName: string | null
+  /** Group-scoped label, rendered beside the sender name inside the bubble. */
+  senderTag: string | null
   language: string
   /**
    * What to draw on the tick, which is not always what is stored: a message the
@@ -41,6 +43,7 @@ export function MessageBubble({
   message,
   own,
   senderName,
+  senderTag,
   language,
   status,
   highlighted,
@@ -91,16 +94,29 @@ export function MessageBubble({
             highlighted && 'ring-2 ring-accent',
           )}
         >
-          {senderName === null ? null : (
-            <button
-              type="button"
-              onClick={() => {
-                openProfile(message.senderAccountId)
-              }}
-              className="mb-0.5 cursor-pointer rounded text-xs font-semibold text-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
-            >
-              {senderName}
-            </button>
+          {senderName === null && senderTag === null ? null : (
+            <div className="mb-0.5 flex min-w-0 items-center gap-1.5">
+              {senderName === null ? (
+                <span className="min-w-0 truncate text-xs font-semibold text-accent">{t('chatList.unknownPeer')}</span>
+              ) : own ? (
+                <span className="min-w-0 truncate text-xs font-semibold text-accent">{senderName}</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    openProfile(message.senderAccountId)
+                  }}
+                  className="min-w-0 truncate cursor-pointer rounded text-xs font-semibold text-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+                >
+                  {senderName}
+                </button>
+              )}
+              {senderTag === null ? null : (
+                <span className="max-w-32 shrink-0 truncate rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[10px] leading-none text-accent">
+                  {senderTag}
+                </span>
+              )}
+            </div>
           )}
 
           {message.attachments.length === 0 ? null : (

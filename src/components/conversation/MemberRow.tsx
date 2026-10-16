@@ -103,6 +103,11 @@ export function MemberRow({ member, label, isSelf = false, onOpen, trailing }: M
         <span className="truncate text-sm text-fg">
           {label}
           {isSelf ? <span className="text-fg-muted"> · {t('chat.you')}</span> : null}
+          {member.groupTag ? (
+            <span className="ml-1.5 inline-flex max-w-28 translate-y-[-1px] truncate rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0.5 align-middle text-[10px] leading-none text-accent">
+              {member.groupTag}
+            </span>
+          ) : null}
         </span>
         {muted ? (
           <span className="truncate text-xs text-fg-muted">{t('conversation.member.muted')}</span>

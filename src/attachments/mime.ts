@@ -1,3 +1,5 @@
+import { isVideoCircleWebm, webmVideoDimensions } from './webm'
+
 /**
  * What a downloaded attachment actually is.
  *
@@ -16,6 +18,8 @@ export type AttachmentMime = {
   type: string
   /** Which renderer the UI should reach for. */
   family: 'image' | 'video' | 'audio' | 'file'
+  /** True only for the square 360×360 WebM format made by the video-circle recorder. */
+  videoCircle: boolean
 }
 
 const SIGNATURES: ReadonlyArray<{ bytes: number[]; type: string; family: AttachmentMime['family'] }> = [
@@ -52,17 +56,23 @@ export function detectMime(source: Uint8Array): AttachmentMime {
     if (signature.type === 'image/webp' && !startsWithAt(bytes, [0x57, 0x45, 0x42, 0x50], 8)) {
       continue
     }
-    return { type: signature.type, family: signature.family }
+    return { type: signature.type, family: signature.family, videoCircle: false }
   }
 
   if (startsWith(bytes, EBML_HEADER)) {
     // WebM: audio or video depends on the tracks, which only the header knows.
-    return hasVideoTrack(bytes)
-      ? { type: 'video/webm', family: 'video' }
-      : { type: 'audio/webm', family: 'audio' }
+    const videoTrack = webmVideoDimensions(bytes)
+    const hasVideo = videoTrack !== null || hasVideoTrack(bytes)
+    return hasVideo
+      ? {
+          type: 'video/webm',
+          family: 'video',
+          videoCircle: isVideoCircleWebm(bytes),
+        }
+      : { type: 'audio/webm', family: 'audio', videoCircle: false }
   }
   if (startsWithAt(bytes, [0x4f, 0x67, 0x67, 0x53], 0)) {
-    return { type: 'audio/ogg', family: 'audio' }
+    return { type: 'audio/ogg', family: 'audio', videoCircle: false }
   }
   if (startsWithAt(bytes, [0x66, 0x74, 0x79, 0x70], 4)) {
     // ISO base media: a brand of `M4A ` is audio, everything else is treated as
@@ -70,11 +80,11 @@ export function detectMime(source: Uint8Array): AttachmentMime {
     // perfectly well, and an audio element given a video container does not.
     const brand = String.fromCharCode(...bytes.subarray(8, 12))
     return brand.startsWith('M4A')
-      ? { type: 'audio/mp4', family: 'audio' }
-      : { type: 'video/mp4', family: 'video' }
+      ? { type: 'audio/mp4', family: 'audio', videoCircle: false }
+      : { type: 'video/mp4', family: 'video', videoCircle: false }
   }
 
-  return { type: 'application/octet-stream', family: 'file' }
+  return { type: 'application/octet-stream', family: 'file', videoCircle: false }
 }
 
 /**

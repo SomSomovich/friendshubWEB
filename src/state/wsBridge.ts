@@ -4,6 +4,7 @@ import { sendHistory, clearHistoryTransfers } from '../crypto/historySync'
 import { useHistorySyncStore } from './historySyncStore'
 import type { StoreApi } from 'zustand/vanilla'
 import { getConversationReads } from '../api/conversations'
+import { listFolders, removeConversationFromFolder } from '../api/folders'
 import { reportSessionExpired } from '../auth/sessionExpiry'
 import { ensurePrekeysUploaded } from '../crypto/account'
 import { i18n } from '../i18n'
@@ -116,8 +117,9 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
         store.getState().actions.dropConversationMessages(conversationId)
         store.setState((state) => ({
           messagesVersion: state.messagesVersion + 1,
-          foldersVersion: state.foldersVersion + 1,
         }))
+        await removeExpiredConversationFromFolders(account, conversationId)
+        store.setState((state) => ({ foldersVersion: state.foldersVersion + 1 }))
         await store.getState().actions.loadConversations()
       })
       .catch((error: unknown) => {
@@ -261,6 +263,27 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     detachConnected()
     detachDisconnected()
     detachFatal()
+  }
+}
+
+/** Keeps the server-backed folder list in sync with a room deleted by expiry. */
+async function removeExpiredConversationFromFolders(
+  account: Account,
+  conversationId: string,
+): Promise<void> {
+  try {
+    const folders = await listFolders(account)
+    const containing = folders.filter((folder) => folder.conversationIds.includes(conversationId))
+    const results = await Promise.allSettled(
+      containing.map((folder) => removeConversationFromFolder(account, folder.id, conversationId)),
+    )
+    if (results.some((result) => result.status === 'rejected')) {
+      console.warn('[state] an expired conversation could not be removed from every folder')
+    }
+  } catch (error) {
+    // Expiry has already removed the room locally. The folder list remains
+    // server-backed and will be read again when the chat list is opened.
+    console.warn('[state] expired conversation folders could not be refreshed', error)
   }
 }
 

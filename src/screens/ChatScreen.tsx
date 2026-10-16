@@ -3,6 +3,7 @@ import { PanelSkeleton } from '../components/settings/PanelSkeleton'
 import { PanelError } from '../components/settings/PanelError'
 import {
   CalendarClock,
+  Clock3,
   Eraser,
   Hand,
   MessageSquare,
@@ -40,6 +41,7 @@ import { EmptyState } from '../components/ui/EmptyState'
 import { useActiveAccount } from '../hooks/useActiveAccount'
 import { useChatSearch } from '../hooks/useChatSearch'
 import { useConversation, type ConversationView } from '../hooks/useConversation'
+import { useConversationMembers } from '../hooks/useConversationMembers'
 import { usePeerInfo } from '../hooks/usePeerInfo'
 import { usePins } from '../hooks/usePins'
 import { useReadReceipts } from '../hooks/useReadReceipts'
@@ -48,6 +50,7 @@ import { useToast } from '../hooks/useToast'
 import { ROUTES, conversationSettingsPath } from '../router/paths'
 import { requireAccountStore } from '../state/accountRegistry'
 import { applyDelete, applyEdit, applyReaction } from '../state/messageMutations'
+import { usePendingVoiceStore } from '../state/pendingVoiceStore'
 import { togglePin as togglePinned } from '../state/pins'
 import { clearConversationHistory, deleteConversationLocally } from '../storage/conversations'
 import { getTemporaryRoomExpiry } from '../storage/temporaryRooms'
@@ -119,7 +122,9 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
   const store = requireAccountStore(account.id)
 
   const { conversation, peerAccountId, contactName, avatarUrl, loading: loadingConversation } = conversationView
+  const isGroup = conversation?.kind === 'group'
   const peer = usePeerInfo(account, peerAccountId)
+  const groupMembers = useConversationMembers(account, conversationId, conversation?.kind === 'group' ? 'group' : null)
   const pins = usePins(account, conversationId)
 
   const messages = useStore(store, (state) => state.messages)
@@ -146,6 +151,7 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
   } | null>(null)
   const [nudgeCooldownUntil, setNudgeCooldownUntil] = useState(0)
   const [nudgeClock, setNudgeClock] = useState(() => nowSeconds())
+  const [expiryClock, setExpiryClock] = useState(() => nowSeconds())
   const [attachments, setAttachments] = useState<PendingAttachment[]>([])
   const [caption, setCaption] = useState('')
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null)
@@ -160,11 +166,18 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
   // Ticks so the "typing" line disappears on its own five seconds after the last
   // frame; nothing arrives to say it stopped.
   const [typingClock, setTypingClock] = useState(() => nowSeconds())
-  const temporaryRoomExpiresAt =
+  const legacyRoomExpiresAt =
     temporaryRoomExpiry?.accountId === account.id &&
     temporaryRoomExpiry.conversationId === conversationId
       ? temporaryRoomExpiry.expiresAt
       : null
+  const temporaryRoomExpiresAt = conversation?.expiresAt === undefined
+    ? legacyRoomExpiresAt
+    : conversation.expiresAt
+  const roomClosing = isGroup && (
+    conversation?.closedAt != null ||
+    (temporaryRoomExpiresAt !== null && expiryClock >= temporaryRoomExpiresAt)
+  )
 
   const search = useChatSearch(account, conversationId, searchOpen)
 
@@ -207,13 +220,30 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
 
   useEffect(() => {
     let cancelled = false
-    if (conversation?.kind === 'group') {
+    if (conversation?.kind === 'group' && conversation.expiresAt === undefined) {
       void getTemporaryRoomExpiry(account.id, conversationId).then((expiresAt) => {
         if (!cancelled) setTemporaryRoomExpiry({ accountId: account.id, conversationId, expiresAt })
       })
     }
     return () => { cancelled = true }
-  }, [account.id, conversation?.kind, conversationId])
+  }, [account.id, conversation?.kind, conversation?.expiresAt, conversationId])
+
+  useEffect(() => {
+    if (temporaryRoomExpiresAt === null) return
+    const update = (): void => setExpiryClock(nowSeconds())
+    update()
+    const interval = setInterval(update, 60_000)
+    const untilExpiry = Math.max(0, temporaryRoomExpiresAt - nowSeconds()) * 1000
+    const expiryTimer = setTimeout(update, untilExpiry)
+    window.addEventListener('focus', update)
+    document.addEventListener('visibilitychange', update)
+    return () => {
+      clearInterval(interval)
+      clearTimeout(expiryTimer)
+      window.removeEventListener('focus', update)
+      document.removeEventListener('visibilitychange', update)
+    }
+  }, [temporaryRoomExpiresAt])
 
   useEffect(() => {
     if (nudgeCooldownUntil <= nowSeconds()) return
@@ -262,7 +292,6 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
     (id) => id !== account.id,
   )
 
-  const isGroup = conversation?.kind === 'group'
   const senderIds = useMemo(
     () =>
       isGroup
@@ -271,6 +300,20 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
     [isGroup, messages, account.id],
   )
   const senderNames = useSenderNames(account, senderIds)
+  const transcriptSenderNames = useMemo(() => {
+    if (!isGroup) return senderNames
+    const names = new Map(senderNames)
+    names.set(account.id, account.username)
+    return names
+  }, [account.id, account.username, isGroup, senderNames])
+  const senderTags = useMemo(() => {
+    if (!isGroup) return new Map<string, string>()
+    return new Map(
+      groupMembers.members
+        .filter((member) => member.actorType === 'account' && typeof member.groupTag === 'string' && member.groupTag.length > 0)
+        .map((member) => [member.id, member.groupTag as string]),
+    )
+  }, [groupMembers.members, isGroup])
 
   const title = useMemo(() => {
     if (conversation === null) {
@@ -449,8 +492,70 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
    * transcript. All that is left here is saying so when it fails.
    */
   function sendVoiceNote(blob: Blob, name: string): void {
+    if (roomClosing) return
     void store.getState().actions.sendVoice(blob, name).catch((cause: unknown) => {
       report(cause, 'chat.actionFailed')
+    })
+  }
+
+  async function sendVideoCircle(blob: Blob, name: string): Promise<void> {
+    if (roomClosing) return
+    try {
+      const attachmentIds = await uploadAll({
+        account,
+        conversationId,
+        files: [{ blob, name, compress: false }],
+        caption: '',
+        onProgress: () => {},
+      })
+      await store.getState().actions.sendDraft({ text: '', attachmentIds })
+    } catch (cause) {
+      report(cause, 'chat.actionFailed')
+      throw cause
+    }
+  }
+
+  function isRetryableVoiceMessage(message: MessageRecord): boolean {
+    if (
+      message.senderAccountId !== account.id ||
+      message.status !== 'failed' ||
+      message.attachments.length !== 1
+    ) {
+      return false
+    }
+    const attachmentId = message.attachments[0]
+    if (attachmentId === undefined || !attachmentId.startsWith('local:')) {
+      return false
+    }
+    const pending = usePendingVoiceStore.getState().notes[attachmentId]
+    return pending !== undefined && pending.error !== null
+  }
+
+  function retryVoiceNote(message: MessageRecord): void {
+    void store.getState().actions.retryVoice(message).catch((cause: unknown) => {
+      report(cause, 'chat.actionFailed')
+    })
+  }
+
+  function contextMenuItems(): DropdownItem[] {
+    if (menu === null) {
+      return []
+    }
+    const message = menu.message
+    return buildMessageMenuItems(message, message.senderAccountId === account.id, t, {
+      onRetry: isRetryableVoiceMessage(message) ? () => retryVoiceNote(message) : undefined,
+      onEdit: () => {
+        setEditing({ envelopeId: message.envelopeId, text: message.plaintext ?? '' })
+      },
+      onTogglePin: () => {
+        void pin(message)
+      },
+      onCopy: () => {
+        void copy(message)
+      },
+      onDelete: () => {
+        setPendingDelete(message)
+      },
     })
   }
 
@@ -472,7 +577,7 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
    * attachment nobody can open.
    */
   async function sendAttachments(): Promise<void> {
-    if (attachments.length === 0) {
+    if (attachments.length === 0 || roomClosing) {
       return
     }
     setUploadError(null)
@@ -490,6 +595,11 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
         onProgress: setUploadProgress,
       })
 
+      if (roomClosing) {
+        setUploadError(t('chat.scheduled.roomClosing'))
+        setUploadProgress(null)
+        return
+      }
       await store.getState().actions.sendDraft({ text: caption.trim(), attachmentIds })
       discardAttachments()
     } catch (cause) {
@@ -500,6 +610,7 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
   }
 
   async function send(text: string): Promise<void> {
+    if (roomClosing) return
     try {
       await store.getState().actions.sendText(text)
     } catch (cause) {
@@ -510,6 +621,7 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
   }
 
   async function scheduleMessage(text: string, delaySeconds: number): Promise<void> {
+    if (roomClosing) return
     try {
       await store.getState().actions.sendText(text, nowSeconds() + delaySeconds)
       toast.notify({ kind: 'success', message: t('chat.scheduled.created') })
@@ -541,6 +653,16 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
     return nowSeconds() + delaySeconds >= temporaryRoomExpiresAt
       ? t('chat.scheduled.roomExpiresBeforeSend')
       : null
+  }
+
+  function roomRemainingLabel(): string {
+    const seconds = Math.max(0, (temporaryRoomExpiresAt ?? expiryClock) - expiryClock)
+    const days = Math.floor(seconds / 86_400)
+    const hours = Math.floor((seconds % 86_400) / 3_600)
+    const minutes = Math.floor((seconds % 3_600) / 60)
+    return days > 0
+      ? t('chat.scheduled.roomDurationDays', { days, hours })
+      : t('chat.scheduled.roomDurationHours', { hours, minutes })
   }
 
   async function submitEdit(text: string): Promise<void> {
@@ -833,6 +955,16 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
         menuItems={headerMenuItems()}
       />
 
+      {isGroup && (temporaryRoomExpiresAt !== null || conversation?.closedAt != null) ? (
+        <div className={roomClosing
+          ? 'flex items-center gap-2 border-b border-danger/30 bg-danger/5 px-3 py-1.5 text-xs text-danger'
+          : 'flex items-center gap-2 border-b border-border bg-bg-elevated px-3 py-1.5 text-xs text-fg-muted'}
+          role={roomClosing ? 'status' : undefined}>
+          <Clock3 className="size-3.5 shrink-0" aria-hidden />
+          {roomClosing ? t('chat.scheduled.roomClosing') : t('chat.scheduled.roomExpiresIn', { time: roomRemainingLabel() })}
+        </div>
+      ) : null}
+
       {bannerVisible ? (
         <PinnedBanner
           pins={pins.pins}
@@ -874,7 +1006,9 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
           onLoadOlder={() => {
             void store.getState().actions.loadOlderMessages()
           }}
-          senderNames={senderNames}
+          senderNames={transcriptSenderNames}
+          senderTags={senderTags}
+          showSenderNames={isGroup}
           selfAccountId={account.id}
           language={i18n.language}
           readWatermark={readUpTo}
@@ -909,7 +1043,8 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
             void addAttachment(file)
           }}
           onVoiceRecorded={sendVoiceNote}
-          disabled={loadingConversation}
+          onVideoCircleRecorded={sendVideoCircle}
+          disabled={loadingConversation || roomClosing}
           focusToken={focusToken}
         />
       )}
@@ -947,6 +1082,7 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
         }}
         progress={uploadProgress}
         error={uploadError}
+        disabled={roomClosing}
         onSend={() => {
           void sendAttachments()
         }}
@@ -966,27 +1102,7 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
         open={menu !== null}
         x={menu?.x ?? 0}
         y={menu?.y ?? 0}
-        items={
-          menu === null
-            ? []
-            : buildMessageMenuItems(menu.message, menu.message.senderAccountId === account.id, t, {
-                onEdit: () => {
-                  setEditing({
-                    envelopeId: menu.message.envelopeId,
-                    text: menu.message.plaintext ?? '',
-                  })
-                },
-                onTogglePin: () => {
-                  void pin(menu.message)
-                },
-                onCopy: () => {
-                  void copy(menu.message)
-                },
-                onDelete: () => {
-                  setPendingDelete(menu.message)
-                },
-              })
-        }
+        items={contextMenuItems()}
         reactions={
           menu === null
             ? []

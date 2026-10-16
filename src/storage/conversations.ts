@@ -111,12 +111,16 @@ export async function deleteConversationLocally(
   conversationId: string,
 ): Promise<void> {
   const database = await openDatabase()
-  const transaction = database.transaction(['conversations', 'messages', 'pinned'], 'readwrite')
+  const transaction = database.transaction(
+    ['conversations', 'messages', 'pinned', 'attachments'],
+    'readwrite',
+  )
 
   await transaction.objectStore('conversations').delete([accountId, conversationId])
   await Promise.all([
     drainConversation(transaction.objectStore('messages'), accountId, conversationId),
     drainConversation(transaction.objectStore('pinned'), accountId, conversationId),
+    drainConversation(transaction.objectStore('attachments'), accountId, conversationId),
   ])
 
   await transaction.done

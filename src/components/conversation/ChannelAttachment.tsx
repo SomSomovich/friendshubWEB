@@ -7,6 +7,7 @@ import { detectMime, type AttachmentMime } from '../../attachments/mime'
 import { useActionReporter } from '../../hooks/useActionReporter'
 import type { Account } from '../../types'
 import { AttachmentViewer } from '../chat/AttachmentViewer'
+import { VideoCirclePlayer } from '../chat/VideoCirclePlayer'
 import { VoiceMessagePlayer } from '../chat/VoiceMessagePlayer'
 
 type Loaded = { url: string; mime: AttachmentMime; size: number }
@@ -72,6 +73,7 @@ export function ChannelAttachment({ account, attachmentId, index }: { account: A
     </>
   }
   if (mime.family === 'video') {
+    if (mime.videoCircle) return <VideoCirclePlayer src={url} />
     return <video src={url} controls preload="metadata" className="max-h-72 max-w-full rounded-lg bg-black" />
   }
   if (mime.family === 'audio') {

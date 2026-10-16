@@ -15,6 +15,7 @@ import { avatarImageUrl } from '../../api/avatars'
 import { addContact, blockAccount, listContacts, removeContact, unblockAccount } from '../../api/contacts'
 import { createDirectConversation } from '../../api/conversations'
 import { getAccountProfile, type PublicProfile } from '../../api/profile'
+import { ApiError } from '../../api/errors'
 import { startCall } from '../../calls/manager'
 import { useActionReporter } from '../../hooks/useActionReporter'
 import { useActiveAccount } from '../../hooks/useActiveAccount'
@@ -60,6 +61,7 @@ export function UserProfileModal() {
   const closeProfile = useUiStore((state) => state.closeProfile)
 
   const [loaded, setLoaded] = useState<Loaded | null>(null)
+  const [unavailableAccountId, setUnavailableAccountId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [revision, setRevision] = useState(0)
   const [avatarOpen, setAvatarOpen] = useState(false)
@@ -123,8 +125,13 @@ export function UserProfileModal() {
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          fail(error)
-          closeProfile()
+          if (error instanceof ApiError && error.status === 404) {
+            setLoaded({ accountId: targetAccountId, profile: null })
+            setUnavailableAccountId(targetAccountId)
+          } else {
+            fail(error)
+            closeProfile()
+          }
         }
       })
 
@@ -319,7 +326,9 @@ export function UserProfileModal() {
       }
     >
       {profile === null ? (
-        <div role="status" aria-label={t('common.loading')} className="flex flex-col gap-4">
+        unavailableAccountId === targetAccountId ? (
+          <p role="status" className="text-sm text-pretty text-fg-muted">{t('profile.unavailable')}</p>
+        ) : <div role="status" aria-label={t('common.loading')} className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
             <Skeleton className="size-20 shrink-0 rounded-full" />
             <div className="flex min-w-0 flex-1 flex-col gap-2">

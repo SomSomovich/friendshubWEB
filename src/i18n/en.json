@@ -226,7 +226,11 @@
       "manage": "Scheduled messages",
       "created": "Message scheduled",
       "offline": "Connect to the internet to schedule a message.",
-      "roomExpiresBeforeSend": "This room closes before the message is scheduled to send."
+      "roomExpiresBeforeSend": "This room closes before the message is scheduled to send.",
+      "roomClosing": "This room is closing. Sending is unavailable.",
+      "roomExpiresIn": "Room closes in {{time}}",
+      "roomDurationDays": "{{days}}d {{hours}}h",
+      "roomDurationHours": "{{hours}}h {{minutes}}m"
     },
     "nudge": {
       "action": "Nudge contact",
@@ -247,6 +251,7 @@
       "photo": "Photo",
       "video": "Video",
       "file": "File",
+      "camera": "Camera",
       "name": "File name",
       "size": "Size",
       "previewTitle": "Sending files",
@@ -259,14 +264,63 @@
     },
     "voice": {
       "record": "Record a voice message",
-      "recordHint": "Hold to record a voice message",
-      "recordingHint": "Release to send, slide left to cancel",
+      "recordHint": "Hold to record, tap for a video circle",
+      "recordingHint": "Release to send",
       "cancel": "Discard the recording",
       "play": "Play",
       "pause": "Pause",
       "seek": "Playback position",
       "uploading": "Sending the voice message",
-      "failed": "Not sent"
+      "failed": "Not sent",
+      "transcription": {
+        "button": "Transcribe voice message",
+        "show": "Show transcript",
+        "hide": "Hide transcript",
+        "retry": "Retry transcription",
+        "processing": "Transcribing voice message…",
+        "failed": "Could not transcribe this message. Try again.",
+        "privacyTitle": "Before transcribing",
+        "privacyBody": "The voice message audio track is sent to your browser's speech recognition service. The browser may send the audio to its own servers. FriendsHub does not choose the recognition service and cannot control how audio is transmitted or processed. Continue only if you trust your browser and accept the privacy risk.",
+        "acceptCountdown": "Accept ({{seconds}})",
+        "accept": "Accept",
+        "unsupportedTitle": "Transcription unavailable",
+        "unsupportedBody": "This feature is not supported by your browser.",
+        "understood": "Got it"
+      }
+    },
+    "recording": {
+      "hint": "Release to send · up to lock · left to delete",
+      "locked": "Recording locked",
+      "cancel": "Delete recording",
+      "cancelHint": "Drag the recording here to delete it"
+    },
+    "videoNote": {
+      "record": "Record a video circle",
+      "recordHint": "Hold to record, tap for a voice message",
+      "switchCamera": "Switch camera",
+      "sending": "Sending video circle…",
+      "play": "Play video circle",
+      "pause": "Pause video circle",
+      "error": {
+        "unsupported": "Video-circle recording is not supported by this browser.",
+        "permission": "Allow camera and microphone access in your browser.",
+        "unavailable": "Could not start the video-circle recording.",
+        "switch": "Could not switch cameras."
+      }
+    },
+    "camera": {
+      "title": "Camera",
+      "hint": "Tap to take a photo, or hold to record a video",
+      "holdForVideo": "Hold to record a video",
+      "releaseToStop": "Release to finish the video",
+      "recording": "Recording · {{time}}",
+      "capture": "Take a photo",
+      "stop": "Finish video",
+      "loading": "Starting camera…",
+      "unsupported": "This browser does not support camera access.",
+      "permission": "Allow camera access in your browser.",
+      "unavailable": "Could not start the camera.",
+      "photo": "Could not take the photo."
     },
     "edit": {
       "banner": "Editing a message",
@@ -302,7 +356,15 @@
       "removed": "Member removed",
       "roleUpdated": "Rights updated",
       "remove": "Remove",
-      "removeHint": "{{name}} loses access to the channel and cannot read posts until they subscribe again."
+      "removeHint": "{{name}} loses access to the channel and cannot read posts until they subscribe again.",
+      "addTag": "Add tag",
+      "editTag": "Edit tag",
+      "editTagTitle": "Member tag",
+      "tagLabel": "Tag",
+      "tagHint": "1 to 9 characters. Emoji are allowed.",
+      "tagSaved": "Tag saved",
+      "tagRemoved": "Tag removed",
+      "removeTag": "Remove tag"
     },
     "role": {
       "owner": "Owner",
@@ -625,7 +687,23 @@
       "groupAddPolicy": "Who can add you to groups",
       "groupAddPolicyHint": "Permission to add you directly to a group.",
       "exceptionsOnly": "Only people in exceptions",
-      "groupExceptionsHint": "These people can add you to groups when only exceptions are allowed."
+      "groupExceptionsHint": "These people can add you to groups when only exceptions are allowed.",
+      "profileVisibility": "Profile visibility",
+      "profileVisibilityHint": "Control profile access and global search visibility separately.",
+      "hideProfile": "Hide profile from strangers",
+      "hideProfileHint": "People outside your exceptions will not be able to open your profile.",
+      "hideFromSearch": "Hide from search",
+      "hideFromSearchHint": "Your profile will not appear in global search results.",
+      "profileExceptions": "People who can still see your profile",
+      "profileExceptionsHint": "These friends can open your profile even while it is hidden.",
+      "noProfileExceptions": "No exceptions yet.",
+      "addProfileException": "Add a friend",
+      "removeProfileException": "Remove profile exception",
+      "profileExceptionAdded": "Friend added to profile exceptions",
+      "profileHiddenOn": "Your profile is hidden from strangers",
+      "profileHiddenOff": "Your profile is visible to everyone again",
+      "searchHiddenOn": "Your profile is hidden from search",
+      "searchHiddenOff": "Your profile appears in search again"
     },
     "security": {
       "account": "Signing in",
@@ -747,7 +825,8 @@
       "edit": "Edit friend's name",
       "label": "How to show this friend",
       "saved": "Friend's name saved"
-    }
+    },
+    "unavailable": "This profile is unavailable."
   },
   "temporaryRooms": {
     "menuAction": "Create temporary room",

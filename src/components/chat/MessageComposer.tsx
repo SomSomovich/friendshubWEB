@@ -1,13 +1,15 @@
-import { CalendarClock, FileText, Image as ImageIcon, Mic, Paperclip, Send, Trash2, Video, X } from 'lucide-react'
+import { CalendarClock, Camera, FileText, Image as ImageIcon, LoaderCircle, Mic, Paperclip, Send, SwitchCamera, Trash2, Video, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
+import { useVideoCircleRecorder } from '../../hooks/useVideoCircleRecorder'
 import { cn } from '../../utils/cn'
 import { formatClipDuration } from '../../utils/duration'
 import { DropdownMenu, type DropdownItem } from '../ui/DropdownMenu'
 import { ContextMenu } from '../ui/ContextMenu'
 import { DurationDialog } from '../ui/DurationDialog'
 import { EmojiPicker } from './EmojiPicker'
+import { CameraCaptureDialog } from './CameraCaptureDialog'
 
 /** What the attachment menu offers. */
 export type AttachmentKind = 'photo' | 'video' | 'file'
@@ -25,6 +27,8 @@ export type MessageComposerProps = {
   onPickFile: (file: File) => void
   /** A finished voice recording, on its way to the same overlay. */
   onVoiceRecorded: (blob: Blob, name: string) => void
+  /** Sends a finished video circle immediately through the attachment flow. */
+  onVideoCircleRecorded: (blob: Blob, name: string) => Promise<void>
   /** Non-null replaces the composer with the edit field for that message. */
   editing: EditingState | null
   onCancelEdit: () => void
@@ -40,13 +44,12 @@ export type MessageComposerProps = {
   onDraftChange?: (text: string) => void
 }
 
-/** How far left the finger has to travel to take the recording back. */
-const SWIPE_CANCEL_PX = -60
-
 /** Grows to five lines, then scrolls. Must match `leading-5` below. */
 const LINE_HEIGHT_PX = 20
 const MAX_ROWS = 5
 const SCHEDULE_HOLD_MS = 500
+const RECORD_HOLD_MS = 220
+const LOCK_DRAG_PX = 80
 
 export function MessageComposer({
   onSend,
@@ -54,6 +57,7 @@ export function MessageComposer({
   scheduleWarningForSeconds,
   onPickFile,
   onVoiceRecorded,
+  onVideoCircleRecorded,
   editing,
   onCancelEdit,
   onSubmitEdit,
@@ -68,11 +72,21 @@ export function MessageComposer({
   const photoRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const circlePreviewRef = useRef<HTMLVideoElement>(null)
   const voice = useVoiceRecorder()
-  /** Where the press started, and whether it has slid far enough to be undone. */
-  const dragRef = useRef<{ x: number; cancel: boolean } | null>(null)
-  /** True between the press and the release, across the microphone's own delay. */
-  const pressingRef = useRef(false)
+  const videoCircle = useVideoCircleRecorder(circlePreviewRef)
+  /** The active press owns the mode and gestures even if state changes mid-press. */
+  const dragRef = useRef<{
+    x: number
+    y: number
+    mode: 'voice' | 'video'
+    pressed: boolean
+    started: boolean
+    cancelled: boolean
+    locked: boolean
+    holdTimer: ReturnType<typeof setTimeout> | null
+  } | null>(null)
+  const cancelTargetRef = useRef<HTMLButtonElement>(null)
   const scheduleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const scheduleMenuOpenedRef = useRef(false)
   const suppressClickRef = useRef(false)
@@ -83,8 +97,14 @@ export function MessageComposer({
   // fight the user's typing.
   const [value, setValue] = useState(() => editing?.text ?? initialDraft)
   const [busy, setBusy] = useState(false)
+  const [recordMode, setRecordMode] = useState<'voice' | 'video'>('voice')
+  const [locked, setLocked] = useState(false)
+  const [cameraDialogOpen, setCameraDialogOpen] = useState(false)
+  const [sendingCircle, setSendingCircle] = useState(false)
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
   const [scheduleMenuPoint, setScheduleMenuPoint] = useState<{ x: number; y: number } | null>(null)
+  const recording = recordMode === 'voice' ? voice.recording : videoCircle.recording
+  const recordingSeconds = recordMode === 'voice' ? voice.seconds : videoCircle.seconds
   function updateDraft(text: string): void {
     setValue(text)
     onDraftChange?.(text)
@@ -184,6 +204,148 @@ export function MessageComposer({
     input?.click()
   }
 
+  function clearRecordHold(gesture: NonNullable<typeof dragRef.current>): void {
+    if (gesture.holdTimer !== null) {
+      clearTimeout(gesture.holdTimer)
+      gesture.holdTimer = null
+    }
+  }
+
+  async function beginRecording(mode: 'voice' | 'video', gesture: NonNullable<typeof dragRef.current>): Promise<void> {
+    const started = mode === 'voice' ? await voice.start().then(() => true) : await videoCircle.start()
+    if (!started || dragRef.current !== gesture || !gesture.pressed || gesture.cancelled) {
+      if (mode === 'voice') voice.cancel()
+      else videoCircle.cancel()
+    }
+  }
+
+  async function deliverRecording(mode: 'voice' | 'video'): Promise<void> {
+    if (disabled) {
+      cancelRecording()
+      return
+    }
+    if (mode === 'video') setSendingCircle(true)
+    try {
+      const blob = mode === 'voice' ? await voice.finish() : await videoCircle.finish()
+      if (blob === null) return
+      if (mode === 'voice') {
+        onVoiceRecorded(blob, `voice-${Date.now()}.${extensionFor(blob.type)}`)
+      } else {
+        await onVideoCircleRecorded(blob, `video-circle-${Date.now()}.webm`)
+      }
+    } catch (cause) {
+      console.error(`[${mode === 'voice' ? 'voice' : 'video-note'}] recording could not be sent`, cause)
+    } finally {
+      setSendingCircle(false)
+      setLocked(false)
+    }
+  }
+
+  function cancelRecording(): void {
+    const gesture = dragRef.current
+    if (gesture !== null) {
+      gesture.cancelled = true
+      gesture.pressed = false
+      clearRecordHold(gesture)
+      dragRef.current = null
+    }
+    voice.cancel()
+    videoCircle.cancel()
+    setLocked(false)
+  }
+
+  function startRecordingPress(event: PointerEvent<HTMLButtonElement>): void {
+    if (event.button !== 0 || disabled || busy || sendingCircle || recording) return
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch (cause) {
+      console.warn('[composer] the record button could not capture the pointer', cause)
+    }
+
+    suppressClickRef.current = true
+    const gesture = {
+      x: event.clientX,
+      y: event.clientY,
+      mode: recordMode,
+      pressed: true,
+      started: false,
+      cancelled: false,
+      locked: false,
+      holdTimer: null as ReturnType<typeof setTimeout> | null,
+    }
+    dragRef.current = gesture
+    gesture.holdTimer = setTimeout(() => {
+      gesture.holdTimer = null
+      if (dragRef.current !== gesture || !gesture.pressed || gesture.cancelled) return
+      gesture.started = true
+      void beginRecording(gesture.mode, gesture)
+    }, RECORD_HOLD_MS)
+  }
+
+  function trackRecordingDrag(event: PointerEvent<HTMLButtonElement>): void {
+    const gesture = dragRef.current
+    if (gesture === null || !gesture.started || gesture.cancelled || !gesture.pressed) return
+
+    const target = cancelTargetRef.current?.getBoundingClientRect()
+    if (
+      target !== undefined &&
+      event.clientX >= target.left &&
+      event.clientX <= target.right &&
+      event.clientY >= target.top &&
+      event.clientY <= target.bottom
+    ) {
+      gesture.cancelled = true
+      gesture.pressed = false
+      clearRecordHold(gesture)
+      dragRef.current = null
+      voice.cancel()
+      videoCircle.cancel()
+      setLocked(false)
+      return
+    }
+
+    const isRecorderActive = gesture.mode === 'voice' ? voice.recording : videoCircle.recording
+    if (!gesture.locked && isRecorderActive && event.clientY - gesture.y <= -LOCK_DRAG_PX) {
+      gesture.locked = true
+      setLocked(true)
+    }
+  }
+
+  async function endRecordingPress(): Promise<void> {
+    const gesture = dragRef.current
+    if (gesture === null) return
+    gesture.pressed = false
+    clearRecordHold(gesture)
+
+    if (gesture.cancelled) {
+      dragRef.current = null
+      setLocked(false)
+      return
+    }
+    if (!gesture.started) {
+      dragRef.current = null
+      setRecordMode((current) => (current === 'voice' ? 'video' : 'voice'))
+      return
+    }
+    if (gesture.locked) {
+      dragRef.current = null
+      return
+    }
+
+    dragRef.current = null
+    await deliverRecording(gesture.mode)
+  }
+
+  function handleRecordClick(): void {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false
+      return
+    }
+    if (!recording && !locked && !disabled && !busy) {
+      setRecordMode((current) => (current === 'voice' ? 'video' : 'voice'))
+    }
+  }
+
   function handleFile(event: ChangeEvent<HTMLInputElement>): void {
     // Every file it was given, not just the first: choosing a set of photos is
     // one gesture, and asking for them one at a time is not the same thing.
@@ -197,66 +359,8 @@ export function MessageComposer({
     { id: 'photo', label: t('chat.attach.photo'), icon: ImageIcon, onSelect: () => { pick('photo') } },
     { id: 'video', label: t('chat.attach.video'), icon: Video, onSelect: () => { pick('video') } },
     { id: 'file', label: t('chat.attach.file'), icon: FileText, onSelect: () => { pick('file') } },
+    { id: 'camera', label: t('chat.attach.camera'), icon: Camera, onSelect: () => { setCameraDialogOpen(true) } },
   ]
-
-  async function beginRecording(event: PointerEvent<HTMLButtonElement>): Promise<void> {
-    // Captured so lifting the finger anywhere still ends the press, and so a
-    // drag off the button is seen rather than lost. Guarded because the pointer
-    // can already be gone — a capture request against a pointer the browser has
-    // released throws, and that throw used to abort the recording before it
-    // started, leaving the press doing nothing at all.
-    try {
-      event.currentTarget.setPointerCapture(event.pointerId)
-    } catch (error) {
-      console.warn('[voice] the pointer could not be captured for the recording', error)
-    }
-
-    pressingRef.current = true
-    dragRef.current = { x: event.clientX, cancel: false }
-    await voice.start()
-
-    // The finger may already be up. Opening the microphone is not instant, and
-    // the first time it is a permission prompt, which is not instant at all —
-    // the release ran while there was still no recorder for it to stop. What
-    // was captured in the meantime is discarded rather than sent: nobody heard
-    // themselves record it.
-    if (!pressingRef.current) {
-      voice.cancel()
-      dragRef.current = null
-    }
-  }
-
-  function trackDrag(event: PointerEvent<HTMLButtonElement>): void {
-    const drag = dragRef.current
-    if (drag === null || drag.cancel) {
-      return
-    }
-    // Sliding away from the microphone is the gesture every messenger uses to
-    // take a recording back, and it is the one a thumb can make.
-    if (event.clientX - drag.x < SWIPE_CANCEL_PX) {
-      drag.cancel = true
-      voice.cancel()
-    }
-  }
-
-  async function endRecording(): Promise<void> {
-    pressingRef.current = false
-    const drag = dragRef.current
-    dragRef.current = null
-
-    if (drag?.cancel === true) {
-      voice.cancel()
-      return
-    }
-
-    const blob = await voice.finish()
-    if (blob === null) {
-      // Too short, or the microphone never opened. Saying nothing is right: a
-      // mis-tap produced nothing, and an error for one is noise.
-      return
-    }
-    onVoiceRecorded(blob, `voice-${Date.now()}.${extensionFor(blob.type)}`)
-  }
 
   /**
    * Puts an emoji where the caret is.
@@ -299,7 +403,27 @@ export function MessageComposer({
       )}
 
       <div className="flex items-end gap-1 p-2">
-        {editing === null && !voice.recording ? (
+        <span className={cn(
+          'overflow-hidden rounded-full bg-black',
+          recording && recordMode === 'video'
+            ? 'relative size-10 shrink-0'
+            : 'pointer-events-none fixed left-[-10000px] size-px opacity-0',
+        )}>
+          <video ref={circlePreviewRef} autoPlay muted playsInline className="size-full rounded-full object-cover" />
+        </span>
+
+        {recording ? (
+          <button
+            ref={cancelTargetRef}
+            type="button"
+            aria-label={t('chat.recording.cancel')}
+            title={t('chat.recording.cancelHint')}
+            onClick={cancelRecording}
+            className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-danger/40 bg-danger/10 text-danger transition-colors hover:bg-danger/20 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-danger"
+          >
+            <Trash2 className="size-4" aria-hidden />
+          </button>
+        ) : editing === null ? (
           <DropdownMenu
             trigger={<Paperclip className="size-5" aria-hidden />}
             triggerLabel={t('chat.attach.label')}
@@ -309,20 +433,45 @@ export function MessageComposer({
           />
         ) : null}
 
-        {voice.recording ? (
-          <span className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border border-danger/50 bg-bg px-3 text-sm text-fg">
+        {recording ? (
+          <div className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border border-danger/50 bg-bg px-2 text-sm text-fg">
             <span className="size-2 shrink-0 animate-pulse rounded-full bg-danger" aria-hidden />
-            <span className="shrink-0 tabular-nums">{formatClipDuration(voice.seconds)}</span>
-            <span className="truncate text-xs text-fg-muted">{t('chat.voice.recordingHint')}</span>
-            <button
-              type="button"
-              aria-label={t('chat.voice.cancel')}
-              onClick={voice.cancel}
-              className="ml-auto flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-fg-muted hover:bg-bg-hover hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
-            >
-              <Trash2 className="size-4" aria-hidden />
-            </button>
-          </span>
+            <span className="shrink-0 tabular-nums">{formatClipDuration(recordingSeconds)}</span>
+            <span className="min-w-0 flex-1 truncate text-xs text-fg-muted">
+              {locked ? t('chat.recording.locked') : t('chat.recording.hint')}
+            </span>
+            {recordMode === 'video' && locked ? (
+              <button
+                type="button"
+                aria-label={t('chat.videoNote.switchCamera')}
+                title={t('chat.videoNote.switchCamera')}
+                disabled={videoCircle.switchingCamera}
+                onClick={() => { void videoCircle.switchCamera() }}
+                className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-fg-muted hover:bg-bg-hover hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent disabled:opacity-50"
+              >
+                {videoCircle.switchingCamera
+                  ? <LoaderCircle className="size-4 animate-spin" aria-hidden />
+                  : <SwitchCamera className="size-4" aria-hidden />}
+              </button>
+            ) : null}
+            {locked ? (
+              <button
+                type="button"
+                aria-label={t('chat.send')}
+                title={t('chat.send')}
+                disabled={disabled || sendingCircle}
+                onClick={() => { void deliverRecording(recordMode) }}
+                className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-accent text-accent-fg hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent disabled:opacity-50"
+              >
+                {sendingCircle ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <Send className="size-4" aria-hidden />}
+              </button>
+            ) : null}
+          </div>
+        ) : sendingCircle ? (
+          <div role="status" className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border border-accent/40 bg-bg px-3 text-xs text-fg-muted">
+            <LoaderCircle className="size-4 animate-spin" aria-hidden />
+            {t('chat.videoNote.sending')}
+          </div>
         ) : (
           <textarea
             ref={textareaRef}
@@ -358,7 +507,7 @@ export function MessageComposer({
 
         {/* Left of the microphone, and out of the way of the recording strip:
             an emoji has nowhere to go while the field is showing a timer. */}
-        {voice.recording ? null : (
+        {recording || sendingCircle ? null : (
           <EmojiPicker onPick={insertEmoji} disabled={disabled} />
         )}
 
@@ -366,7 +515,7 @@ export function MessageComposer({
             of the gesture: it holds the pointer capture, and unmounting it the
             moment the recorder starts was what swallowed the release and left
             the recording running with nothing but the bin to stop it. */}
-        {value.trim().length > 0 && !voice.recording ? (
+        {value.trim().length > 0 && !recording && !sendingCircle ? (
           <button
             type="button"
             aria-label={editing === null ? t('chat.send') : t('chat.edit.save')}
@@ -393,34 +542,41 @@ export function MessageComposer({
         ) : (
           <button
             type="button"
-            aria-label={t('chat.voice.record')}
-            title={t('chat.voice.recordHint')}
-            aria-pressed={voice.recording}
-            disabled={disabled}
+            aria-label={recordMode === 'voice' ? t('chat.voice.record') : t('chat.videoNote.record')}
+            title={recording ? t('chat.recording.hint') : t(recordMode === 'voice' ? 'chat.voice.recordHint' : 'chat.videoNote.recordHint')}
+            aria-pressed={recording}
+            disabled={disabled || sendingCircle}
+            onClick={handleRecordClick}
             onPointerDown={(event) => {
-              void beginRecording(event)
+              startRecordingPress(event)
             }}
-            onPointerMove={trackDrag}
+            onPointerMove={trackRecordingDrag}
             onPointerUp={() => {
-              void endRecording()
+              void endRecordingPress()
             }}
             onPointerCancel={() => {
-              pressingRef.current = false
-              voice.cancel()
-              dragRef.current = null
+              suppressClickRef.current = false
+              cancelRecording()
             }}
+            onContextMenu={(event) => event.preventDefault()}
             className={cn(
-              'flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors duration-150',
+              'flex size-10 shrink-0 cursor-pointer touch-none items-center justify-center rounded-full transition-colors duration-150',
               'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-              voice.recording
+              recording
                 ? 'bg-danger text-danger-fg'
                 : 'text-fg-muted hover:bg-bg-hover hover:text-fg',
             )}
           >
-            <Mic className="size-5" aria-hidden />
+            {recordMode === 'voice' ? <Mic className="size-5" aria-hidden /> : <Video className="size-5" aria-hidden />}
           </button>
         )}
       </div>
+
+      {recordMode === 'video' && videoCircle.error !== null ? (
+        <p role="alert" className="px-3 pb-2 text-xs text-danger">
+          {t(`chat.videoNote.error.${videoCircle.error}`)}
+        </p>
+      ) : null}
 
       <ContextMenu
         open={scheduleMenuPoint !== null}
@@ -456,6 +612,12 @@ export function MessageComposer({
           onChoose={(seconds) => { void schedule(seconds) }}
         />
       )}
+
+      <CameraCaptureDialog
+        open={cameraDialogOpen}
+        onClose={() => setCameraDialogOpen(false)}
+        onCapture={onPickFile}
+      />
 
       <input
         ref={photoRef}

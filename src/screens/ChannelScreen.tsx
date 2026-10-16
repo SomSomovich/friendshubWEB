@@ -214,6 +214,10 @@ export function ChannelScreen({ account, conversation, avatarUrl }: { account: A
         if (addFile(new File([blob], name, { type: blob.type }))) {
           void sendFiles('')
         }
+      }} onVideoCircleRecorded={async (blob, name) => {
+        if (addFile(new File([blob], name, { type: blob.type }))) {
+          await sendFiles('')
+        }
       }} disabled={busy || resource.data === null} focusToken={0} onTyping={() => {}} /> : null}
     <AttachmentComposer open={files.length > 0} attachments={files} caption={caption} onCaptionChange={setCaption}
       onToggleCompress={(id, compress) => replaceFiles(pendingFiles.current.map((file) => file.id === id ? { ...file, compress } : file))}

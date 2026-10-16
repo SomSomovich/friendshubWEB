@@ -36,6 +36,7 @@ export type ChatListFiltersProps = {
 
 export function ChatListFilters({ value, onChange, unread, folders, onCreateFolder, onEditFolder }: ChatListFiltersProps) {
   const { t } = useTranslation()
+  const tabsRef = useRef<HTMLDivElement>(null)
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const editedOnHold = useRef(false)
 
@@ -46,9 +47,41 @@ export function ChatListFilters({ value, onChange, unread, folders, onCreateFold
 
   useEffect(() => stopHold, [])
 
+  useEffect(() => {
+    const tabs = tabsRef.current
+    if (tabs === null) return
+
+    const handleWheel = (event: WheelEvent): void => {
+      if (event.ctrlKey) return
+
+      const maxScrollLeft = tabs.scrollWidth - tabs.clientWidth
+      if (maxScrollLeft <= 0) return
+
+      const scale = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? 16
+        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? tabs.clientWidth
+          : 1
+      const delta = (Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY) * scale
+      if (delta === 0) return
+
+      const nextScrollLeft = Math.max(0, Math.min(maxScrollLeft, tabs.scrollLeft + delta))
+      if (nextScrollLeft === tabs.scrollLeft) return
+
+      // The vertical wheel normally scrolls the page. Over this horizontal
+      // tab strip, use it to move between filters instead.
+      event.preventDefault()
+      tabs.scrollLeft = nextScrollLeft
+    }
+
+    tabs.addEventListener('wheel', handleWheel, { passive: false })
+    return () => tabs.removeEventListener('wheel', handleWheel)
+  }, [])
+
   return (
     <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-2">
       <div
+        ref={tabsRef}
         role="tablist"
         aria-label={t('chatList.filtersLabel')}
         className="no-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto"

@@ -12,6 +12,7 @@ import type { ChatListRowData } from '../../hooks/useChatList'
 import { useToast } from '../../hooks/useToast'
 import type { Account } from '../../types'
 import { Button } from '../ui/Button'
+import { CheckboxControl } from '../ui/ChoiceControls'
 import { Modal } from '../ui/Modal'
 
 export function ChatFolderDialog({
@@ -113,14 +114,12 @@ export function ChatFolderDialog({
                 const checked = selected.includes(row.conversation.id)
                 return (
                   <li key={row.conversation.id}>
-                    <label className="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-bg-hover">
-                      <input
-                        type="checkbox"
+                    <label className="flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors duration-150 hover:bg-bg-hover">
+                      <CheckboxControl
                         checked={checked}
                         onChange={() => setSelected((current) => checked
                           ? current.filter((id) => id !== row.conversation.id)
                           : [...current, row.conversation.id])}
-                        className="size-4 shrink-0 accent-accent"
                       />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm text-fg">{row.title}</span>

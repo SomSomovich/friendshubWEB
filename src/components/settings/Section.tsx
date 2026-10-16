@@ -2,6 +2,7 @@ import { ChevronRight } from 'lucide-react'
 import { useId, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { cn } from '../../utils/cn'
+import { RadioControl } from '../ui/ChoiceControls'
 
 export type SettingsCardProps = {
   title: string
@@ -155,15 +156,13 @@ export function SettingsChoice<T extends string>({
           key={option.value}
           className="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-1.5 transition-colors duration-150 hover:bg-bg-hover has-disabled:cursor-not-allowed has-disabled:opacity-50"
         >
-          <input
-            type="radio"
+          <RadioControl
             name={name}
             value={option.value}
             checked={option.value === value}
             onChange={() => {
               onChange(option.value)
             }}
-            className="mt-0.5 size-4 shrink-0 cursor-pointer accent-accent"
           />
           <span className="flex min-w-0 flex-col">
             <span className="text-sm text-fg">{option.label}</span>

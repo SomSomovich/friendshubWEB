@@ -1,5 +1,5 @@
 import type { AccountAuth } from './auth'
-import { del, get, patch, post } from './client'
+import { del, get, patch, post, put } from './client'
 
 export type GroupCreated = {
   conversationId: string
@@ -31,6 +31,7 @@ export type GroupMember = {
   permissions: number
   mutedUntil: number | null
   joinedAt: number
+  groupTag: string | null
 }
 
 /**
@@ -147,6 +148,31 @@ export function listGroupMembers(
   conversationId: string,
 ): Promise<GroupMember[]> {
   return get<GroupMember[]>(`/groups/${encodeURIComponent(conversationId)}/members`, { account })
+}
+
+export function setGroupMemberTag(
+  account: AccountAuth,
+  conversationId: string,
+  targetAccountId: string,
+  tag: string,
+): Promise<void> {
+  return put<void>(
+    `/groups/${encodeURIComponent(conversationId)}/members/${encodeURIComponent(targetAccountId)}/tag`,
+    { tag },
+    { account },
+  )
+}
+
+export function removeGroupMemberTag(
+  account: AccountAuth,
+  conversationId: string,
+  targetAccountId: string,
+): Promise<void> {
+  return del<void>(
+    `/groups/${encodeURIComponent(conversationId)}/members/${encodeURIComponent(targetAccountId)}/tag`,
+    undefined,
+    { account },
+  )
 }
 
 export function setMemberRole(

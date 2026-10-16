@@ -8,6 +8,7 @@ import {
 } from '../../api/groups'
 import type { ConversationMember } from '../../hooks/useConversationMembers'
 import { Button } from '../ui/Button'
+import { CheckboxControl } from '../ui/ChoiceControls'
 import { Modal } from '../ui/Modal'
 
 export type AdminRightsDialogProps = {
@@ -95,11 +96,9 @@ export function AdminRightsDialog({
             return (
               <label
                 key={name}
-                className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-bg-hover has-disabled:cursor-not-allowed has-disabled:opacity-50"
+                className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 transition-colors duration-150 hover:bg-bg-hover has-disabled:cursor-not-allowed has-disabled:opacity-50"
               >
-                <input
-                  type="checkbox"
-                  className="size-4 shrink-0 cursor-pointer accent-accent disabled:cursor-not-allowed"
+                <CheckboxControl
                   checked={hasPermission(selected, bit)}
                   disabled={!allowed}
                   onChange={(event) => {

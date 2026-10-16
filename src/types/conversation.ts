@@ -20,6 +20,10 @@ export type Conversation = {
   lastEnvelopeAt: number | null
   createdAt: number
   updatedAt: number
+  /** Unix seconds; `null` means this conversation has no expiry. */
+  expiresAt?: number | null
+  /** Set briefly while the expiry worker is closing the conversation. */
+  closedAt?: number | null
   archivedAt: number | null
   /** Unix seconds; `null` means notifications are not muted. */
   mutedUntil: number | null

@@ -12,6 +12,7 @@ import { InfoStep, type InfoValues } from '../components/create/InfoStep'
 import { SettingsCard, SettingsChoice, SettingsRow } from '../components/settings/Section'
 import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/EmptyState'
+import { RadioControl } from '../components/ui/ChoiceControls'
 import { Input } from '../components/ui/Input'
 import { useActionReporter } from '../hooks/useActionReporter'
 import { useActiveAccount } from '../hooks/useActiveAccount'
@@ -244,15 +245,13 @@ function ChannelWizard({ account }: { account: Account }) {
               <ul className="flex flex-col gap-1">
                 {groups.map((group) => (
                   <li key={group.id}>
-                    <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-bg-hover">
-                      <input
-                        type="radio"
+                    <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors duration-150 hover:bg-bg-hover">
+                      <RadioControl
                         name="linked-group"
                         checked={discussion.conversationId === group.id}
                         onChange={() => {
                           setDiscussion({ kind: 'existing', conversationId: group.id })
                         }}
-                        className="size-4 shrink-0 cursor-pointer accent-accent"
                       />
                       <span className="truncate text-sm text-fg">
                         {group.title ?? t('chatList.unknownPeer')}

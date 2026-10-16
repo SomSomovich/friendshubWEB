@@ -10,14 +10,9 @@ import type { PresenceEvent } from '../ws/events'
  * public profile, and whether they are around.
  *
  * Presence is written into the store rather than kept here, because the
- * WebSocket pushes updates into the same place — one source means a poll that
- * lands late cannot overwrite a live event with something staler. The REST read
- * only fills the gaps the socket has not covered: after a reload, or for a peer
- * whose status changed while this tab was closed.
+ * WebSocket pushes updates into the same place. REST fills the gap after a
+ * reload; later updates arrive over the socket, so this hook does not poll.
  */
-
-/** How often the fallback presence read runs. */
-const PRESENCE_POLL_MS = 60_000
 
 export type PeerInfo = {
   profile: PublicProfile | null
@@ -65,7 +60,7 @@ export function usePeerInfo(account: Account, peerAccountId: string | null): Pee
   }, [account, peerAccountId, token])
 
   useEffect(() => {
-    if (peerAccountId === null) {
+    if (peerAccountId === null || presence !== null) {
       return
     }
 
@@ -85,12 +80,10 @@ export function usePeerInfo(account: Account, peerAccountId: string | null): Pee
     }
 
     read()
-    const timer = setInterval(read, PRESENCE_POLL_MS)
     return () => {
       cancelled = true
-      clearInterval(timer)
     }
-  }, [account, peerAccountId, store])
+  }, [account, peerAccountId, presence, store])
 
   const refreshProfile = useCallback(() => {
     setToken((value) => value + 1)

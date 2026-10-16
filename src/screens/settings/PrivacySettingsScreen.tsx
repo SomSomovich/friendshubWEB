@@ -3,6 +3,7 @@ import {
   BlockedPanel,
   InvisiblePanel,
   PresenceExceptionsPanel,
+  ProfilePrivacyPanel,
 } from '../../components/settings/PrivacyPanels'
 import { ContactPoliciesPanel } from '../../components/settings/ContactPoliciesPanel'
 import { useActiveAccount } from '../../hooks/useActiveAccount'
@@ -18,6 +19,7 @@ export function PrivacySettingsScreen() {
   return (
     <SettingsSectionScreen section="privacy">
       <ContactPoliciesPanel key={account.id} account={account} />
+      <ProfilePrivacyPanel key={`profile-privacy:${account.id}`} account={account} />
       <InvisiblePanel key={`invisible:${account.id}`} account={account} />
       <AllowNudgesPanel key={`nudges:${account.id}`} account={account} />
       <PresenceExceptionsPanel account={account} />

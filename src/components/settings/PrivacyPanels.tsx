@@ -10,14 +10,21 @@ import {
 } from '../../api/contacts'
 import {
   addPresenceException,
+  addProfileException,
   getAllowNudges,
   getInvisible,
   listPresenceExceptions,
+  getProfilePrivacy,
+  listProfileExceptions,
   removePresenceException,
+  removeProfileException,
   setInvisible,
   setAllowNudges,
+  setProfileHidden,
+  setProfileHiddenFromSearch,
   type PresenceException,
   type PresenceExceptionKind,
+  type ProfileException,
 } from '../../api/profile'
 import { useActionReporter } from '../../hooks/useActionReporter'
 import { useToast } from '../../hooks/useToast'
@@ -290,6 +297,152 @@ export function PresenceExceptionsPanel({ account }: { account: Account }) {
         </Button>
       </div>
     </SettingsCard>
+  )
+}
+
+/** Profile visibility, global search visibility, and the people allowed past it. */
+export function ProfilePrivacyPanel({ account }: { account: Account }) {
+  const { t } = useTranslation()
+  const toast = useToast()
+  const fail = useActionReporter('privacy')
+  const resource = useAccountResource(account, getProfilePrivacy)
+  const [busy, setBusy] = useState(false)
+
+  async function toggle(field: 'hideProfile' | 'hideFromSearch', enabled: boolean): Promise<void> {
+    const current = resource.data
+    if (current === null) return
+    setBusy(true)
+    try {
+      if (field === 'hideProfile') await setProfileHidden(account, enabled)
+      else await setProfileHiddenFromSearch(account, enabled)
+      resource.replace({ ...current, [field]: enabled })
+      const key = field === 'hideProfile'
+        ? enabled ? 'settings.privacy.profileHiddenOn' : 'settings.privacy.profileHiddenOff'
+        : enabled ? 'settings.privacy.searchHiddenOn' : 'settings.privacy.searchHiddenOff'
+      toast.notify({ kind: 'success', message: t(key) })
+    } catch (error) {
+      fail(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <SettingsCard title={t('settings.privacy.profileVisibility')} description={t('settings.privacy.profileVisibilityHint')}>
+      {resource.error !== null ? <PanelError message={resource.error} onRetry={resource.reload} /> : resource.data === null ? (
+        <PanelSkeleton rows={2} />
+      ) : (
+        <>
+          <SettingsRow label={t('settings.privacy.hideProfile')} description={t('settings.privacy.hideProfileHint')}>
+            <SettingsToggle label={t('settings.privacy.hideProfile')} checked={resource.data.hideProfile} disabled={busy}
+              onChange={(enabled) => { void toggle('hideProfile', enabled) }} />
+          </SettingsRow>
+          <SettingsRow label={t('settings.privacy.hideFromSearch')} description={t('settings.privacy.hideFromSearchHint')}>
+            <SettingsToggle label={t('settings.privacy.hideFromSearch')} checked={resource.data.hideFromSearch} disabled={busy}
+              onChange={(enabled) => { void toggle('hideFromSearch', enabled) }} />
+          </SettingsRow>
+        </>
+      )}
+      <ProfileExceptionsPanel account={account} />
+    </SettingsCard>
+  )
+}
+
+function ProfileExceptionsPanel({ account }: { account: Account }) {
+  const { t } = useTranslation()
+  const toast = useToast()
+  const fail = useActionReporter('privacy')
+  const [exceptions, setExceptions] = useState<ProfileException[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [target, setTarget] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [revision, setRevision] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    void Promise.all([listProfileExceptions(account), listContacts(account).catch((): Contact[] => [])])
+      .then(([loaded, contactList]) => {
+        if (!cancelled) {
+          setExceptions(loaded)
+          setContacts(contactList)
+          setError(null)
+        }
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) {
+          setExceptions(null)
+          setError(describeCause(cause))
+          fail(cause)
+        }
+      })
+    return () => { cancelled = true }
+  }, [account, revision, fail])
+
+  const candidates = contacts.filter((contact) => !exceptions?.some((entry) => entry.accountId === contact.targetAccountId))
+
+  async function add(): Promise<void> {
+    if (target.length === 0) return
+    setBusy(true)
+    try {
+      await addProfileException(account, target)
+      setTarget('')
+      setRevision((value) => value + 1)
+      toast.notify({ kind: 'success', message: t('settings.privacy.profileExceptionAdded') })
+    } catch (cause) {
+      fail(cause)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remove(entry: ProfileException): Promise<void> {
+    setBusy(true)
+    try {
+      await removeProfileException(account, entry.accountId)
+      setRevision((value) => value + 1)
+    } catch (cause) {
+      fail(cause)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-border pt-3">
+      <div>
+        <h3 className="text-sm text-fg">{t('settings.privacy.profileExceptions')}</h3>
+        <p className="text-xs text-pretty text-fg-muted">{t('settings.privacy.profileExceptionsHint')}</p>
+      </div>
+      {error !== null ? (
+        <PanelError message={error} onRetry={() => { setError(null); setRevision((value) => value + 1) }} />
+      ) : exceptions === null ? (
+        <PanelSkeleton rows={1} />
+      ) : exceptions.length === 0 ? (
+        <p className="text-xs text-fg-muted">{t('settings.privacy.noProfileExceptions')}</p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {exceptions.map((entry) => (
+            <li key={entry.accountId} className="flex items-center justify-between gap-2 rounded-lg bg-bg px-2.5 py-1.5">
+              <span className="truncate text-sm text-fg">{nameOf(contacts, entry.accountId, t('chatList.unknownPeer'))}</span>
+              <Button variant="ghost" size="sm" disabled={busy} aria-label={t('settings.privacy.removeProfileException')}
+                onClick={() => { void remove(entry) }}><X className="size-4" aria-hidden /></Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-fg-muted">
+          {t('settings.privacy.addProfileException')}
+          <select value={target} disabled={busy} onChange={(event) => setTarget(event.target.value)}
+            className="h-10 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+            <option value="">{t('settings.privacy.pickContact')}</option>
+            {candidates.map((contact) => <option key={contact.targetAccountId} value={contact.targetAccountId}>{contact.localUsername ?? contact.username}</option>)}
+          </select>
+        </label>
+        <Button size="sm" disabled={!target || busy} loading={busy} onClick={() => { void add() }}>{t('settings.privacy.addProfileException')}</Button>
+      </div>
+    </div>
   )
 }
 

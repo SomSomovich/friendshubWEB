@@ -1,7 +1,7 @@
-import { ShieldCheck, Volume2, VolumeX, UserMinus } from 'lucide-react'
+import { Pencil, ShieldCheck, Tag, Volume2, VolumeX, UserMinus } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { GROUP_PERM, hasPermission, muteMember, setMemberRole, addGroupMember, removeGroupMember } from '../../api/groups'
+import { GROUP_PERM, hasPermission, muteMember, setMemberRole, addGroupMember, removeGroupMember, removeGroupMemberTag, setGroupMemberTag } from '../../api/groups'
 import { canOpenMemberProfile, type ConversationMember } from '../../hooks/useConversationMembers'
 import { memberKey } from '../../hooks/useMemberLabels'
 import { useActionReporter } from '../../hooks/useActionReporter'
@@ -14,6 +14,8 @@ import { listContacts } from '../../api/contacts'
 import { useAccountResource } from '../../hooks/useAccountResource'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { Input } from '../ui/Input'
+import { Modal } from '../ui/Modal'
 import { PanelError } from '../settings/PanelError'
 import { SettingsCard } from '../settings/Section'
 import { MemberAction, MemberRow } from './MemberRow'
@@ -47,12 +49,15 @@ export function GroupMembersPanel({
   const isOwner = self.role === 'owner'
   const canManageRoles = isOwner || hasPermission(self.permissions, GROUP_PERM.addAdmins)
   const canMute = isOwner || hasPermission(self.permissions, GROUP_PERM.banUsers)
+  const canChangeTags = isOwner || hasPermission(self.permissions, GROUP_PERM.changeTags)
 
   const [rights, setRights] = useState<ConversationMember | null>(null)
   const [muting, setMuting] = useState<ConversationMember | null>(null)
   const [busy, setBusy] = useState(false)
   const [removing, setRemoving] = useState<ConversationMember | null>(null)
   const [adding, setAdding] = useState('')
+  const [tagTarget, setTagTarget] = useState<ConversationMember | null>(null)
+  const [tagValue, setTagValue] = useState('')
   const contacts = useAccountResource(account, listContacts)
   const changingMembers = useRef(false)
   const candidates = (contacts.data ?? []).filter((contact) => !members.some((member) => member.id === contact.targetAccountId))
@@ -126,6 +131,44 @@ export function GroupMembersPanel({
     }
   }
 
+  function openTagEditor(member: ConversationMember): void {
+    setTagTarget(member)
+    setTagValue(member.groupTag ?? '')
+  }
+
+  async function saveTag(): Promise<void> {
+    if (tagTarget === null) return
+    const normalized = tagValue.trim()
+    if (!isValidGroupTag(normalized)) return
+
+    setBusy(true)
+    try {
+      await setGroupMemberTag(account, conversationId, tagTarget.id, normalized)
+      setTagTarget(null)
+      onChanged()
+      toast.notify({ kind: 'success', message: t('conversation.member.tagSaved') })
+    } catch (error) {
+      fail(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function clearTag(): Promise<void> {
+    if (tagTarget === null || tagTarget.groupTag === null) return
+    setBusy(true)
+    try {
+      await removeGroupMemberTag(account, conversationId, tagTarget.id)
+      setTagTarget(null)
+      onChanged()
+      toast.notify({ kind: 'success', message: t('conversation.member.tagRemoved') })
+    } catch (error) {
+      fail(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <SettingsCard title={t('conversation.members.title')} description={t('conversation.management.membersHint')}>
       <ul className="flex flex-col gap-0.5">
@@ -133,6 +176,7 @@ export function GroupMembersPanel({
           const muted = member.mutedUntil !== null && member.mutedUntil > nowSeconds()
           // The owner and the acting member are never moderation targets.
           const actionable = member.role !== 'owner' && member.id !== account.id && (canManageRoles || canMute)
+          const tagEditable = canChangeTags && member.actorType === 'account'
 
           return (
             <MemberRow
@@ -148,9 +192,17 @@ export function GroupMembersPanel({
                   : undefined
               }
               trailing={
-                actionable ? (
+                actionable || tagEditable ? (
                   <>
-                    {canManageRoles ? (
+                    {tagEditable ? (
+                      <MemberAction
+                        icon={member.groupTag === null ? Tag : Pencil}
+                        disabled={busy}
+                        label={t(member.groupTag === null ? 'conversation.member.addTag' : 'conversation.member.editTag')}
+                        onClick={() => openTagEditor(member)}
+                      />
+                    ) : null}
+                    {actionable && canManageRoles ? (
                       <MemberAction
                         icon={ShieldCheck}
                         disabled={busy}
@@ -164,9 +216,9 @@ export function GroupMembersPanel({
                         }}
                       />
                     ) : null}
-                    {canMute ? <MemberAction icon={UserMinus} danger disabled={busy}
+                    {actionable && canMute ? <MemberAction icon={UserMinus} danger disabled={busy}
                       label={t('conversation.management.removeMember')} onClick={() => setRemoving(member)} /> : null}
-                    {canMute ? (
+                    {actionable && canMute ? (
                       <MemberAction
                         icon={muted ? Volume2 : VolumeX}
                         disabled={busy}
@@ -221,6 +273,34 @@ export function GroupMembersPanel({
         />
       )}
 
+      <Modal
+        open={tagTarget !== null}
+        onClose={() => { if (!busy) setTagTarget(null) }}
+        title={t('conversation.member.editTagTitle')}
+        footer={(
+          <>
+            {tagTarget?.groupTag ? (
+              <Button variant="danger" disabled={busy} onClick={() => { void clearTag() }}>
+                {t('conversation.member.removeTag')}
+              </Button>
+            ) : null}
+            <Button variant="secondary" disabled={busy} onClick={() => setTagTarget(null)}>{t('common.cancel')}</Button>
+            <Button loading={busy} disabled={!isValidGroupTag(tagValue)} onClick={() => { void saveTag() }}>
+              {t('settings.save')}
+            </Button>
+          </>
+        )}
+      >
+        <Input
+          autoFocus
+          label={t('conversation.member.tagLabel')}
+          value={tagValue}
+          onChange={(event) => setTagValue(event.target.value)}
+          helper={t('conversation.member.tagHint')}
+          maxLength={18}
+        />
+      </Modal>
+
       <MuteDialog
         open={muting !== null}
         muted={muting !== null && muting.mutedUntil !== null && muting.mutedUntil > nowSeconds()}
@@ -234,6 +314,12 @@ export function GroupMembersPanel({
       />
     </SettingsCard>
   )
+}
+
+function isValidGroupTag(value: string): boolean {
+  const normalized = value.trim()
+  const count = Array.from(normalized).length
+  return count >= 1 && count <= 9 && !/[<>&]/u.test(normalized) && !/\p{Cc}/u.test(normalized)
 }
 
 /**

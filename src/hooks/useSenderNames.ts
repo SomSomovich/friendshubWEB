@@ -12,10 +12,27 @@ import type { Account } from '../types'
  * the same handful of people on every render.
  */
 
-/** Beyond this, a group is asking for more lookups than a screen can show. */
-const MAX_PROFILE_LOOKUPS = 200
+/** The server charges each id and permits 50 ids per account each minute. */
+const MAX_PROFILE_LOOKUPS = 50
+const PROFILE_LOOKUP_WINDOW_MS = 60_000
 
-const profileNames = new Map<string, string>()
+const profileNames = new Map<string, string | null>()
+const profileLookupTimes = new Map<string, number[]>()
+
+function profileCacheKey(accountId: string, targetAccountId: string): string {
+  return `${accountId}:${targetAccountId}`
+}
+
+function reserveProfileLookupSlots(accountId: string, requested: number): number {
+  const now = Date.now()
+  const recent = (profileLookupTimes.get(accountId) ?? []).filter(
+    (timestamp) => now - timestamp < PROFILE_LOOKUP_WINDOW_MS,
+  )
+  const allowed = Math.min(requested, MAX_PROFILE_LOOKUPS - recent.length)
+  recent.push(...Array.from({ length: allowed }, () => now))
+  profileLookupTimes.set(accountId, recent)
+  return allowed
+}
 
 export async function primeSenderNames(
   account: Account,
@@ -31,15 +48,29 @@ export async function primeSenderNames(
 
   const unknown = senderIds.filter((id) => id !== account.id && !names.has(id))
   const missing: string[] = []
-  for (const id of unknown.slice(0, limit)) {
-    const cached = profileNames.get(id)
-    if (cached !== undefined) names.set(id, cached)
-    else missing.push(id)
+  for (const id of unknown) {
+    const key = profileCacheKey(account.id, id)
+    if (profileNames.has(key)) {
+      const cached = profileNames.get(key)
+      if (cached !== null && cached !== undefined) names.set(id, cached)
+    } else {
+      missing.push(id)
+    }
   }
   try {
-    for (const profile of await getAccountsBatch(account, missing)) {
-      profileNames.set(profile.accountId, profile.username)
-      names.set(profile.accountId, profile.username)
+    const allowed = reserveProfileLookupSlots(account.id, Math.min(limit, missing.length))
+    const requestIds = missing.slice(0, allowed)
+    if (requestIds.length > 0) {
+      const profiles = await getAccountsBatch(account, requestIds)
+      const returned = new Map(profiles.map((profile) => [profile.accountId, profile.username]))
+      // Hidden or deleted profiles are deliberately omitted by the API. Cache
+      // that absence for this session as well, or every new group view would
+      // spend another rate-limited slot on the same ids.
+      for (const id of requestIds) {
+        const username = returned.get(id) ?? null
+        profileNames.set(profileCacheKey(account.id, id), username)
+        if (username !== null) names.set(id, username)
+      }
     }
   } catch (error) {
     console.warn('[chat] account names could not be resolved', error)
@@ -51,10 +82,8 @@ export async function primeSenderNames(
 /**
  * @param senderIds the distinct senders currently on screen. Only new ones cost
  *                  a request, so this can be derived from the message list.
- * @param limit     how many unknown ids may cost a profile read. A member list
- *                  names more people than a screenful of messages does, but not
- *                  unboundedly: a thousand-member group must not fire a thousand
- *                  requests, so the rest fall back to "unknown peer".
+ * @param limit     how many unknown ids may cost a profile read, capped by the
+ *                  server's per-account minute limit.
  */
 export function useSenderNames(
   account: Account,

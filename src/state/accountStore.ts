@@ -20,6 +20,7 @@ import type { ConversationRecord, MessageRecord } from '../storage/db'
 import { loadHistoryCursors, markConversationRead } from '../storage/read_state'
 import {
   deleteMessage,
+  getMessage,
   getMessages,
   saveMessage,
   updateMessage,
@@ -35,7 +36,7 @@ import type { PresenceEvent, ConversationUpdatedEvent } from '../ws/events'
 import { TYPING_TTL_SECONDS, withTyping, type TypingState } from '../utils/typing'
 import { applyReceivedEnvelope, mergeById } from './applyEnvelope'
 import { enqueue, listOutbox, removeFromOutbox } from './outbox'
-import { usePendingVoiceStore } from './pendingVoiceStore'
+import { usePendingVoiceStore, type PendingVoiceNote } from './pendingVoiceStore'
 import { useUiStore } from './uiStore'
 
 /**
@@ -133,6 +134,8 @@ export type AccountActions = {
    * upload and a failed one looked exactly alike.
    */
   sendVoice: (blob: Blob, name: string) => Promise<void>
+  /** Retries one failed local voice note while its recording remains in memory. */
+  retryVoice: (message: MessageRecord) => Promise<void>
   /** Sends whatever was queued while the connection was down. */
   flushOutbox: () => Promise<void>
   applyEnvelope: (envelope: Envelope) => Promise<void>
@@ -480,7 +483,7 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
         // for, so the bubble can draw a file that is not on any server yet.
         const localId = `local:${uuidV7()}`
         const url = URL.createObjectURL(blob)
-        usePendingVoiceStore.getState().add(localId, url)
+        const pending = usePendingVoiceStore.getState().add(localId, url, blob, name)
 
         const placeholder = buildLocalMessageRecord(account, {
           conversationId: activeConversationId,
@@ -497,27 +500,7 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
         })
 
         try {
-          const attachmentIds = await uploadAll({
-            account,
-            conversationId: activeConversationId,
-            files: [{ blob, name, compress: false }],
-            caption: '',
-            onProgress: (progress) => {
-              usePendingVoiceStore.getState().setProgress(localId, progress.fraction)
-            },
-          })
-
-          // The real row replaces the placeholder rather than joining it: the
-          // two have different envelope ids, and both at once is the message
-          // twice.
-          await deleteMessage(account.id, placeholder.envelopeId)
-          const record = await sendToOpenConversation(
-            account,
-            activeConversationId,
-            { text: '', attachmentIds },
-            get(),
-          )
-          await saveMessage(record)
+          const record = await deliverVoiceMessage(account, placeholder, localId, pending, get())
           set({
             messages: mergeById(
               get().messages.filter((message) => message.envelopeId !== placeholder.envelopeId),
@@ -531,11 +514,85 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
         } catch (error) {
           // The row stays, marked as failed. A recording that did not go out has
           // to be visible, or the reader cannot tell it from one that did.
-          await updateMessage(account.id, placeholder.envelopeId, { status: 'failed' })
+          await markVoiceFailed(account.id, placeholder.envelopeId)
           set({
             messages: get().messages.map((message) =>
               message.envelopeId === placeholder.envelopeId ? { ...message, status: 'failed' } : message,
             ),
+            messagesVersion: get().messagesVersion + 1,
+          })
+          usePendingVoiceStore.getState().fail(localId, describe(error))
+          throw error
+        }
+      },
+
+      async retryVoice(message) {
+        if (
+          message.accountId !== account.id ||
+          message.senderAccountId !== account.id ||
+          message.status !== 'failed' ||
+          message.attachments.length !== 1
+        ) {
+          return
+        }
+        const localId = message.attachments[0]
+        if (localId === undefined || !localId.startsWith('local:')) {
+          return
+        }
+
+        const stored = await getMessage(account.id, message.envelopeId)
+        if (
+          (stored !== null &&
+            (stored.status !== 'failed' && stored.status !== 'sending')) ||
+          (stored !== null &&
+            (stored.conversationId !== message.conversationId ||
+              stored.attachments.length !== 1 ||
+              stored.attachments[0] !== localId))
+        ) {
+          return
+        }
+
+        // A failed send may already have removed the local row from IndexedDB.
+        // The live message and its pending blob are enough for this session's
+        // retry; if the row still exists, keep its stored metadata as authority.
+        const placeholder = stored ?? message
+
+        const pending = usePendingVoiceStore.getState().beginRetry(localId)
+        if (pending === null) {
+          return
+        }
+
+        try {
+          await updateMessage(account.id, placeholder.envelopeId, { status: 'sending' })
+          set({
+            messages:
+              get().activeConversationId === placeholder.conversationId
+                ? get().messages.map((entry) =>
+                    entry.envelopeId === placeholder.envelopeId ? { ...entry, status: 'sending' } : entry,
+                  )
+                : get().messages,
+            messagesVersion: get().messagesVersion + 1,
+          })
+
+          const record = await deliverVoiceMessage(account, placeholder, localId, pending, get())
+          set({
+            messages:
+              get().activeConversationId === placeholder.conversationId
+                ? mergeById(get().messages.filter((entry) => entry.envelopeId !== placeholder.envelopeId), [record])
+                : get().messages,
+            messagesVersion: get().messagesVersion + 1,
+          })
+          usePendingVoiceStore.getState().remove(localId)
+          URL.revokeObjectURL(pending.url)
+        } catch (error) {
+          await markVoiceFailed(account.id, placeholder.envelopeId)
+          set({
+            messages:
+              get().activeConversationId === placeholder.conversationId
+                ? get().messages.map((entry) =>
+                    entry.envelopeId === placeholder.envelopeId ? { ...entry, status: 'failed' } : entry,
+                  )
+                : get().messages,
             messagesVersion: get().messagesVersion + 1,
           })
           usePendingVoiceStore.getState().fail(localId, describe(error))
@@ -759,6 +816,61 @@ async function sendToOpenConversation(
 
   const peerAccountId = await resolveDirectPeer(account, conversationId)
   return (await sendDirectMessage(account, { conversationId, peerAccountId }, draft, options)).message
+}
+
+/** Uploads a voice note if needed, then sends a message that refers to it. */
+async function deliverVoiceMessage(
+  account: Account,
+  placeholder: MessageRecord,
+  localId: string,
+  pending: Pick<PendingVoiceNote, 'blob' | 'name' | 'attachmentId'>,
+  state: AccountStore,
+): Promise<MessageRecord> {
+  let attachmentId = pending.attachmentId
+  if (attachmentId === null) {
+    const uploaded = await uploadAll({
+      account,
+      conversationId: placeholder.conversationId,
+      files: [{ blob: pending.blob, name: pending.name, compress: false }],
+      caption: '',
+      onProgress: (progress) => {
+        usePendingVoiceStore.getState().setProgress(localId, progress.fraction)
+      },
+    })
+    attachmentId = uploaded[0] ?? null
+    if (attachmentId === null || uploaded.length !== 1) {
+      throw new Error('[voice] the upload did not return exactly one attachment')
+    }
+    usePendingVoiceStore.getState().setAttachmentId(localId, attachmentId)
+  } else {
+    // The file is already on the server; this retry only needs to send the
+    // message envelope that refers to it.
+    usePendingVoiceStore.getState().setProgress(localId, 1)
+  }
+
+  // A failed voice note is kept only for this page session. Delete its local
+  // placeholder before sending the message; if that send fails, the live row
+  // remains retryable until the session ends, matching the chat's existing
+  // cleanup behavior on the next visit.
+  await deleteMessage(account.id, placeholder.envelopeId)
+  const record = await sendToOpenConversation(
+    account,
+    placeholder.conversationId,
+    { text: '', attachmentIds: [attachmentId] },
+    state,
+  )
+  await saveMessage(record)
+  return record
+}
+
+async function markVoiceFailed(accountId: string, envelopeId: string): Promise<void> {
+  try {
+    await updateMessage(accountId, envelopeId, { status: 'failed' })
+  } catch (error) {
+    // The live chat still marks the row failed and retains the retryable blob;
+    // a local storage outage must not turn the original send error into a loss.
+    console.warn('[voice] the failed state could not be saved locally', error)
+  }
 }
 
 function describe(error: unknown): string {

@@ -6,6 +6,7 @@ import type { PendingAttachment } from '../../attachments/prepare'
 import type { UploadProgress } from '../../attachments/send'
 import { cn } from '../../utils/cn'
 import { Button } from '../ui/Button'
+import { CheckboxControl } from '../ui/ChoiceControls'
 import { Modal } from '../ui/Modal'
 
 export type AttachmentComposerProps = {
@@ -17,6 +18,7 @@ export type AttachmentComposerProps = {
   onRemove: (id: string) => void
   progress: UploadProgress | null
   error: string | null
+  disabled?: boolean
   onSend: () => void
   onClose: () => void
 }
@@ -38,6 +40,7 @@ export function AttachmentComposer({
   onRemove,
   progress,
   error,
+  disabled = false,
   onSend,
   onClose,
 }: AttachmentComposerProps) {
@@ -55,7 +58,7 @@ export function AttachmentComposer({
           <Button variant="secondary" disabled={uploading} onClick={onClose}>
             {t('common.cancel')}
           </Button>
-          <Button loading={uploading} onClick={onSend}>
+          <Button loading={uploading} disabled={disabled} onClick={onSend}>
             {t('chat.send')}
           </Button>
         </>
@@ -91,15 +94,13 @@ export function AttachmentComposer({
               </div>
 
               {attachment.compressedSize === null ? null : (
-                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-fg-muted">
-                  <input
-                    type="checkbox"
+                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-fg-muted has-disabled:cursor-not-allowed has-disabled:opacity-50">
+                  <CheckboxControl
                     checked={!attachment.compress}
                     disabled={uploading}
                     onChange={(event) => {
                       onToggleCompress(attachment.id, !event.target.checked)
                     }}
-                    className="size-4 cursor-pointer accent-accent"
                   />
                   {t('chat.attach.uncompressed')}
                 </label>

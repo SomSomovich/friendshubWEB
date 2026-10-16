@@ -36,6 +36,40 @@ export type PresenceException = {
   createdAt: number
 }
 
+export type ProfilePrivacy = {
+  hideProfile: boolean
+  hideFromSearch: boolean
+}
+
+export type ProfileException = {
+  accountId: string
+  createdAt: number
+}
+
+export function getProfilePrivacy(account: AccountAuth): Promise<ProfilePrivacy> {
+  return get('/profile/privacy', { account })
+}
+
+export function setProfileHidden(account: AccountAuth, enabled: boolean): Promise<void> {
+  return put('/profile/privacy/hide-profile', { enabled }, { account })
+}
+
+export function setProfileHiddenFromSearch(account: AccountAuth, enabled: boolean): Promise<void> {
+  return put('/profile/privacy/hide-from-search', { enabled }, { account })
+}
+
+export function listProfileExceptions(account: AccountAuth): Promise<ProfileException[]> {
+  return get('/profile/privacy/profile-exceptions', { account })
+}
+
+export function addProfileException(account: AccountAuth, targetAccountId: string): Promise<void> {
+  return post('/profile/privacy/profile-exceptions', { account_id: targetAccountId }, { account })
+}
+
+export function removeProfileException(account: AccountAuth, targetAccountId: string): Promise<void> {
+  return del(`/profile/privacy/profile-exceptions/${encodeURIComponent(targetAccountId)}`, undefined, { account })
+}
+
 export type StatusInput = {
   text: string | null
   emoji: string | null

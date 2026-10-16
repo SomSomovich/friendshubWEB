@@ -29,6 +29,8 @@ export type ConversationMember = {
   permissions: number
   mutedUntil: number | null
   joinedAt: number
+  /** A tag scoped to this group; channels and other conversations have none. */
+  groupTag: string | null
 }
 
 export type ConversationMembersState = {
@@ -84,6 +86,7 @@ export function useConversationMembers(
               permissions: row.permissions,
               mutedUntil: row.mutedUntil,
               joinedAt: row.joinedAt,
+              groupTag: row.groupTag ?? null,
             })),
           )
         : listChannelMembers(account, conversationId).then((rows): ConversationMember[] =>
@@ -94,6 +97,7 @@ export function useConversationMembers(
               permissions: 0,
               mutedUntil: null,
               joinedAt: row.joinedAt,
+              groupTag: null,
             })),
           )
 

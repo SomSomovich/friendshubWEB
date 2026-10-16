@@ -4,6 +4,7 @@ import { displayName, formatBytes } from '../../attachments/display'
 import type { AttachmentMime } from '../../attachments/mime'
 import { useAttachment } from '../../hooks/useAttachment'
 import { usePendingVoiceStore } from '../../state/pendingVoiceStore'
+import { VideoCirclePlayer } from './VideoCirclePlayer'
 import { VoiceMessagePlayer } from './VoiceMessagePlayer'
 
 export type AttachmentViewProps = {
@@ -78,6 +79,9 @@ export function AttachmentView({ accountId, attachmentId, onOpen }: AttachmentVi
   }
 
   if (mime.family === 'video') {
+    if (mime.videoCircle) {
+      return <VideoCirclePlayer src={url} />
+    }
     return (
       <video
         src={url}

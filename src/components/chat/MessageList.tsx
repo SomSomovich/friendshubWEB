@@ -25,8 +25,10 @@ export type MessageListProps = {
   /** True while the server may still hold messages older than the oldest shown. */
   hasOlder: boolean
   onLoadOlder: () => void
-  /** Set in group chats, where somebody else's message needs a name above it. */
+  /** Group sender names, including the reader's own name for tagged messages. */
   senderNames: Map<string, string>
+  senderTags: Map<string, string>
+  showSenderNames: boolean
   selfAccountId: string
   language: string
   /**
@@ -62,6 +64,8 @@ export function MessageList({
   hasOlder,
   onLoadOlder,
   senderNames,
+  senderTags,
+  showSenderNames,
   selfAccountId,
   language,
   readWatermark,
@@ -129,6 +133,8 @@ export function MessageList({
               group={group}
               selfAccountId={selfAccountId}
               senderNames={senderNames}
+              senderTags={senderTags}
+              showSenderNames={showSenderNames}
               language={language}
               readWatermark={readWatermark}
               highlightedId={highlightedId}

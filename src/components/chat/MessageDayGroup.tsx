@@ -15,6 +15,8 @@ export type MessageDayGroupProps = {
   group: DayGroup
   selfAccountId: string
   senderNames: Map<string, string>
+  senderTags: Map<string, string>
+  showSenderNames: boolean
   language: string
   readWatermark: number
   highlightedId: string | null
@@ -28,6 +30,8 @@ export function MessageDayGroup({
   group,
   selfAccountId,
   senderNames,
+  senderTags,
+  showSenderNames,
   language,
   readWatermark,
   highlightedId,
@@ -52,8 +56,10 @@ export function MessageDayGroup({
               key={message.envelopeId}
               message={message}
               own={own}
-              // A name above the bubble only where it can be somebody else's.
-              senderName={own ? null : (senderNames.get(message.senderAccountId) ?? null)}
+              // Group messages show their member name and group-scoped tag,
+              // including the reader's own messages. Other chat kinds do not.
+              senderName={showSenderNames ? (senderNames.get(message.senderAccountId) ?? null) : null}
+              senderTag={showSenderNames ? (senderTags.get(message.senderAccountId) ?? null) : null}
               language={language}
               status={statusFor(message, selfAccountId, readWatermark)}
               highlighted={message.envelopeId === highlightedId}

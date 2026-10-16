@@ -1,4 +1,4 @@
-import { Copy, Pencil, Pin, PinOff, Trash2 } from 'lucide-react'
+import { Copy, Pencil, Pin, PinOff, RotateCcw, Trash2 } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import type { MessageRecord } from '../../storage/db'
 import { REACTION_EMOJI, ownReaction } from '../../utils/reactions'
@@ -14,6 +14,7 @@ import type { MenuReaction } from '../ui/MenuItems'
  */
 
 export type MessageMenuHandlers = {
+  onRetry?: () => void
   onEdit: () => void
   onTogglePin: () => void
   onCopy: () => void
@@ -27,6 +28,20 @@ export function buildMessageMenuItems(
   handlers: MessageMenuHandlers,
 ): DropdownItem[] {
   return [
+    ...(own &&
+    handlers.onRetry !== undefined &&
+    message.status === 'failed' &&
+    message.attachments.length === 1 &&
+    message.attachments[0]?.startsWith('local:')
+      ? [
+          {
+            id: 'retry',
+            label: t('common.retry'),
+            icon: RotateCcw,
+            onSelect: handlers.onRetry,
+          },
+        ]
+      : []),
     ...(own
       ? [
           {
