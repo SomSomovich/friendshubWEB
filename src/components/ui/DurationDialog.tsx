@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from './Button'
 import { Modal } from './Modal'
@@ -18,8 +18,12 @@ export type DurationDialogProps = {
 }
 
 /** The shared hours/minutes picker for scheduled sends and temporary rooms. */
-export function DurationDialog({
-  open,
+export function DurationDialog(props: DurationDialogProps) {
+  if (!props.open) return null
+  return <OpenDurationDialog {...props} />
+}
+
+function OpenDurationDialog({
   title,
   hint,
   confirmLabel,
@@ -30,19 +34,12 @@ export function DurationDialog({
   onChoose,
   warningForSeconds,
   loading = false,
-}: DurationDialogProps) {
+}: Omit<DurationDialogProps, 'open'>) {
   const { t } = useTranslation()
   const hoursId = useId()
   const minutesId = useId()
   const [hours, setHours] = useState(String(Math.floor(initialSeconds / 3600)))
   const [minutes, setMinutes] = useState(String(Math.floor((initialSeconds % 3600) / 60)))
-
-  useEffect(() => {
-    if (open) {
-      setHours(String(Math.floor(initialSeconds / 3600)))
-      setMinutes(String(Math.floor((initialSeconds % 3600) / 60)))
-    }
-  }, [initialSeconds, open])
 
   const numericHours = Number(hours)
   const numericMinutes = Number(minutes)
@@ -60,7 +57,7 @@ export function DurationDialog({
 
   return (
     <Modal
-      open={open}
+      open
       onClose={onClose}
       title={title}
       footer={

@@ -270,23 +270,24 @@ export function ChatList({ account, query }: ChatListProps) {
         }}
       />
 
-      <ChatFolderDialog
-        open={folderDialogTarget !== null}
-        folder={folderDialogTarget === null || folderDialogTarget === 'create'
-          ? null
-          : folders.find((folder) => folder.id === folderDialogTarget) ?? null}
-        folders={folders}
-        rows={rows}
-        account={account}
-        onClose={() => setFolderDialogTarget(null)}
-        onSaved={(folderId) => {
-          setFolderDialogTarget(null)
-          void listFolders(account).then((loaded) => {
-            setFolders(loaded)
-            if (folderId !== null) setFilter(`folder:${folderId}`)
-          }).catch((cause: unknown) => reportActionFailure(cause, t, toast))
-        }}
-      />
+      {folderDialogTarget === null ? null : (
+        <ChatFolderDialog
+          folder={folderDialogTarget === 'create'
+            ? null
+            : folders.find((folder) => folder.id === folderDialogTarget) ?? null}
+          folders={folders}
+          rows={rows}
+          account={account}
+          onClose={() => setFolderDialogTarget(null)}
+          onSaved={(folderId) => {
+            setFolderDialogTarget(null)
+            void listFolders(account).then((loaded) => {
+              setFolders(loaded)
+              if (folderId !== null) setFilter(`folder:${folderId}`)
+            }).catch((cause: unknown) => reportActionFailure(cause, t, toast))
+          }}
+        />
+      )}
     </div>
   )
 }

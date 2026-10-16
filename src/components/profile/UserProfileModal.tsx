@@ -34,6 +34,13 @@ type Loaded = {
   profile: PublicProfile | null
 }
 
+type LoadedAlias = {
+  accountId: string
+  targetAccountId: string
+  profileUsername: string
+  value: string | null
+}
+
 /**
  * Somebody else's profile.
  *
@@ -58,16 +65,21 @@ export function UserProfileModal() {
   const [avatarOpen, setAvatarOpen] = useState(false)
   const [aliasOpen, setAliasOpen] = useState(false)
   const [aliasValue, setAliasValue] = useState('')
-  const [contactAlias, setContactAlias] = useState<string | null>(null)
+  const [loadedAlias, setLoadedAlias] = useState<LoadedAlias | null>(null)
 
   const accountId = account?.id ?? null
   // A profile read for one person must never be shown for another: the target
   // is part of the value, not a separate piece of state to keep in step.
   const profile =
     loaded !== null && loaded.accountId === targetAccountId ? loaded.profile : null
+  const contactAlias =
+    loadedAlias?.accountId === accountId &&
+    loadedAlias.targetAccountId === targetAccountId &&
+    loadedAlias.profileUsername === profile?.username
+      ? loadedAlias.value
+      : null
 
   useEffect(() => {
-    setContactAlias(null)
     if (accountId === null || targetAccountId === null || profile?.isContact !== true) return
     const current = getExistingAccountStore(accountId)?.getState().account
     if (current === undefined) return
@@ -76,7 +88,12 @@ export function UserProfileModal() {
       .then((contacts) => {
         if (!cancelled) {
           const alias = contacts.find((contact) => contact.targetAccountId === targetAccountId)?.localUsername ?? null
-          setContactAlias(alias === profile.username ? null : alias)
+          setLoadedAlias({
+            accountId,
+            targetAccountId,
+            profileUsername: profile.username,
+            value: alias === profile.username ? null : alias,
+          })
         }
       })
       .catch((error: unknown) => {
@@ -173,7 +190,12 @@ export function UserProfileModal() {
     try {
       if (profile.isContact) {
         await removeContact(current, profile.id)
-        setContactAlias(null)
+        setLoadedAlias({
+          accountId: current.id,
+          targetAccountId: profile.id,
+          profileUsername: profile.username,
+          value: null,
+        })
         toast.notify({ kind: 'success', message: t('chat.contact.removed') })
       } else {
         await addContact(current, {
@@ -203,7 +225,12 @@ export function UserProfileModal() {
     setBusy(true)
     try {
       const updated = await addContact(current, { targetFhNumber: profile.fhNumber, localUsername: alias })
-      setContactAlias(updated.localUsername === profile.username ? null : updated.localUsername)
+      setLoadedAlias({
+        accountId: current.id,
+        targetAccountId: profile.id,
+        profileUsername: profile.username,
+        value: updated.localUsername === profile.username ? null : updated.localUsername,
+      })
       await requireAccountStore(current.id).getState().actions.loadConversations()
       toast.notify({ kind: 'success', message: t('profile.alias.saved') })
       setAliasOpen(false)

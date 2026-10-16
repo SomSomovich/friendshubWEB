@@ -49,7 +49,12 @@ export function ScheduledMessagesDialog({
   }, [account, t])
 
   useEffect(() => {
-    if (open) void refresh()
+    if (!open) return
+    let cancelled = false
+    queueMicrotask(() => {
+      if (!cancelled) void refresh()
+    })
+    return () => { cancelled = true }
   }, [open, refresh, version])
 
   const messages = useMemo(() => groupScheduled(items, conversationId), [items, conversationId])

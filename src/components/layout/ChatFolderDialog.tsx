@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   addConversationToFolder,
@@ -15,7 +15,6 @@ import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 
 export function ChatFolderDialog({
-  open,
   folder,
   folders,
   rows,
@@ -23,7 +22,6 @@ export function ChatFolderDialog({
   onClose,
   onSaved,
 }: {
-  open: boolean
   folder: ChatFolder | null
   folders: ChatFolder[]
   rows: ChatListRowData[]
@@ -33,19 +31,11 @@ export function ChatFolderDialog({
 }) {
   const { t } = useTranslation()
   const toast = useToast()
-  const [name, setName] = useState('')
-  const [selected, setSelected] = useState<string[]>([])
+  const [name, setName] = useState(() => folder?.name ?? '')
+  const [selected, setSelected] = useState(() => folder?.conversationIds ?? [])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [createdFolder, setCreatedFolder] = useState<ChatFolder | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    setName(folder?.name ?? '')
-    setSelected(folder?.conversationIds ?? [])
-    setError(null)
-    setCreatedFolder(null)
-  }, [folder, open])
 
   async function save(): Promise<void> {
     setBusy(true)
@@ -90,7 +80,7 @@ export function ChatFolderDialog({
 
   return (
     <Modal
-      open={open}
+      open
       onClose={onClose}
       title={t(folder === null ? 'chatFolders.createTitle' : 'chatFolders.editTitle')}
       size="lg"

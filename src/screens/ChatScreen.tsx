@@ -139,9 +139,13 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
   const [confirming, setConfirming] = useState<'clear' | 'delete' | null>(null)
   const [muteOpen, setMuteOpen] = useState(false)
   const [scheduledOpen, setScheduledOpen] = useState(false)
-  const [temporaryRoomExpiresAt, setTemporaryRoomExpiresAt] = useState<number | null>(null)
+  const [temporaryRoomExpiry, setTemporaryRoomExpiry] = useState<{
+    accountId: string
+    conversationId: string
+    expiresAt: number | null
+  } | null>(null)
   const [nudgeCooldownUntil, setNudgeCooldownUntil] = useState(0)
-  const [nudgeClock, setNudgeClock] = useState(() => Date.now())
+  const [nudgeClock, setNudgeClock] = useState(() => nowSeconds())
   const [attachments, setAttachments] = useState<PendingAttachment[]>([])
   const [caption, setCaption] = useState('')
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null)
@@ -156,6 +160,11 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
   // Ticks so the "typing" line disappears on its own five seconds after the last
   // frame; nothing arrives to say it stopped.
   const [typingClock, setTypingClock] = useState(() => nowSeconds())
+  const temporaryRoomExpiresAt =
+    temporaryRoomExpiry?.accountId === account.id &&
+    temporaryRoomExpiry.conversationId === conversationId
+      ? temporaryRoomExpiry.expiresAt
+      : null
 
   const search = useChatSearch(account, conversationId, searchOpen)
 
@@ -198,19 +207,18 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
 
   useEffect(() => {
     let cancelled = false
-    setTemporaryRoomExpiresAt(null)
     if (conversation?.kind === 'group') {
       void getTemporaryRoomExpiry(account.id, conversationId).then((expiresAt) => {
-        if (!cancelled) setTemporaryRoomExpiresAt(expiresAt)
+        if (!cancelled) setTemporaryRoomExpiry({ accountId: account.id, conversationId, expiresAt })
       })
     }
     return () => { cancelled = true }
   }, [account.id, conversation?.kind, conversationId])
 
   useEffect(() => {
-    if (nudgeCooldownUntil <= Date.now()) return
+    if (nudgeCooldownUntil <= nowSeconds()) return
     const timer = setInterval(() => {
-      const now = Date.now()
+      const now = nowSeconds()
       setNudgeClock(now)
       if (now >= nudgeCooldownUntil) clearInterval(timer)
     }, 1000)
@@ -520,7 +528,9 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
     }
     try {
       client.sendNudge(conversationId, peerAccountId)
-      setNudgeCooldownUntil(Date.now() + 30_000)
+      const now = nowSeconds()
+      setNudgeClock(now)
+      setNudgeCooldownUntil(now + 30)
     } catch (cause) {
       report(cause, 'chat.actionFailed')
     }
