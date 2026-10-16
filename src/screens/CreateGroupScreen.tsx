@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { listContacts, type Contact } from '../api/contacts'
 import { createGroup, setGroupHandle } from '../api/groups'
 import { CreateSummary } from '../components/create/CreateSummary'
@@ -16,6 +16,7 @@ import { useHandleAvailability } from '../hooks/useHandleAvailability'
 import { useToast } from '../hooks/useToast'
 import { ROUTES, chatPath } from '../router/paths'
 import { requireAccountStore } from '../state/accountRegistry'
+import { rememberTemporaryRoomExpiry } from '../storage/temporaryRooms'
 import type { Account } from '../types'
 import { normalizeHandle } from '../utils/handle'
 
@@ -33,13 +34,19 @@ const LAST_STEP = STEPS.length - 1
  */
 export function CreateGroupScreen() {
   const account = useActiveAccount()
+  const [searchParams] = useSearchParams()
+  const rawExpiry = searchParams.get('expiresInSeconds')
+  const parsedExpiry = rawExpiry === null ? NaN : Number(rawExpiry)
+  const expiresInSeconds = Number.isInteger(parsedExpiry) && parsedExpiry >= 60 && parsedExpiry <= 7 * 24 * 60 * 60
+    ? parsedExpiry
+    : undefined
   if (account === null) {
     return null
   }
-  return <GroupWizard key={account.id} account={account} />
+  return <GroupWizard key={`${account.id}:${expiresInSeconds ?? 'permanent'}`} account={account} expiresInSeconds={expiresInSeconds} />
 }
 
-function GroupWizard({ account }: { account: Account }) {
+function GroupWizard({ account, expiresInSeconds }: { account: Account; expiresInSeconds?: number }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const toast = useToast()
@@ -102,7 +109,22 @@ function GroupWizard({ account }: { account: Account }) {
         description: info.description.trim().length === 0 ? null : info.description.trim(),
         memberIds: selected,
         isPublic: info.isPublic,
+        ...(expiresInSeconds === undefined ? {} : { expiresInSeconds }),
       })
+
+      if (expiresInSeconds !== undefined) {
+        try {
+          await rememberTemporaryRoomExpiry(
+            account.id,
+            created.conversationId,
+            created.createdAt + expiresInSeconds,
+          )
+        } catch (error) {
+          // The backend still enforces expiry; this local record only powers a
+          // helpful warning before scheduling a message on this device.
+          console.warn('[create] the local temporary-room expiry was not saved', error)
+        }
+      }
 
       if (handle !== '') {
         try {
@@ -137,7 +159,7 @@ function GroupWizard({ account }: { account: Account }) {
 
   return (
     <CreateWizard
-      title={t('createGroup.title')}
+      title={t(expiresInSeconds === undefined ? 'createGroup.title' : 'temporaryRooms.createTitle')}
       stepLabels={STEPS.map((key) => t(key))}
       step={step}
       onClose={() => {
@@ -211,6 +233,13 @@ function GroupWizard({ account }: { account: Account }) {
           rows={[
             { label: t('create.title'), value: title },
             { label: t('create.handle'), value: handle === '' ? t('create.noHandle') : handle },
+            ...(expiresInSeconds === undefined ? [] : [{
+              label: t('temporaryRooms.expiresIn'),
+              value: t('temporaryRooms.durationValue', {
+                hours: Math.floor(expiresInSeconds / 3600),
+                minutes: Math.floor((expiresInSeconds % 3600) / 60),
+              }),
+            }]),
             {
               label: t('create.visibility'),
               value: info.isPublic ? t('create.public') : t('create.private'),

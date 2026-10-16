@@ -30,6 +30,8 @@ export type BuildEnvelopeInput = {
   ciphertextHex: string
   conversationId: string | null
   clientTimestamp?: number
+  /** Unix seconds at which the server should deliver the envelope; absent is immediate. */
+  sendAt?: number
   envelopeId?: string
   senderIsBot?: boolean
 }
@@ -47,6 +49,7 @@ export function buildEnvelope(input: BuildEnvelopeInput): Envelope {
     isPrekeyMessage: input.isPrekeyMessage,
     ciphertext: input.ciphertextHex,
     clientTimestamp: input.clientTimestamp ?? nowSeconds(),
+    sendAt: input.sendAt,
     conversationId: input.conversationId,
     senderIsBot: input.senderIsBot ?? false,
   }
@@ -126,6 +129,7 @@ export async function pairwise(
   payloadHex: string,
   envelopeType: number,
   conversationId: string | null,
+  options: { clientTimestamp?: number; sendAt?: number } = {},
 ): Promise<Envelope> {
   const encrypted = await encryptForDevice(
     account,
@@ -142,6 +146,8 @@ export async function pairwise(
     isPrekeyMessage: encrypted.isPrekeyMessage,
     ciphertextHex: encrypted.ciphertextHex,
     conversationId,
+    clientTimestamp: options.clientTimestamp,
+    sendAt: options.sendAt,
   })
 }
 
@@ -193,6 +199,7 @@ export async function pairwiseFanout(
   payloadHex: string,
   envelopeType: number,
   conversationId: string | null,
+  options: { clientTimestamp?: number; sendAt?: number } = {},
 ): Promise<PairwiseFanout> {
   const envelopes: Envelope[] = []
   const unreachable: number[] = []
@@ -208,6 +215,7 @@ export async function pairwiseFanout(
           payloadHex,
           envelopeType,
           conversationId,
+          options,
         ),
       )
     } catch (error) {
@@ -243,6 +251,7 @@ export async function pairwiseFanoutOrThrow(
   payloadHex: string,
   envelopeType: number,
   conversationId: string | null,
+  options: { clientTimestamp?: number; sendAt?: number } = {},
 ): Promise<Envelope[]> {
   const { envelopes, unreachable, cause } = await pairwiseFanout(
     account,
@@ -251,6 +260,7 @@ export async function pairwiseFanoutOrThrow(
     payloadHex,
     envelopeType,
     conversationId,
+    options,
   )
 
   if (envelopes.length === 0 && unreachable.length > 0) {

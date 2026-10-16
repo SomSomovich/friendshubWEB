@@ -63,6 +63,15 @@ export function setInvisible(account: AccountAuth, enabled: boolean): Promise<vo
   return put<void>('/profile/invisible', { enabled }, { account })
 }
 
+/** Whether other accounts may send this account transient nudge frames. */
+export function getAllowNudges(account: AccountAuth): Promise<{ allow: boolean }> {
+  return get<{ allow: boolean }>('/profile/allow-nudges', { account })
+}
+
+export function setAllowNudges(account: AccountAuth, allow: boolean): Promise<void> {
+  return put<void>('/profile/allow-nudges', { allow }, { account })
+}
+
 /**
  * The stored invisibility flag.
  *

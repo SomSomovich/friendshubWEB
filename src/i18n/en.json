@@ -14,6 +14,11 @@
     "retry": "Retry",
     "reload": "Reload"
   },
+  "duration": {
+    "hours": "Hours",
+    "minutes": "Minutes",
+    "rangeError": "Choose a duration from {{min}} to {{max}} hours."
+  },
   "errors": {
     "title": "Something went wrong",
     "description": "This screen could not be rendered. Nothing has been lost — try again, or reload the page.",
@@ -212,6 +217,21 @@
       "added": "Added to friends",
       "removed": "Removed from friends",
       "unavailable": "The other person's profile has not loaded yet."
+    },
+    "scheduled": {
+      "action": "Schedule message",
+      "title": "Schedule message",
+      "hint": "Choose how many hours and minutes to wait before sending.",
+      "confirm": "Schedule",
+      "manage": "Scheduled messages",
+      "created": "Message scheduled",
+      "offline": "Connect to the internet to schedule a message.",
+      "roomExpiresBeforeSend": "This room closes before the message is scheduled to send."
+    },
+    "nudge": {
+      "action": "Nudge contact",
+      "offline": "You are offline. The nudge was not sent.",
+      "notDelivered": "This person does not allow nudges or is unavailable."
     },
     "search": {
       "title": "Search in this chat",
@@ -461,10 +481,34 @@
     },
     "actionFailed": "The action could not be completed."
   },
+  "chatFolders": {
+    "createTitle": "Create a chat folder",
+    "editTitle": "Edit chat folder",
+    "name": "Folder name",
+    "namePlaceholder": "For example, friends",
+    "chooseChats": "Choose chats",
+    "noChats": "There are no chats to add yet.",
+    "saved": "Folder saved",
+    "saveFailed": "Could not save the folder",
+    "defaultName": "New folder {{count}}"
+  },
+  "scheduled": {
+    "title": "Scheduled messages",
+    "empty": "No scheduled messages",
+    "emptyHint": "Messages you schedule will appear here.",
+    "loadFailed": "Could not load scheduled messages.",
+    "cancel": "Cancel",
+    "cancelled": "Scheduled send cancelled",
+    "cancelFailed": "Could not cancel the scheduled send.",
+    "cancelPartial": "Some copies could not be cancelled. Refresh the list.",
+    "deviceCount_one": "Copies on devices: {{count}}",
+    "deviceCount_other": "Copies on devices: {{count}}"
+  },
   "menu": {
     "label": "Menu",
     "settings": "Settings",
     "createGroup": "Create group",
+    "temporaryRooms": "Create temporary room",
     "createChannel": "Create channel",
     "switchAccount": "Switch account"
   },
@@ -553,6 +597,10 @@
       "invisibleNote": "The current setting is read from the server.",
       "invisibleOn": "Invisible mode on",
       "invisibleOff": "Invisible mode off",
+      "allowNudges": "Allow nudges",
+      "allowNudgesHint": "People you chat with can send a brief signal that shakes the interface.",
+      "nudgesOn": "Nudges are allowed",
+      "nudgesOff": "Nudges are disabled",
       "exceptions": "Presence exceptions",
       "exceptionsHint": "Who sees your presence regardless of the mode.",
       "noExceptions": "No exceptions yet.",
@@ -693,7 +741,22 @@
     "avatar": "Avatar",
     "openAvatar": "Open {{name}}'s avatar",
     "write": "Message",
-    "blockedHint": "This account is blocked: messages between you are not delivered."
+    "blockedHint": "This account is blocked: messages between you are not delivered.",
+    "alias": {
+      "title": "Friend's name",
+      "edit": "Edit friend's name",
+      "label": "How to show this friend",
+      "saved": "Friend's name saved"
+    }
+  },
+  "temporaryRooms": {
+    "menuAction": "Create temporary room",
+    "dialogTitle": "Create temporary room",
+    "dialogHint": "Choose how many hours and minutes until the temporary group closes.",
+    "continue": "Continue",
+    "createTitle": "Create temporary group",
+    "expiresIn": "Room closes in",
+    "durationValue": "{{hours}} hr {{minutes}} min"
   },
   "create": {
     "next": "Next",

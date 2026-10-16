@@ -1,6 +1,7 @@
 import {
   Ban,
   MessageSquarePlus,
+  Pencil,
   Phone,
   ShieldOff,
   UserRoundMinus,
@@ -11,7 +12,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { avatarImageUrl } from '../../api/avatars'
-import { addContact, blockAccount, removeContact, unblockAccount } from '../../api/contacts'
+import { addContact, blockAccount, listContacts, removeContact, unblockAccount } from '../../api/contacts'
 import { createDirectConversation } from '../../api/conversations'
 import { getAccountProfile, type PublicProfile } from '../../api/profile'
 import { startCall } from '../../calls/manager'
@@ -55,12 +56,34 @@ export function UserProfileModal() {
   const [busy, setBusy] = useState(false)
   const [revision, setRevision] = useState(0)
   const [avatarOpen, setAvatarOpen] = useState(false)
+  const [aliasOpen, setAliasOpen] = useState(false)
+  const [aliasValue, setAliasValue] = useState('')
+  const [contactAlias, setContactAlias] = useState<string | null>(null)
 
   const accountId = account?.id ?? null
   // A profile read for one person must never be shown for another: the target
   // is part of the value, not a separate piece of state to keep in step.
   const profile =
     loaded !== null && loaded.accountId === targetAccountId ? loaded.profile : null
+
+  useEffect(() => {
+    setContactAlias(null)
+    if (accountId === null || targetAccountId === null || profile?.isContact !== true) return
+    const current = getExistingAccountStore(accountId)?.getState().account
+    if (current === undefined) return
+    let cancelled = false
+    void listContacts(current)
+      .then((contacts) => {
+        if (!cancelled) {
+          const alias = contacts.find((contact) => contact.targetAccountId === targetAccountId)?.localUsername ?? null
+          setContactAlias(alias === profile.username ? null : alias)
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) console.warn('[profile] the contact alias could not be loaded', error)
+      })
+    return () => { cancelled = true }
+  }, [accountId, profile?.isContact, profile?.username, targetAccountId])
 
   useEffect(() => {
     if (accountId === null || targetAccountId === null) {
@@ -150,6 +173,7 @@ export function UserProfileModal() {
     try {
       if (profile.isContact) {
         await removeContact(current, profile.id)
+        setContactAlias(null)
         toast.notify({ kind: 'success', message: t('chat.contact.removed') })
       } else {
         await addContact(current, {
@@ -159,6 +183,30 @@ export function UserProfileModal() {
         toast.notify({ kind: 'success', message: t('chat.contact.added') })
       }
       refresh()
+    } catch (error) {
+      fail(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function openAliasEditor(): void {
+    if (profile === null) return
+    setAliasValue(contactAlias?.trim() || profile.username)
+    setAliasOpen(true)
+  }
+
+  async function saveAlias(): Promise<void> {
+    const current = accountId === null ? undefined : getExistingAccountStore(accountId)?.getState().account
+    const alias = aliasValue.trim()
+    if (current === undefined || profile === null || alias.length === 0 || alias.length > 64) return
+    setBusy(true)
+    try {
+      const updated = await addContact(current, { targetFhNumber: profile.fhNumber, localUsername: alias })
+      setContactAlias(updated.localUsername === profile.username ? null : updated.localUsername)
+      await requireAccountStore(current.id).getState().actions.loadConversations()
+      toast.notify({ kind: 'success', message: t('profile.alias.saved') })
+      setAliasOpen(false)
     } catch (error) {
       fail(error)
     } finally {
@@ -192,8 +240,22 @@ export function UserProfileModal() {
   return (
     <Modal
       open={targetAccountId !== null}
-      onClose={closeProfile}
+      onClose={() => {
+        setAliasOpen(false)
+        closeProfile()
+      }}
       title={t('profile.title')}
+      headerAction={profile?.isContact === true ? (
+        <button
+          type="button"
+          onClick={openAliasEditor}
+          aria-label={t('profile.alias.edit')}
+          title={t('profile.alias.edit')}
+          className="flex size-8 cursor-pointer items-center justify-center rounded-md text-fg-muted hover:bg-bg-hover hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+        >
+          <Pencil className="size-4" aria-hidden />
+        </button>
+      ) : null}
       footer={
         profile === null ? null : (
           <>
@@ -249,7 +311,8 @@ export function UserProfileModal() {
               </button>
             )}
             <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="truncate text-base font-semibold text-fg">{profile.username}</span>
+              <span className="truncate text-base font-semibold text-fg">{contactAlias?.trim() || profile.username}</span>
+              {contactAlias?.trim() ? <span className="truncate text-xs text-fg-muted">{profile.username}</span> : null}
               <span className="text-sm text-fg-muted">{profile.fhNumber}</span>
               {profile.customStatusText === null && profile.customStatusEmoji === null ? null : (
                 <span className="truncate text-sm text-fg-muted">
@@ -309,6 +372,28 @@ export function UserProfileModal() {
           ) : null}
         </div>
       )}
+      <Modal
+        open={aliasOpen}
+        onClose={() => setAliasOpen(false)}
+        title={t('profile.alias.title')}
+        footer={
+          <>
+            <Button variant="secondary" disabled={busy} onClick={() => setAliasOpen(false)}>{t('common.cancel')}</Button>
+            <Button loading={busy} disabled={aliasValue.trim().length === 0} onClick={() => { void saveAlias() }}>{t('settings.save')}</Button>
+          </>
+        }
+      >
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-fg">
+          {t('profile.alias.label')}
+          <input
+            autoFocus
+            maxLength={64}
+            value={aliasValue}
+            onChange={(event) => setAliasValue(event.target.value)}
+            className="h-10 rounded-lg border border-border bg-bg px-3 text-sm font-normal text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          />
+        </label>
+      </Modal>
     </Modal>
   )
 }

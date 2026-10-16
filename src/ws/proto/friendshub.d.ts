@@ -185,6 +185,9 @@ export namespace fh {
         /** Envelope senderIsBot. */
         senderIsBot: boolean;
 
+        /** Envelope sendAt. */
+        sendAt: (number|Long);
+
         /**
          * Creates a new Envelope instance using the specified properties.
          * @param [properties] Properties to set
@@ -302,6 +305,9 @@ export namespace fh {
             /** Envelope senderIsBot */
             senderIsBot?: (boolean|null);
 
+            /** Envelope sendAt */
+            sendAt?: (number|Long|null);
+
             /** Unknown fields preserved while decoding when enabled */
             $unknowns?: Uint8Array[];
         }
@@ -399,8 +405,11 @@ export namespace fh {
         /** ClientFrame historyRequest. */
         historyRequest?: (fh.HistoryRequest.$Properties|null);
 
+        /** ClientFrame nudge. */
+        nudge?: (fh.Nudge.$Properties|null);
+
         /** ClientFrame kind. */
-        kind?: ("hello"|"upload"|"ack"|"ping"|"typing"|"historyRequest");
+        kind?: ("hello"|"upload"|"ack"|"ping"|"typing"|"historyRequest"|"nudge");
 
         /**
          * Creates a new ClientFrame instance using the specified properties.
@@ -504,8 +513,11 @@ export namespace fh {
             /** ClientFrame historyRequest */
             historyRequest?: (fh.HistoryRequest.$Properties|null);
 
+            /** ClientFrame nudge */
+            nudge?: (fh.Nudge.$Properties|null);
+
             /** ClientFrame kind */
-            kind?: ("hello"|"upload"|"ack"|"ping"|"typing"|"historyRequest");
+            kind?: ("hello"|"upload"|"ack"|"ping"|"typing"|"historyRequest"|"nudge");
 
             /** Unknown fields preserved while decoding when enabled */
             $unknowns?: Uint8Array[];
@@ -519,9 +531,10 @@ export namespace fh {
           ping?: fh.Ping.$Shape|null;
           typing?: fh.TypingFrame.$Shape|null;
           historyRequest?: fh.HistoryRequest.$Shape|null;
+          nudge?: fh.Nudge.$Shape|null;
           $unknowns?: Uint8Array[];
         } & (
-          ({ kind?: undefined; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest?: null }|{ kind?: "hello"; hello: fh.ClientHello.$Shape; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest?: null }|{ kind?: "upload"; hello?: null; upload: fh.EnvelopeUpload.$Shape; ack?: null; ping?: null; typing?: null; historyRequest?: null }|{ kind?: "ack"; hello?: null; upload?: null; ack: fh.EnvelopeAck.$Shape; ping?: null; typing?: null; historyRequest?: null }|{ kind?: "ping"; hello?: null; upload?: null; ack?: null; ping: fh.Ping.$Shape; typing?: null; historyRequest?: null }|{ kind?: "typing"; hello?: null; upload?: null; ack?: null; ping?: null; typing: fh.TypingFrame.$Shape; historyRequest?: null }|{ kind?: "historyRequest"; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest: fh.HistoryRequest.$Shape })
+          ({ kind?: undefined; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest?: null; nudge?: null }|{ kind?: "hello"; hello: fh.ClientHello.$Shape; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest?: null; nudge?: null }|{ kind?: "upload"; hello?: null; upload: fh.EnvelopeUpload.$Shape; ack?: null; ping?: null; typing?: null; historyRequest?: null; nudge?: null }|{ kind?: "ack"; hello?: null; upload?: null; ack: fh.EnvelopeAck.$Shape; ping?: null; typing?: null; historyRequest?: null; nudge?: null }|{ kind?: "ping"; hello?: null; upload?: null; ack?: null; ping: fh.Ping.$Shape; typing?: null; historyRequest?: null; nudge?: null }|{ kind?: "typing"; hello?: null; upload?: null; ack?: null; ping?: null; typing: fh.TypingFrame.$Shape; historyRequest?: null; nudge?: null }|{ kind?: "historyRequest"; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest: fh.HistoryRequest.$Shape; nudge?: null }|{ kind?: "nudge"; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest?: null; nudge: fh.Nudge.$Shape })
         );
     }
 
@@ -1090,8 +1103,26 @@ export namespace fh {
         /** ServerFrame historyRequestRelay. */
         historyRequestRelay?: (fh.HistoryRequestRelay.$Properties|null);
 
+        /** ServerFrame nudge. */
+        nudge?: (fh.NudgeDelivery.$Properties|null);
+
+        /** ServerFrame nudgeResult. */
+        nudgeResult?: (fh.NudgeResult.$Properties|null);
+
+        /** ServerFrame conversationExpired. */
+        conversationExpired?: (fh.ConversationExpiredDelivery.$Properties|null);
+
+        /** ServerFrame scheduledCreated. */
+        scheduledCreated?: (fh.ScheduledEnvelopeCreated.$Properties|null);
+
+        /** ServerFrame scheduledCancelled. */
+        scheduledCancelled?: (fh.ScheduledEnvelopeCancelled.$Properties|null);
+
+        /** ServerFrame foldersUpdated. */
+        foldersUpdated?: (fh.FoldersUpdated.$Properties|null);
+
         /** ServerFrame kind. */
-        kind?: ("hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt"|"conversationUpdated"|"historyRequestRelay");
+        kind?: ("hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt"|"conversationUpdated"|"historyRequestRelay"|"nudge"|"nudgeResult"|"conversationExpired"|"scheduledCreated"|"scheduledCancelled"|"foldersUpdated");
 
         /**
          * Creates a new ServerFrame instance using the specified properties.
@@ -1213,8 +1244,26 @@ export namespace fh {
             /** ServerFrame historyRequestRelay */
             historyRequestRelay?: (fh.HistoryRequestRelay.$Properties|null);
 
+            /** ServerFrame nudge */
+            nudge?: (fh.NudgeDelivery.$Properties|null);
+
+            /** ServerFrame nudgeResult */
+            nudgeResult?: (fh.NudgeResult.$Properties|null);
+
+            /** ServerFrame conversationExpired */
+            conversationExpired?: (fh.ConversationExpiredDelivery.$Properties|null);
+
+            /** ServerFrame scheduledCreated */
+            scheduledCreated?: (fh.ScheduledEnvelopeCreated.$Properties|null);
+
+            /** ServerFrame scheduledCancelled */
+            scheduledCancelled?: (fh.ScheduledEnvelopeCancelled.$Properties|null);
+
+            /** ServerFrame foldersUpdated */
+            foldersUpdated?: (fh.FoldersUpdated.$Properties|null);
+
             /** ServerFrame kind */
-            kind?: ("hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt"|"conversationUpdated"|"historyRequestRelay");
+            kind?: ("hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt"|"conversationUpdated"|"historyRequestRelay"|"nudge"|"nudgeResult"|"conversationExpired"|"scheduledCreated"|"scheduledCancelled"|"foldersUpdated");
 
             /** Unknown fields preserved while decoding when enabled */
             $unknowns?: Uint8Array[];
@@ -1234,9 +1283,15 @@ export namespace fh {
           readReceipt?: fh.ReadReceiptDelivery.$Shape|null;
           conversationUpdated?: fh.ConversationUpdatedDelivery.$Shape|null;
           historyRequestRelay?: fh.HistoryRequestRelay.$Shape|null;
+          nudge?: fh.NudgeDelivery.$Shape|null;
+          nudgeResult?: fh.NudgeResult.$Shape|null;
+          conversationExpired?: fh.ConversationExpiredDelivery.$Shape|null;
+          scheduledCreated?: fh.ScheduledEnvelopeCreated.$Shape|null;
+          scheduledCancelled?: fh.ScheduledEnvelopeCancelled.$Shape|null;
+          foldersUpdated?: fh.FoldersUpdated.$Shape|null;
           $unknowns?: Uint8Array[];
         } & (
-          ({ kind?: undefined; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "hello"; hello: fh.ServerHello.$Shape; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "delivery"; hello?: null; delivery: fh.EnvelopeDelivery.$Shape; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "receipt"; hello?: null; delivery?: null; receipt: fh.EnvelopeAck.$Shape; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "pong"; hello?: null; delivery?: null; receipt?: null; pong: fh.Pong.$Shape; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "error"; hello?: null; delivery?: null; receipt?: null; pong?: null; error: fh.ErrorFrame.$Shape; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "presence"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence: fh.PresenceUpdate.$Shape; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "botMessage"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage: fh.BotMessageDelivery.$Shape; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "channelPost"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost: fh.ChannelPostDelivery.$Shape; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "typing"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing: fh.TypingDelivery.$Shape; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "readReceipt"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt: fh.ReadReceiptDelivery.$Shape; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "conversationUpdated"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated: fh.ConversationUpdatedDelivery.$Shape; historyRequestRelay?: null }|{ kind?: "historyRequestRelay"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay: fh.HistoryRequestRelay.$Shape })
+          ({ kind?: undefined; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "hello"; hello: fh.ServerHello.$Shape; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "delivery"; hello?: null; delivery: fh.EnvelopeDelivery.$Shape; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "receipt"; hello?: null; delivery?: null; receipt: fh.EnvelopeAck.$Shape; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "pong"; hello?: null; delivery?: null; receipt?: null; pong: fh.Pong.$Shape; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "error"; hello?: null; delivery?: null; receipt?: null; pong?: null; error: fh.ErrorFrame.$Shape; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "presence"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence: fh.PresenceUpdate.$Shape; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "botMessage"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage: fh.BotMessageDelivery.$Shape; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "channelPost"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost: fh.ChannelPostDelivery.$Shape; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "typing"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing: fh.TypingDelivery.$Shape; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "readReceipt"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt: fh.ReadReceiptDelivery.$Shape; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "conversationUpdated"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated: fh.ConversationUpdatedDelivery.$Shape; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "historyRequestRelay"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay: fh.HistoryRequestRelay.$Shape; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "nudge"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge: fh.NudgeDelivery.$Shape; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "nudgeResult"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult: fh.NudgeResult.$Shape; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "conversationExpired"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired: fh.ConversationExpiredDelivery.$Shape; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "scheduledCreated"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated: fh.ScheduledEnvelopeCreated.$Shape; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "scheduledCancelled"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled: fh.ScheduledEnvelopeCancelled.$Shape; foldersUpdated?: null }|{ kind?: "foldersUpdated"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated: fh.FoldersUpdated.$Shape })
         );
     }
 
@@ -2969,5 +3024,848 @@ export namespace fh {
 
         /** Shape of a HistoryRequestRelay. */
         type $Shape = fh.HistoryRequestRelay.$Properties;
+    }
+
+    /**
+     * Properties of a Nudge.
+     * @deprecated Use fh.Nudge.$Properties instead.
+     */
+    interface INudge extends fh.Nudge.$Properties {
+    }
+
+    /** Represents a Nudge. */
+    class Nudge {
+
+        /**
+         * Constructs a new Nudge.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: fh.Nudge.$Properties);
+
+        /** Unknown fields preserved while decoding when enabled */
+        $unknowns?: Uint8Array[];
+
+        /** Nudge conversationId. */
+        conversationId: Uint8Array;
+
+        /** Nudge targetAccountId. */
+        targetAccountId: Uint8Array;
+
+        /**
+         * Creates a new Nudge instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns Nudge instance
+         */
+        static create(properties: fh.Nudge.$Shape): fh.Nudge & fh.Nudge.$Shape;
+        static create(properties?: fh.Nudge.$Properties): fh.Nudge;
+
+        /**
+         * Encodes the specified Nudge message. Does not implicitly {@link fh.Nudge.verify|verify} messages.
+         * @param message Nudge message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encode(message: fh.Nudge.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified Nudge message, length delimited. Does not implicitly {@link fh.Nudge.verify|verify} messages.
+         * @param message Nudge message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encodeDelimited(message: fh.Nudge.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a Nudge message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns {fh.Nudge & fh.Nudge.$Shape} Nudge
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): fh.Nudge & fh.Nudge.$Shape;
+
+        /**
+         * Decodes a Nudge message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns {fh.Nudge & fh.Nudge.$Shape} Nudge
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): fh.Nudge & fh.Nudge.$Shape;
+
+        /**
+         * Verifies a Nudge message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a Nudge message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns Nudge
+         */
+        static fromObject(object: { [k: string]: any }): fh.Nudge;
+
+        /**
+         * Creates a plain object from a Nudge message. Also converts values to other types if specified.
+         * @param message Nudge
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        static toObject(message: fh.Nudge, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this Nudge to JSON.
+         * @returns JSON object
+         */
+        toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the type url for Nudge
+         * @param [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns The type url
+         */
+        static getTypeUrl(prefix?: string): string;
+    }
+
+    namespace Nudge {
+
+        /** Properties of a Nudge. */
+        interface $Properties {
+
+            /** Nudge conversationId */
+            conversationId?: (Uint8Array|null);
+
+            /** Nudge targetAccountId */
+            targetAccountId?: (Uint8Array|null);
+
+            /** Unknown fields preserved while decoding when enabled */
+            $unknowns?: Uint8Array[];
+        }
+
+        /** Shape of a Nudge. */
+        type $Shape = fh.Nudge.$Properties;
+    }
+
+    /**
+     * Properties of a NudgeDelivery.
+     * @deprecated Use fh.NudgeDelivery.$Properties instead.
+     */
+    interface INudgeDelivery extends fh.NudgeDelivery.$Properties {
+    }
+
+    /** Represents a NudgeDelivery. */
+    class NudgeDelivery {
+
+        /**
+         * Constructs a new NudgeDelivery.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: fh.NudgeDelivery.$Properties);
+
+        /** Unknown fields preserved while decoding when enabled */
+        $unknowns?: Uint8Array[];
+
+        /** NudgeDelivery conversationId. */
+        conversationId: Uint8Array;
+
+        /** NudgeDelivery fromAccountId. */
+        fromAccountId: Uint8Array;
+
+        /**
+         * Creates a new NudgeDelivery instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns NudgeDelivery instance
+         */
+        static create(properties: fh.NudgeDelivery.$Shape): fh.NudgeDelivery & fh.NudgeDelivery.$Shape;
+        static create(properties?: fh.NudgeDelivery.$Properties): fh.NudgeDelivery;
+
+        /**
+         * Encodes the specified NudgeDelivery message. Does not implicitly {@link fh.NudgeDelivery.verify|verify} messages.
+         * @param message NudgeDelivery message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encode(message: fh.NudgeDelivery.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified NudgeDelivery message, length delimited. Does not implicitly {@link fh.NudgeDelivery.verify|verify} messages.
+         * @param message NudgeDelivery message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encodeDelimited(message: fh.NudgeDelivery.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a NudgeDelivery message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns {fh.NudgeDelivery & fh.NudgeDelivery.$Shape} NudgeDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): fh.NudgeDelivery & fh.NudgeDelivery.$Shape;
+
+        /**
+         * Decodes a NudgeDelivery message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns {fh.NudgeDelivery & fh.NudgeDelivery.$Shape} NudgeDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): fh.NudgeDelivery & fh.NudgeDelivery.$Shape;
+
+        /**
+         * Verifies a NudgeDelivery message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a NudgeDelivery message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns NudgeDelivery
+         */
+        static fromObject(object: { [k: string]: any }): fh.NudgeDelivery;
+
+        /**
+         * Creates a plain object from a NudgeDelivery message. Also converts values to other types if specified.
+         * @param message NudgeDelivery
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        static toObject(message: fh.NudgeDelivery, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this NudgeDelivery to JSON.
+         * @returns JSON object
+         */
+        toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the type url for NudgeDelivery
+         * @param [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns The type url
+         */
+        static getTypeUrl(prefix?: string): string;
+    }
+
+    namespace NudgeDelivery {
+
+        /** Properties of a NudgeDelivery. */
+        interface $Properties {
+
+            /** NudgeDelivery conversationId */
+            conversationId?: (Uint8Array|null);
+
+            /** NudgeDelivery fromAccountId */
+            fromAccountId?: (Uint8Array|null);
+
+            /** Unknown fields preserved while decoding when enabled */
+            $unknowns?: Uint8Array[];
+        }
+
+        /** Shape of a NudgeDelivery. */
+        type $Shape = fh.NudgeDelivery.$Properties;
+    }
+
+    /**
+     * Properties of a NudgeResult.
+     * @deprecated Use fh.NudgeResult.$Properties instead.
+     */
+    interface INudgeResult extends fh.NudgeResult.$Properties {
+    }
+
+    /** Represents a NudgeResult. */
+    class NudgeResult {
+
+        /**
+         * Constructs a new NudgeResult.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: fh.NudgeResult.$Properties);
+
+        /** Unknown fields preserved while decoding when enabled */
+        $unknowns?: Uint8Array[];
+
+        /** NudgeResult delivered. */
+        delivered: boolean;
+
+        /**
+         * Creates a new NudgeResult instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns NudgeResult instance
+         */
+        static create(properties: fh.NudgeResult.$Shape): fh.NudgeResult & fh.NudgeResult.$Shape;
+        static create(properties?: fh.NudgeResult.$Properties): fh.NudgeResult;
+
+        /**
+         * Encodes the specified NudgeResult message. Does not implicitly {@link fh.NudgeResult.verify|verify} messages.
+         * @param message NudgeResult message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encode(message: fh.NudgeResult.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified NudgeResult message, length delimited. Does not implicitly {@link fh.NudgeResult.verify|verify} messages.
+         * @param message NudgeResult message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encodeDelimited(message: fh.NudgeResult.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a NudgeResult message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns {fh.NudgeResult & fh.NudgeResult.$Shape} NudgeResult
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): fh.NudgeResult & fh.NudgeResult.$Shape;
+
+        /**
+         * Decodes a NudgeResult message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns {fh.NudgeResult & fh.NudgeResult.$Shape} NudgeResult
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): fh.NudgeResult & fh.NudgeResult.$Shape;
+
+        /**
+         * Verifies a NudgeResult message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a NudgeResult message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns NudgeResult
+         */
+        static fromObject(object: { [k: string]: any }): fh.NudgeResult;
+
+        /**
+         * Creates a plain object from a NudgeResult message. Also converts values to other types if specified.
+         * @param message NudgeResult
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        static toObject(message: fh.NudgeResult, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this NudgeResult to JSON.
+         * @returns JSON object
+         */
+        toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the type url for NudgeResult
+         * @param [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns The type url
+         */
+        static getTypeUrl(prefix?: string): string;
+    }
+
+    namespace NudgeResult {
+
+        /** Properties of a NudgeResult. */
+        interface $Properties {
+
+            /** NudgeResult delivered */
+            delivered?: (boolean|null);
+
+            /** Unknown fields preserved while decoding when enabled */
+            $unknowns?: Uint8Array[];
+        }
+
+        /** Shape of a NudgeResult. */
+        type $Shape = fh.NudgeResult.$Properties;
+    }
+
+    /**
+     * Properties of a ConversationExpiredDelivery.
+     * @deprecated Use fh.ConversationExpiredDelivery.$Properties instead.
+     */
+    interface IConversationExpiredDelivery extends fh.ConversationExpiredDelivery.$Properties {
+    }
+
+    /** Represents a ConversationExpiredDelivery. */
+    class ConversationExpiredDelivery {
+
+        /**
+         * Constructs a new ConversationExpiredDelivery.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: fh.ConversationExpiredDelivery.$Properties);
+
+        /** Unknown fields preserved while decoding when enabled */
+        $unknowns?: Uint8Array[];
+
+        /** ConversationExpiredDelivery conversationId. */
+        conversationId: Uint8Array;
+
+        /**
+         * Creates a new ConversationExpiredDelivery instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns ConversationExpiredDelivery instance
+         */
+        static create(properties: fh.ConversationExpiredDelivery.$Shape): fh.ConversationExpiredDelivery & fh.ConversationExpiredDelivery.$Shape;
+        static create(properties?: fh.ConversationExpiredDelivery.$Properties): fh.ConversationExpiredDelivery;
+
+        /**
+         * Encodes the specified ConversationExpiredDelivery message. Does not implicitly {@link fh.ConversationExpiredDelivery.verify|verify} messages.
+         * @param message ConversationExpiredDelivery message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encode(message: fh.ConversationExpiredDelivery.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified ConversationExpiredDelivery message, length delimited. Does not implicitly {@link fh.ConversationExpiredDelivery.verify|verify} messages.
+         * @param message ConversationExpiredDelivery message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encodeDelimited(message: fh.ConversationExpiredDelivery.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a ConversationExpiredDelivery message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns {fh.ConversationExpiredDelivery & fh.ConversationExpiredDelivery.$Shape} ConversationExpiredDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): fh.ConversationExpiredDelivery & fh.ConversationExpiredDelivery.$Shape;
+
+        /**
+         * Decodes a ConversationExpiredDelivery message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns {fh.ConversationExpiredDelivery & fh.ConversationExpiredDelivery.$Shape} ConversationExpiredDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): fh.ConversationExpiredDelivery & fh.ConversationExpiredDelivery.$Shape;
+
+        /**
+         * Verifies a ConversationExpiredDelivery message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a ConversationExpiredDelivery message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns ConversationExpiredDelivery
+         */
+        static fromObject(object: { [k: string]: any }): fh.ConversationExpiredDelivery;
+
+        /**
+         * Creates a plain object from a ConversationExpiredDelivery message. Also converts values to other types if specified.
+         * @param message ConversationExpiredDelivery
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        static toObject(message: fh.ConversationExpiredDelivery, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this ConversationExpiredDelivery to JSON.
+         * @returns JSON object
+         */
+        toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the type url for ConversationExpiredDelivery
+         * @param [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns The type url
+         */
+        static getTypeUrl(prefix?: string): string;
+    }
+
+    namespace ConversationExpiredDelivery {
+
+        /** Properties of a ConversationExpiredDelivery. */
+        interface $Properties {
+
+            /** ConversationExpiredDelivery conversationId */
+            conversationId?: (Uint8Array|null);
+
+            /** Unknown fields preserved while decoding when enabled */
+            $unknowns?: Uint8Array[];
+        }
+
+        /** Shape of a ConversationExpiredDelivery. */
+        type $Shape = fh.ConversationExpiredDelivery.$Properties;
+    }
+
+    /**
+     * Properties of a ScheduledEnvelopeCreated.
+     * @deprecated Use fh.ScheduledEnvelopeCreated.$Properties instead.
+     */
+    interface IScheduledEnvelopeCreated extends fh.ScheduledEnvelopeCreated.$Properties {
+    }
+
+    /** Represents a ScheduledEnvelopeCreated. */
+    class ScheduledEnvelopeCreated {
+
+        /**
+         * Constructs a new ScheduledEnvelopeCreated.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: fh.ScheduledEnvelopeCreated.$Properties);
+
+        /** Unknown fields preserved while decoding when enabled */
+        $unknowns?: Uint8Array[];
+
+        /** ScheduledEnvelopeCreated envelopeId. */
+        envelopeId: Uint8Array;
+
+        /** ScheduledEnvelopeCreated conversationId. */
+        conversationId: Uint8Array;
+
+        /** ScheduledEnvelopeCreated sendAt. */
+        sendAt: (number|Long);
+
+        /**
+         * Creates a new ScheduledEnvelopeCreated instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns ScheduledEnvelopeCreated instance
+         */
+        static create(properties: fh.ScheduledEnvelopeCreated.$Shape): fh.ScheduledEnvelopeCreated & fh.ScheduledEnvelopeCreated.$Shape;
+        static create(properties?: fh.ScheduledEnvelopeCreated.$Properties): fh.ScheduledEnvelopeCreated;
+
+        /**
+         * Encodes the specified ScheduledEnvelopeCreated message. Does not implicitly {@link fh.ScheduledEnvelopeCreated.verify|verify} messages.
+         * @param message ScheduledEnvelopeCreated message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encode(message: fh.ScheduledEnvelopeCreated.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified ScheduledEnvelopeCreated message, length delimited. Does not implicitly {@link fh.ScheduledEnvelopeCreated.verify|verify} messages.
+         * @param message ScheduledEnvelopeCreated message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encodeDelimited(message: fh.ScheduledEnvelopeCreated.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a ScheduledEnvelopeCreated message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns {fh.ScheduledEnvelopeCreated & fh.ScheduledEnvelopeCreated.$Shape} ScheduledEnvelopeCreated
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): fh.ScheduledEnvelopeCreated & fh.ScheduledEnvelopeCreated.$Shape;
+
+        /**
+         * Decodes a ScheduledEnvelopeCreated message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns {fh.ScheduledEnvelopeCreated & fh.ScheduledEnvelopeCreated.$Shape} ScheduledEnvelopeCreated
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): fh.ScheduledEnvelopeCreated & fh.ScheduledEnvelopeCreated.$Shape;
+
+        /**
+         * Verifies a ScheduledEnvelopeCreated message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a ScheduledEnvelopeCreated message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns ScheduledEnvelopeCreated
+         */
+        static fromObject(object: { [k: string]: any }): fh.ScheduledEnvelopeCreated;
+
+        /**
+         * Creates a plain object from a ScheduledEnvelopeCreated message. Also converts values to other types if specified.
+         * @param message ScheduledEnvelopeCreated
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        static toObject(message: fh.ScheduledEnvelopeCreated, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this ScheduledEnvelopeCreated to JSON.
+         * @returns JSON object
+         */
+        toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the type url for ScheduledEnvelopeCreated
+         * @param [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns The type url
+         */
+        static getTypeUrl(prefix?: string): string;
+    }
+
+    namespace ScheduledEnvelopeCreated {
+
+        /** Properties of a ScheduledEnvelopeCreated. */
+        interface $Properties {
+
+            /** ScheduledEnvelopeCreated envelopeId */
+            envelopeId?: (Uint8Array|null);
+
+            /** ScheduledEnvelopeCreated conversationId */
+            conversationId?: (Uint8Array|null);
+
+            /** ScheduledEnvelopeCreated sendAt */
+            sendAt?: (number|Long|null);
+
+            /** Unknown fields preserved while decoding when enabled */
+            $unknowns?: Uint8Array[];
+        }
+
+        /** Shape of a ScheduledEnvelopeCreated. */
+        type $Shape = fh.ScheduledEnvelopeCreated.$Properties;
+    }
+
+    /**
+     * Properties of a ScheduledEnvelopeCancelled.
+     * @deprecated Use fh.ScheduledEnvelopeCancelled.$Properties instead.
+     */
+    interface IScheduledEnvelopeCancelled extends fh.ScheduledEnvelopeCancelled.$Properties {
+    }
+
+    /** Represents a ScheduledEnvelopeCancelled. */
+    class ScheduledEnvelopeCancelled {
+
+        /**
+         * Constructs a new ScheduledEnvelopeCancelled.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: fh.ScheduledEnvelopeCancelled.$Properties);
+
+        /** Unknown fields preserved while decoding when enabled */
+        $unknowns?: Uint8Array[];
+
+        /** ScheduledEnvelopeCancelled envelopeId. */
+        envelopeId: Uint8Array;
+
+        /**
+         * Creates a new ScheduledEnvelopeCancelled instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns ScheduledEnvelopeCancelled instance
+         */
+        static create(properties: fh.ScheduledEnvelopeCancelled.$Shape): fh.ScheduledEnvelopeCancelled & fh.ScheduledEnvelopeCancelled.$Shape;
+        static create(properties?: fh.ScheduledEnvelopeCancelled.$Properties): fh.ScheduledEnvelopeCancelled;
+
+        /**
+         * Encodes the specified ScheduledEnvelopeCancelled message. Does not implicitly {@link fh.ScheduledEnvelopeCancelled.verify|verify} messages.
+         * @param message ScheduledEnvelopeCancelled message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encode(message: fh.ScheduledEnvelopeCancelled.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified ScheduledEnvelopeCancelled message, length delimited. Does not implicitly {@link fh.ScheduledEnvelopeCancelled.verify|verify} messages.
+         * @param message ScheduledEnvelopeCancelled message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encodeDelimited(message: fh.ScheduledEnvelopeCancelled.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a ScheduledEnvelopeCancelled message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns {fh.ScheduledEnvelopeCancelled & fh.ScheduledEnvelopeCancelled.$Shape} ScheduledEnvelopeCancelled
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): fh.ScheduledEnvelopeCancelled & fh.ScheduledEnvelopeCancelled.$Shape;
+
+        /**
+         * Decodes a ScheduledEnvelopeCancelled message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns {fh.ScheduledEnvelopeCancelled & fh.ScheduledEnvelopeCancelled.$Shape} ScheduledEnvelopeCancelled
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): fh.ScheduledEnvelopeCancelled & fh.ScheduledEnvelopeCancelled.$Shape;
+
+        /**
+         * Verifies a ScheduledEnvelopeCancelled message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a ScheduledEnvelopeCancelled message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns ScheduledEnvelopeCancelled
+         */
+        static fromObject(object: { [k: string]: any }): fh.ScheduledEnvelopeCancelled;
+
+        /**
+         * Creates a plain object from a ScheduledEnvelopeCancelled message. Also converts values to other types if specified.
+         * @param message ScheduledEnvelopeCancelled
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        static toObject(message: fh.ScheduledEnvelopeCancelled, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this ScheduledEnvelopeCancelled to JSON.
+         * @returns JSON object
+         */
+        toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the type url for ScheduledEnvelopeCancelled
+         * @param [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns The type url
+         */
+        static getTypeUrl(prefix?: string): string;
+    }
+
+    namespace ScheduledEnvelopeCancelled {
+
+        /** Properties of a ScheduledEnvelopeCancelled. */
+        interface $Properties {
+
+            /** ScheduledEnvelopeCancelled envelopeId */
+            envelopeId?: (Uint8Array|null);
+
+            /** Unknown fields preserved while decoding when enabled */
+            $unknowns?: Uint8Array[];
+        }
+
+        /** Shape of a ScheduledEnvelopeCancelled. */
+        type $Shape = fh.ScheduledEnvelopeCancelled.$Properties;
+    }
+
+    /**
+     * Properties of a FoldersUpdated.
+     * @deprecated Use fh.FoldersUpdated.$Properties instead.
+     */
+    interface IFoldersUpdated extends fh.FoldersUpdated.$Properties {
+    }
+
+    /** Represents a FoldersUpdated. */
+    class FoldersUpdated {
+
+        /**
+         * Constructs a new FoldersUpdated.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: fh.FoldersUpdated.$Properties);
+
+        /** Unknown fields preserved while decoding when enabled */
+        $unknowns?: Uint8Array[];
+
+        /** FoldersUpdated accountId. */
+        accountId: Uint8Array;
+
+        /**
+         * Creates a new FoldersUpdated instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns FoldersUpdated instance
+         */
+        static create(properties: fh.FoldersUpdated.$Shape): fh.FoldersUpdated & fh.FoldersUpdated.$Shape;
+        static create(properties?: fh.FoldersUpdated.$Properties): fh.FoldersUpdated;
+
+        /**
+         * Encodes the specified FoldersUpdated message. Does not implicitly {@link fh.FoldersUpdated.verify|verify} messages.
+         * @param message FoldersUpdated message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encode(message: fh.FoldersUpdated.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified FoldersUpdated message, length delimited. Does not implicitly {@link fh.FoldersUpdated.verify|verify} messages.
+         * @param message FoldersUpdated message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        static encodeDelimited(message: fh.FoldersUpdated.$Properties, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a FoldersUpdated message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns {fh.FoldersUpdated & fh.FoldersUpdated.$Shape} FoldersUpdated
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): fh.FoldersUpdated & fh.FoldersUpdated.$Shape;
+
+        /**
+         * Decodes a FoldersUpdated message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns {fh.FoldersUpdated & fh.FoldersUpdated.$Shape} FoldersUpdated
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): fh.FoldersUpdated & fh.FoldersUpdated.$Shape;
+
+        /**
+         * Verifies a FoldersUpdated message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a FoldersUpdated message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns FoldersUpdated
+         */
+        static fromObject(object: { [k: string]: any }): fh.FoldersUpdated;
+
+        /**
+         * Creates a plain object from a FoldersUpdated message. Also converts values to other types if specified.
+         * @param message FoldersUpdated
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        static toObject(message: fh.FoldersUpdated, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this FoldersUpdated to JSON.
+         * @returns JSON object
+         */
+        toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the type url for FoldersUpdated
+         * @param [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns The type url
+         */
+        static getTypeUrl(prefix?: string): string;
+    }
+
+    namespace FoldersUpdated {
+
+        /** Properties of a FoldersUpdated. */
+        interface $Properties {
+
+            /** FoldersUpdated accountId */
+            accountId?: (Uint8Array|null);
+
+            /** Unknown fields preserved while decoding when enabled */
+            $unknowns?: Uint8Array[];
+        }
+
+        /** Shape of a FoldersUpdated. */
+        type $Shape = fh.FoldersUpdated.$Properties;
     }
 }

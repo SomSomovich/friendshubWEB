@@ -1,4 +1,5 @@
 import {
+  AllowNudgesPanel,
   BlockedPanel,
   InvisiblePanel,
   PresenceExceptionsPanel,
@@ -18,6 +19,7 @@ export function PrivacySettingsScreen() {
     <SettingsSectionScreen section="privacy">
       <ContactPoliciesPanel key={account.id} account={account} />
       <InvisiblePanel key={`invisible:${account.id}`} account={account} />
+      <AllowNudgesPanel key={`nudges:${account.id}`} account={account} />
       <PresenceExceptionsPanel account={account} />
       <BlockedPanel account={account} />
     </SettingsSectionScreen>

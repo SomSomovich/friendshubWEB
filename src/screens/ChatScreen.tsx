@@ -2,7 +2,9 @@ import { lazy, Suspense } from 'react'
 import { PanelSkeleton } from '../components/settings/PanelSkeleton'
 import { PanelError } from '../components/settings/PanelError'
 import {
+  CalendarClock,
   Eraser,
+  Hand,
   MessageSquare,
   Phone,
   Trash2,
@@ -24,6 +26,7 @@ import { AttachmentViewer } from '../components/chat/AttachmentViewer'
 import { ChatHeader } from '../components/chat/ChatHeader'
 import { ChatSearchOverlay } from '../components/chat/ChatSearchOverlay'
 import { MessageComposer, type EditingState } from '../components/chat/MessageComposer'
+import { ScheduledMessagesDialog } from '../components/chat/ScheduledMessagesDialog'
 import { MessageList, type MessageListHandle } from '../components/chat/MessageList'
 import { PinnedBanner } from '../components/chat/PinnedBanner'
 import { buildMessageMenuItems, buildReactionOptions } from '../components/chat/messageMenu'
@@ -47,6 +50,7 @@ import { requireAccountStore } from '../state/accountRegistry'
 import { applyDelete, applyEdit, applyReaction } from '../state/messageMutations'
 import { togglePin as togglePinned } from '../state/pins'
 import { clearConversationHistory, deleteConversationLocally } from '../storage/conversations'
+import { getTemporaryRoomExpiry } from '../storage/temporaryRooms'
 import type { MessageRecord } from '../storage/db'
 import {
   hideConversation,
@@ -124,6 +128,7 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
   const loadingMessages = useStore(store, (state) => state.loadingMessages)
   const historyError = useStore(store, (state) => state.historyError)
   const hasOlder = useStore(store, (state) => state.hasOlder)
+  const scheduledVersion = useStore(store, (state) => state.scheduledVersion)
 
   const listRef = useRef<MessageListHandle>(null)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -133,6 +138,10 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
   const [pendingDelete, setPendingDelete] = useState<MessageRecord | null>(null)
   const [confirming, setConfirming] = useState<'clear' | 'delete' | null>(null)
   const [muteOpen, setMuteOpen] = useState(false)
+  const [scheduledOpen, setScheduledOpen] = useState(false)
+  const [temporaryRoomExpiresAt, setTemporaryRoomExpiresAt] = useState<number | null>(null)
+  const [nudgeCooldownUntil, setNudgeCooldownUntil] = useState(0)
+  const [nudgeClock, setNudgeClock] = useState(() => Date.now())
   const [attachments, setAttachments] = useState<PendingAttachment[]>([])
   const [caption, setCaption] = useState('')
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null)
@@ -178,6 +187,35 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
       store.getState().actions.closeConversation(conversationId)
     }
   }, [store, account.id, conversationId])
+
+  useEffect(() => {
+    const client = getActiveClientOrNull()
+    if (client === null) return
+    return client.on('conversationExpired', ({ conversationId: expiredId }) => {
+      if (expiredId === conversationId) void navigate(ROUTES.app, { replace: true })
+    })
+  }, [conversationId, navigate])
+
+  useEffect(() => {
+    let cancelled = false
+    setTemporaryRoomExpiresAt(null)
+    if (conversation?.kind === 'group') {
+      void getTemporaryRoomExpiry(account.id, conversationId).then((expiresAt) => {
+        if (!cancelled) setTemporaryRoomExpiresAt(expiresAt)
+      })
+    }
+    return () => { cancelled = true }
+  }, [account.id, conversation?.kind, conversationId])
+
+  useEffect(() => {
+    if (nudgeCooldownUntil <= Date.now()) return
+    const timer = setInterval(() => {
+      const now = Date.now()
+      setNudgeClock(now)
+      if (now >= nudgeCooldownUntil) clearInterval(timer)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [nudgeCooldownUntil])
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -463,6 +501,38 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
     }
   }
 
+  async function scheduleMessage(text: string, delaySeconds: number): Promise<void> {
+    try {
+      await store.getState().actions.sendText(text, nowSeconds() + delaySeconds)
+      toast.notify({ kind: 'success', message: t('chat.scheduled.created') })
+    } catch (cause) {
+      report(cause, 'chat.actionFailed')
+      throw cause
+    }
+  }
+
+  function nudgePeer(): void {
+    if (peerAccountId === null) return
+    const client = getActiveClientOrNull()
+    if (client?.isConnected !== true) {
+      toast.notify({ kind: 'error', message: t('chat.nudge.offline') })
+      return
+    }
+    try {
+      client.sendNudge(conversationId, peerAccountId)
+      setNudgeCooldownUntil(Date.now() + 30_000)
+    } catch (cause) {
+      report(cause, 'chat.actionFailed')
+    }
+  }
+
+  function scheduleWarningForSeconds(delaySeconds: number): string | null {
+    if (temporaryRoomExpiresAt === null) return null
+    return nowSeconds() + delaySeconds >= temporaryRoomExpiresAt
+      ? t('chat.scheduled.roomExpiresBeforeSend')
+      : null
+  }
+
   async function submitEdit(text: string): Promise<void> {
     const target = editing
     const message = target === null ? undefined : messages.find((m) => m.envelopeId === target.envelopeId)
@@ -649,7 +719,22 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
                 void toggleContact()
               },
             },
+            {
+              id: 'nudge',
+              label: t('chat.nudge.action'),
+              icon: Hand,
+              disabled: peerAccountId === null || nudgeCooldownUntil > nudgeClock,
+              onSelect: nudgePeer,
+            },
           ]
+        : []),
+      ...(kind === 'direct' || kind === 'group'
+        ? [{
+            id: 'scheduled-messages',
+            label: t('chat.scheduled.manage'),
+            icon: CalendarClock,
+            onSelect: () => setScheduledOpen(true),
+          }]
         : []),
       {
         id: 'mute',
@@ -807,6 +892,8 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
             setEditing(null)
           }}
           onSend={send}
+          onSchedule={conversation.kind === 'direct' || conversation.kind === 'group' ? scheduleMessage : undefined}
+          scheduleWarningForSeconds={conversation.kind === 'group' ? scheduleWarningForSeconds : undefined}
           onSubmitEdit={submitEdit}
           onPickFile={(file) => {
             void addAttachment(file)
@@ -814,6 +901,16 @@ function ChatView({ account, conversationId, conversationView }: { account: Acco
           onVoiceRecorded={sendVoiceNote}
           disabled={loadingConversation}
           focusToken={focusToken}
+        />
+      )}
+
+      {conversation === null || (conversation.kind !== 'direct' && conversation.kind !== 'group') ? null : (
+        <ScheduledMessagesDialog
+          open={scheduledOpen}
+          onClose={() => setScheduledOpen(false)}
+          account={account}
+          conversationId={conversationId}
+          version={scheduledVersion}
         />
       )}
 

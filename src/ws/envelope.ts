@@ -69,6 +69,7 @@ export function toProtoEnvelope(envelope: Envelope): fh.Envelope.$Properties {
         ? new Uint8Array(0)
         : uuidToBytes(envelope.conversationId),
     senderIsBot: envelope.senderIsBot,
+    sendAt: envelope.sendAt ?? 0,
   }
 }
 
@@ -85,6 +86,7 @@ export function fromProtoEnvelope(proto: fh.Envelope): Envelope {
     clientTimestamp: toPlainNumber(proto.clientTimestamp),
     conversationId: proto.conversationId.length === 0 ? null : bytesToUuid(proto.conversationId),
     senderIsBot: proto.senderIsBot,
+    sendAt: toPlainNumber(proto.sendAt),
   }
 }
 

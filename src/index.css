@@ -115,6 +115,12 @@ html[data-theme='light'] {
   }
 }
 
+@keyframes fh-nudge-shake {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  15%, 45%, 75% { transform: translate3d(-4px, 0, 0); }
+  30%, 60%, 90% { transform: translate3d(4px, 0, 0); }
+}
+
 @layer utilities {
   .animate-fh-fade {
     animation: fh-fade-in 150ms ease-out;
@@ -136,6 +142,10 @@ html[data-theme='light'] {
     animation: fh-drawer-in 180ms ease-out;
   }
 
+  .fh-nudge-shake {
+    animation: fh-nudge-shake 420ms ease-in-out;
+  }
+
   /*
    * One switch for every animation in the app, including Tailwind's own
    * `animate-pulse`: anyone who asked their system for less motion should get a
@@ -147,6 +157,7 @@ html[data-theme='light'] {
     .animate-fh-message-own,
     .animate-fh-message-other,
     .animate-fh-drawer,
+    .fh-nudge-shake,
     .animate-pulse {
       animation: none;
     }

@@ -31,7 +31,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$projectRoot = "H:\project\friendshubWEB"
+$projectRoot = "/media/som/Games/projects/friendshubWEB"
 $distPath = Join-Path $projectRoot "dist"
 
 Push-Location $projectRoot
@@ -56,7 +56,7 @@ try {
     }
 
     Write-Host "`n=== 3. Copying dist/* to server ===" -ForegroundColor Cyan
-    scp -r "$distPath\*" "${Server}:${RemoteStaging}/"
+    scp -r "$distPath/." "${Server}:${RemoteStaging}/"
     if ($LASTEXITCODE -ne 0) {
         throw "scp failed"
     }
@@ -69,7 +69,7 @@ try {
     }
 
     Write-Host "`n=== 5. Verifying ===" -ForegroundColor Cyan
-    $check = curl.exe -sI --max-time 15 https://fh.somuch-system.ru/
+    $check = curl -sI --max-time 15 https://fh.somuch-system.ru/
     Write-Host $check
 
     if ($check -match "200 OK") {

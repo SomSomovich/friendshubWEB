@@ -1,9 +1,10 @@
-import { ArrowLeftRight, Megaphone, Menu, Settings, Users, Phone } from 'lucide-react'
+import { ArrowLeftRight, Hourglass, Megaphone, Menu, Settings, Users, Phone } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../router/paths'
 import { DropdownMenu, type DropdownItem } from '../ui/DropdownMenu'
+import { DurationDialog } from '../ui/DurationDialog'
 import { SwitchAccountModal } from './SwitchAccountModal'
 
 /**
@@ -14,6 +15,7 @@ export function HamburgerMenu() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [switcherOpen, setSwitcherOpen] = useState(false)
+  const [temporaryRoomOpen, setTemporaryRoomOpen] = useState(false)
 
   const items: DropdownItem[] = [
     { id: 'calls', label: t('callHistory.title'), icon: Phone, onSelect: () => { void navigate(ROUTES.calls) } },
@@ -32,6 +34,12 @@ export function HamburgerMenu() {
       onSelect: () => {
         void navigate(ROUTES.createGroup)
       },
+    },
+    {
+      id: 'create-temporary-room',
+      label: t('temporaryRooms.menuAction'),
+      icon: Hourglass,
+      onSelect: () => setTemporaryRoomOpen(true),
     },
     {
       id: 'create-channel',
@@ -63,6 +71,20 @@ export function HamburgerMenu() {
         open={switcherOpen}
         onClose={() => {
           setSwitcherOpen(false)
+        }}
+      />
+      <DurationDialog
+        open={temporaryRoomOpen}
+        onClose={() => setTemporaryRoomOpen(false)}
+        title={t('temporaryRooms.dialogTitle')}
+        hint={t('temporaryRooms.dialogHint')}
+        confirmLabel={t('temporaryRooms.continue')}
+        minSeconds={60}
+        maxSeconds={7 * 24 * 60 * 60}
+        initialSeconds={60 * 60}
+        onChoose={(seconds) => {
+          setTemporaryRoomOpen(false)
+          void navigate(`${ROUTES.createGroup}?expiresInSeconds=${seconds}`)
         }}
       />
     </>

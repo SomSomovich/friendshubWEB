@@ -35,10 +35,16 @@ export function listConversations(account: AccountAuth): Promise<Conversation[]>
 export function createDirectConversation(
   account: AccountAuth,
   peerFhNumber: string,
+  options: { expiresInSeconds?: number } = {},
 ): Promise<DirectConversationRef> {
   return post<DirectConversationRef>(
     '/conversations/direct',
-    { peer_fh_number: peerFhNumber },
+    {
+      peer_fh_number: peerFhNumber,
+      ...(options.expiresInSeconds === undefined
+        ? {}
+        : { expires_in_seconds: options.expiresInSeconds }),
+    },
     { account },
   )
 }

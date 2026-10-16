@@ -57,6 +57,8 @@ export type DirectTarget = {
  */
 export type SendOptions = {
   createdAt?: number
+  /** Unix seconds for server-side delivery; scheduled sends require a live socket. */
+  sendAt?: number
 }
 
 /**
@@ -88,6 +90,9 @@ export async function sendMessage(
 
   const messageId = uuidV7()
   const createdAt = options.createdAt ?? nowSeconds()
+  const envelopeOptions = options.sendAt === undefined
+    ? {}
+    : { sendAt: options.sendAt, clientTimestamp: createdAt }
   const payloadHex = encodePayload(buildMessagePayload(messageId, draft, createdAt))
 
   // A device of the peer that cannot be given a session is left out rather than
@@ -99,8 +104,9 @@ export async function sendMessage(
     payloadHex,
     ENVELOPE_TYPE_MESSAGE,
     target.conversationId,
+    envelopeOptions,
   )
-  envelopes.push(...(await ownDeviceCopies(account, payloadHex, ENVELOPE_TYPE_MESSAGE, target.conversationId)))
+  envelopes.push(...(await ownDeviceCopies(account, payloadHex, ENVELOPE_TYPE_MESSAGE, target.conversationId, envelopeOptions)))
 
   await uploadBatch(envelopes)
   await persistSnapshot(account.id)
@@ -133,6 +139,9 @@ export async function sendGroupMessage(
 
   const messageId = uuidV7()
   const createdAt = options.createdAt ?? nowSeconds()
+  const envelopeOptions = options.sendAt === undefined
+    ? {}
+    : { sendAt: options.sendAt, clientTimestamp: createdAt }
   const payloadHex = encodePayload(buildMessagePayload(messageId, draft, createdAt))
 
   const ciphertextHex = await groupEncrypt(
@@ -156,11 +165,13 @@ export async function sendGroupMessage(
           isPrekeyMessage: false,
           ciphertextHex,
           conversationId,
+          clientTimestamp: envelopeOptions.clientTimestamp,
+          sendAt: envelopeOptions.sendAt,
         }),
       )
     }
   }
-  envelopes.push(...(await ownDeviceCopies(account, payloadHex, ENVELOPE_TYPE_MESSAGE, conversationId)))
+  envelopes.push(...(await ownDeviceCopies(account, payloadHex, ENVELOPE_TYPE_MESSAGE, conversationId, envelopeOptions)))
 
   await uploadBatch(envelopes)
   await persistSnapshot(account.id)
@@ -295,6 +306,7 @@ export async function ownDeviceCopies(
   payloadHex: string,
   envelopeType: number,
   conversationId: string | null,
+  options: { clientTimestamp?: number; sendAt?: number } = {},
 ): Promise<Envelope[]> {
   const others = await resolveOwnOtherDevices(account)
   // Not the throwing variant: a copy of our own that cannot be delivered costs a
@@ -306,6 +318,7 @@ export async function ownDeviceCopies(
     payloadHex,
     envelopeType,
     conversationId,
+    options,
   )
   return envelopes
 }

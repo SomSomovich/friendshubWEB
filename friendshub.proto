@@ -20,6 +20,10 @@ message Envelope {
   int64 client_timestamp = 9;
   bytes conversation_id = 10;
   bool sender_is_bot = 11;
+  // Non-zero: deliver at this unix time. Zero: deliver now.
+  // Set by the client, bounded by the server to now + 24h.
+  // A zero means the message is not scheduled.
+  int64 send_at = 12;
 }
 
 enum EnvelopeType {
@@ -56,6 +60,7 @@ message ClientFrame {
     Ping ping = 4;
     TypingFrame typing = 5;
     HistoryRequest history_request = 6;
+    Nudge nudge = 7;
   }
 }
 
@@ -99,6 +104,12 @@ message ServerFrame {
     ReadReceiptDelivery read_receipt = 10;
     ConversationUpdatedDelivery conversation_updated = 11;
     HistoryRequestRelay history_request_relay = 12;
+    NudgeDelivery nudge = 13;
+    NudgeResult nudge_result = 14;
+    ConversationExpiredDelivery conversation_expired = 15;
+    ScheduledEnvelopeCreated scheduled_created = 16;
+    ScheduledEnvelopeCancelled scheduled_cancelled = 17;
+    FoldersUpdated folders_updated = 18;
   }
 }
 
@@ -203,4 +214,50 @@ message HistoryRequest {
 message HistoryRequestRelay {
   uint32 from_device_number = 1;
   repeated bytes conversation_ids = 2;
+}
+// Nudge: a "shake" sent from one account to another inside a direct
+// conversation. Relayed, never stored. The target can opt out via the
+// `allow_nudges` flag on their account, in which case the sender's
+// request is refused without notification to the target.
+
+message Nudge {
+  bytes conversation_id = 1;
+  bytes target_account_id = 2;
+}
+
+message NudgeDelivery {
+  bytes conversation_id = 1;
+  bytes from_account_id = 2;
+}
+
+message NudgeResult {
+  bool delivered = 1;
+}
+
+// Sent to all live members of a temporary room when the cleanup worker
+// deletes it. The client is expected to remove the conversation and its
+// local messages; a client that does not is outside the server's reach.
+
+message ConversationExpiredDelivery {
+  bytes conversation_id = 1;
+}
+
+// Signals that a new scheduled envelope has been queued, or that one
+// has been cancelled. Sent only to the sender's other devices.
+
+message ScheduledEnvelopeCreated {
+  bytes envelope_id = 1;
+  bytes conversation_id = 2;
+  int64 send_at = 3;
+}
+
+message ScheduledEnvelopeCancelled {
+  bytes envelope_id = 1;
+}
+
+// Sent to a device when the same account's folders change on another
+// device. Carries no data: the client re-fetches `GET /folders`.
+
+message FoldersUpdated {
+  bytes account_id = 1;
 }

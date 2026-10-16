@@ -22,4 +22,6 @@ export type Envelope = {
   /** `null` for envelopes that belong to no conversation. */
   conversationId: string | null
   senderIsBot: boolean
+  /** Unix seconds when the server should deliver this envelope; zero is immediate. */
+  sendAt?: number
 }

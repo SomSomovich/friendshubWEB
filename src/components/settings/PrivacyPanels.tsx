@@ -10,10 +10,12 @@ import {
 } from '../../api/contacts'
 import {
   addPresenceException,
+  getAllowNudges,
   getInvisible,
   listPresenceExceptions,
   removePresenceException,
   setInvisible,
+  setAllowNudges,
   type PresenceException,
   type PresenceExceptionKind,
 } from '../../api/profile'
@@ -63,6 +65,52 @@ export function InvisiblePanel({ account }: { account: Account }) {
           <SettingsToggle
             label={t('settings.privacy.invisible')}
             checked={resource.data.enabled}
+            disabled={busy}
+            onChange={(next) => {
+              void toggle(next)
+            }}
+          />
+        )}
+      </SettingsRow>
+    </SettingsCard>
+  )
+}
+
+/** Lets this account decide whether transient shake signals can reach it. */
+export function AllowNudgesPanel({ account }: { account: Account }) {
+  const { t } = useTranslation()
+  const toast = useToast()
+  const fail = useActionReporter('privacy')
+  const resource = useAccountResource(account, getAllowNudges)
+  const [busy, setBusy] = useState(false)
+
+  async function toggle(next: boolean): Promise<void> {
+    setBusy(true)
+    try {
+      await setAllowNudges(account, next)
+      resource.replace({ allow: next })
+      toast.notify({
+        kind: 'success',
+        message: t(next ? 'settings.privacy.nudgesOn' : 'settings.privacy.nudgesOff'),
+      })
+    } catch (error) {
+      fail(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <SettingsCard title={t('settings.privacy.allowNudges')} description={t('settings.privacy.allowNudgesHint')}>
+      <SettingsRow label={t('settings.privacy.allowNudges')} description={t('settings.privacy.allowNudgesHint')}>
+        {resource.error !== null ? (
+          <PanelError message={resource.error} onRetry={resource.reload} />
+        ) : resource.data === null ? (
+          <PanelSkeleton rows={1} />
+        ) : (
+          <SettingsToggle
+            label={t('settings.privacy.allowNudges')}
+            checked={resource.data.allow}
             disabled={busy}
             onChange={(next) => {
               void toggle(next)

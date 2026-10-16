@@ -73,6 +73,15 @@ export class FrameSender {
     this.sendFrame({ typing: { conversationId: uuidToBytes(conversationId) } })
   }
 
+  sendNudge(conversationId: string, targetAccountId: string): void {
+    this.sendFrame({
+      nudge: {
+        conversationId: uuidToBytes(conversationId),
+        targetAccountId: uuidToBytes(targetAccountId),
+      },
+    })
+  }
+
   requestHistory(targetDeviceNumber: number, conversationIds: string[]): void {
     if (!Number.isSafeInteger(targetDeviceNumber) || targetDeviceNumber < 1 || targetDeviceNumber > 0xffffffff || conversationIds.length > 200) {
       throw new WsError('invalid history request', { code: 'bad_request' })

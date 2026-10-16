@@ -107,6 +107,7 @@ export type CreateGroupInput = {
   memberIds: string[]
   isPublic: boolean
   description: string | null
+  expiresInSeconds?: number
 }
 
 export function createGroup(account: AccountAuth, input: CreateGroupInput): Promise<GroupCreated> {
@@ -117,6 +118,9 @@ export function createGroup(account: AccountAuth, input: CreateGroupInput): Prom
       member_ids: input.memberIds,
       is_public: input.isPublic,
       description: input.description,
+      ...(input.expiresInSeconds === undefined
+        ? {}
+        : { expires_in_seconds: input.expiresInSeconds }),
     },
     { account },
   )

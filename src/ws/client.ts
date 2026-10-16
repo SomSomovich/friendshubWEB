@@ -119,6 +119,10 @@ export class WsClient extends TypedEmitter<WsClientEvents> {
     this.sender.sendTyping(conversationId)
   }
 
+  sendNudge(conversationId: string, targetAccountId: string): void {
+    this.sender.sendNudge(conversationId, targetAccountId)
+  }
+
   requestHistory(targetDeviceNumber: number, conversationIds: string[]): void {
     this.sender.requestHistory(targetDeviceNumber, conversationIds)
   }
@@ -277,6 +281,12 @@ export class WsClient extends TypedEmitter<WsClientEvents> {
   private readonly handlers: FrameHandlers = {
     onConversationUpdated: (event) => this.emit('conversationUpdated', event),
     onHistoryRequest: (event) => this.emit('historyRequest', event),
+    onNudge: (event) => this.emit('nudge', event),
+    onNudgeResult: (delivered) => this.emit('nudgeResult', { delivered }),
+    onConversationExpired: (conversationId) => this.emit('conversationExpired', { conversationId }),
+    onScheduledCreated: (event) => this.emit('scheduledCreated', event),
+    onScheduledCancelled: (envelopeId) => this.emit('scheduledCancelled', { envelopeId }),
+    onFoldersUpdated: (accountId) => this.emit('foldersUpdated', { accountId }),
     onHello: (hello) => {
       this.completeHandshake(hello)
     },

@@ -10,12 +10,15 @@ import { i18n } from '../i18n'
 import { announceIncoming } from '../pwa/notify'
 import { useToastStore, type ToastKind } from './toastStore'
 import { getMessage } from '../storage/messages'
+import { deleteConversationLocally } from '../storage/conversations'
 import type { Account, Envelope } from '../types'
 import type { WsClient } from '../ws/client'
 import { ENVELOPE_TYPE_MESSAGE } from '../ws/envelopeTypes'
 import { requireAccountStore } from './accountRegistry'
 import type { AccountStore } from './accountStore'
 import { refreshPins } from './pins'
+import { triggerNudgeEffect } from '../utils/nudge'
+import { forgetTemporaryRoomExpiry } from '../storage/temporaryRooms'
 
 /**
  * Wires one WebSocket to one account's store.
@@ -97,6 +100,40 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
   const detachConversationUpdated = client.on('conversationUpdated', (event) => {
     store.getState().actions.conversationUpdated(event)
     void store.getState().actions.loadConversations()
+  })
+  const detachNudge = client.on('nudge', () => {
+    triggerNudgeEffect()
+  })
+  const detachNudgeResult = client.on('nudgeResult', ({ delivered }) => {
+    if (!delivered) {
+      pushToast('info', i18n.t('chat.nudge.notDelivered'))
+    }
+  })
+  const detachConversationExpired = client.on('conversationExpired', ({ conversationId }) => {
+    void forgetTemporaryRoomExpiry(account.id, conversationId)
+    void deleteConversationLocally(account.id, conversationId)
+      .then(async () => {
+        store.getState().actions.dropConversationMessages(conversationId)
+        store.setState((state) => ({
+          messagesVersion: state.messagesVersion + 1,
+          foldersVersion: state.foldersVersion + 1,
+        }))
+        await store.getState().actions.loadConversations()
+      })
+      .catch((error: unknown) => {
+        console.error('[state] an expired conversation could not be removed locally', error)
+      })
+  })
+  const detachScheduledCreated = client.on('scheduledCreated', () => {
+    store.setState((state) => ({ scheduledVersion: state.scheduledVersion + 1 }))
+  })
+  const detachScheduledCancelled = client.on('scheduledCancelled', () => {
+    store.setState((state) => ({ scheduledVersion: state.scheduledVersion + 1 }))
+  })
+  const detachFoldersUpdated = client.on('foldersUpdated', ({ accountId }) => {
+    if (accountId === account.id) {
+      store.setState((state) => ({ foldersVersion: state.foldersVersion + 1 }))
+    }
   })
   const detachTyping = client.on('typing', ({ conversationId, accountId }) => {
     store.getState().actions.setTyping(conversationId, accountId)
@@ -212,6 +249,12 @@ export function attachClientToAccount(client: WsClient, account: Account): () =>
     detachPresence()
     detachTyping()
     detachConversationUpdated()
+    detachNudge()
+    detachNudgeResult()
+    detachConversationExpired()
+    detachScheduledCreated()
+    detachScheduledCancelled()
+    detachFoldersUpdated()
     detachReadReceipt()
     detachBotMessage()
     detachChannelPost()

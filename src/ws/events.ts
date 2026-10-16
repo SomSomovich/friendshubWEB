@@ -59,9 +59,22 @@ export type ConversationUpdatedEvent = {
 }
 export type HistoryRequestEvent = { fromDeviceNumber: number; conversationIds: string[] }
 
+export type NudgeEvent = { conversationId: string; fromAccountId: string }
+export type ScheduledCreatedEvent = {
+  envelopeId: string
+  conversationId: string | null
+  sendAt: number
+}
+
 export type WsClientEvents = {
   conversationUpdated: ConversationUpdatedEvent
   historyRequest: HistoryRequestEvent
+  nudge: NudgeEvent
+  nudgeResult: { delivered: boolean }
+  conversationExpired: { conversationId: string }
+  scheduledCreated: ScheduledCreatedEvent
+  scheduledCancelled: { envelopeId: string }
+  foldersUpdated: { accountId: string }
   /** Emitted on the first handshake and again after every reconnect. */
   connected: {
     sessionId: string

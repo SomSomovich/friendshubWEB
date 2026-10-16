@@ -367,6 +367,7 @@ export const fh = $root.fh = (() => {
          * @property {number|Long|null} [clientTimestamp] Envelope clientTimestamp
          * @property {Uint8Array|null} [conversationId] Envelope conversationId
          * @property {boolean|null} [senderIsBot] Envelope senderIsBot
+         * @property {number|Long|null} [sendAt] Envelope sendAt
          * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
          */
 
@@ -487,6 +488,14 @@ export const fh = $root.fh = (() => {
         Envelope.prototype.senderIsBot = false;
 
         /**
+         * Envelope sendAt.
+         * @member {number|Long} sendAt
+         * @memberof fh.Envelope
+         * @instance
+         */
+        Envelope.prototype.sendAt = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+
+        /**
          * Creates a new Envelope instance using the specified properties.
          * @function create
          * @memberof fh.Envelope
@@ -540,6 +549,8 @@ export const fh = $root.fh = (() => {
                 writer.uint32(/* id 10, wireType 2 =*/82).bytes(message.conversationId);
             if (message.senderIsBot != null && $Object.hasOwnProperty.call(message, "senderIsBot") && message.senderIsBot !== false)
                 writer.uint32(/* id 11, wireType 0 =*/88).bool(message.senderIsBot);
+            if (message.sendAt != null && $Object.hasOwnProperty.call(message, "sendAt") && (typeof message.sendAt === "object" ? message.sendAt.low || message.sendAt.high : message.sendAt !== 0))
+                writer.uint32(/* id 12, wireType 0 =*/96).int64(message.sendAt);
             if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
                 for (let i = 0; i < message.$unknowns.length; ++i)
                     writer.raw(message.$unknowns[i]);
@@ -696,6 +707,15 @@ export const fh = $root.fh = (() => {
                             delete message.senderIsBot;
                         continue;
                     }
+                case 12: {
+                        if (wireType !== 0)
+                            break;
+                        if (typeof (value = reader.int64()) === "object" ? value.low || value.high : value !== 0)
+                            message.sendAt = value;
+                        else
+                            delete message.sendAt;
+                        continue;
+                    }
                 }
                 reader.skipType(wireType, _depth, tag);
                 if (!reader.discardUnknown) {
@@ -777,6 +797,9 @@ export const fh = $root.fh = (() => {
             if (message.senderIsBot != null && $Object.hasOwnProperty.call(message, "senderIsBot"))
                 if (typeof message.senderIsBot !== "boolean")
                     return "senderIsBot: boolean expected";
+            if (message.sendAt != null && $Object.hasOwnProperty.call(message, "sendAt"))
+                if (!$util.isInteger(message.sendAt) && !(message.sendAt && $util.isInteger(message.sendAt.low) && $util.isInteger(message.sendAt.high)))
+                    return "sendAt: integer|Long expected";
             return null;
         };
 
@@ -920,6 +943,16 @@ export const fh = $root.fh = (() => {
             if (object.senderIsBot != null)
                 if (object.senderIsBot)
                     message.senderIsBot = $Boolean(object.senderIsBot);
+            if (object.sendAt != null)
+                if (typeof object.sendAt === "object" ? object.sendAt.low || object.sendAt.high : $Number(object.sendAt) !== 0)
+                    if ($util.Long)
+                        message.sendAt = $util.Long.fromValue(object.sendAt, false);
+                    else if (typeof object.sendAt === "string")
+                        message.sendAt = $parseInt(object.sendAt, 10);
+                    else if (typeof object.sendAt === "number")
+                        message.sendAt = object.sendAt;
+                    else if (typeof object.sendAt === "object")
+                        message.sendAt = new $util.LongBits(object.sendAt.low >>> 0, object.sendAt.high >>> 0).toNumber();
             return message;
         };
 
@@ -986,6 +1019,11 @@ export const fh = $root.fh = (() => {
                         object.conversationId = $util.newBuffer(object.conversationId);
                 }
                 object.senderIsBot = false;
+                if ($util.Long) {
+                    let long = new $util.Long(0, 0, false);
+                    object.sendAt = options.longs === $String ? long.toString() : options.longs === $Number ? long.toNumber() : typeof $BigInt !== "undefined" && options.longs === $BigInt ? long.toBigInt() : long;
+                } else
+                    object.sendAt = options.longs === $String ? "0" : typeof $BigInt !== "undefined" && options.longs === $BigInt ? $BigInt("0") : 0;
             }
             if (message.envelopeId != null && $Object.hasOwnProperty.call(message, "envelopeId"))
                 object.envelopeId = options.bytes === $String ? $util.base64.encode(message.envelopeId, 0, message.envelopeId.length) : options.bytes === $Array ? $Array.prototype.slice.call(message.envelopeId) : message.envelopeId;
@@ -1014,6 +1052,13 @@ export const fh = $root.fh = (() => {
                 object.conversationId = options.bytes === $String ? $util.base64.encode(message.conversationId, 0, message.conversationId.length) : options.bytes === $Array ? $Array.prototype.slice.call(message.conversationId) : message.conversationId;
             if (message.senderIsBot != null && $Object.hasOwnProperty.call(message, "senderIsBot"))
                 object.senderIsBot = message.senderIsBot;
+            if (message.sendAt != null && $Object.hasOwnProperty.call(message, "sendAt"))
+                if (typeof $BigInt !== "undefined" && options.longs === $BigInt)
+                    object.sendAt = typeof message.sendAt === "number" ? $BigInt(message.sendAt) : $util.Long.fromBits(message.sendAt.low >>> 0, message.sendAt.high >>> 0, false).toBigInt();
+                else if (typeof message.sendAt === "number")
+                    object.sendAt = options.longs === $String ? $String(message.sendAt) : message.sendAt;
+                else
+                    object.sendAt = options.longs === $String ? $util.Long.prototype.toString.call(message.sendAt) : options.longs === $Number ? new $util.LongBits(message.sendAt.low >>> 0, message.sendAt.high >>> 0).toNumber() : message.sendAt;
             return object;
         };
 
@@ -1098,7 +1143,8 @@ export const fh = $root.fh = (() => {
          * @property {fh.Ping.$Properties|null} [ping] ClientFrame ping
          * @property {fh.TypingFrame.$Properties|null} [typing] ClientFrame typing
          * @property {fh.HistoryRequest.$Properties|null} [historyRequest] ClientFrame historyRequest
-         * @property {"hello"|"upload"|"ack"|"ping"|"typing"|"historyRequest"} [kind] ClientFrame kind
+         * @property {fh.Nudge.$Properties|null} [nudge] ClientFrame nudge
+         * @property {"hello"|"upload"|"ack"|"ping"|"typing"|"historyRequest"|"nudge"} [kind] ClientFrame kind
          * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
          */
 
@@ -1119,9 +1165,10 @@ export const fh = $root.fh = (() => {
          *   ping?: fh.Ping.$Shape|null;
          *   typing?: fh.TypingFrame.$Shape|null;
          *   historyRequest?: fh.HistoryRequest.$Shape|null;
+         *   nudge?: fh.Nudge.$Shape|null;
          *   $unknowns?: Array.<Uint8Array>;
          * } & (
-         *   ({ kind?: undefined; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest?: null }|{ kind?: "hello"; hello: fh.ClientHello.$Shape; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest?: null }|{ kind?: "upload"; hello?: null; upload: fh.EnvelopeUpload.$Shape; ack?: null; ping?: null; typing?: null; historyRequest?: null }|{ kind?: "ack"; hello?: null; upload?: null; ack: fh.EnvelopeAck.$Shape; ping?: null; typing?: null; historyRequest?: null }|{ kind?: "ping"; hello?: null; upload?: null; ack?: null; ping: fh.Ping.$Shape; typing?: null; historyRequest?: null }|{ kind?: "typing"; hello?: null; upload?: null; ack?: null; ping?: null; typing: fh.TypingFrame.$Shape; historyRequest?: null }|{ kind?: "historyRequest"; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest: fh.HistoryRequest.$Shape })
+         *   ({ kind?: undefined; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest?: null; nudge?: null }|{ kind?: "hello"; hello: fh.ClientHello.$Shape; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest?: null; nudge?: null }|{ kind?: "upload"; hello?: null; upload: fh.EnvelopeUpload.$Shape; ack?: null; ping?: null; typing?: null; historyRequest?: null; nudge?: null }|{ kind?: "ack"; hello?: null; upload?: null; ack: fh.EnvelopeAck.$Shape; ping?: null; typing?: null; historyRequest?: null; nudge?: null }|{ kind?: "ping"; hello?: null; upload?: null; ack?: null; ping: fh.Ping.$Shape; typing?: null; historyRequest?: null; nudge?: null }|{ kind?: "typing"; hello?: null; upload?: null; ack?: null; ping?: null; typing: fh.TypingFrame.$Shape; historyRequest?: null; nudge?: null }|{ kind?: "historyRequest"; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest: fh.HistoryRequest.$Shape; nudge?: null }|{ kind?: "nudge"; hello?: null; upload?: null; ack?: null; ping?: null; typing?: null; historyRequest?: null; nudge: fh.Nudge.$Shape })
          * )} fh.ClientFrame.$Shape
          */
 
@@ -1188,17 +1235,25 @@ export const fh = $root.fh = (() => {
          */
         ClientFrame.prototype.historyRequest = null;
 
+        /**
+         * ClientFrame nudge.
+         * @member {fh.Nudge.$Properties|null|undefined} nudge
+         * @memberof fh.ClientFrame
+         * @instance
+         */
+        ClientFrame.prototype.nudge = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         /**
          * ClientFrame kind.
-         * @member {"hello"|"upload"|"ack"|"ping"|"typing"|"historyRequest"|undefined} kind
+         * @member {"hello"|"upload"|"ack"|"ping"|"typing"|"historyRequest"|"nudge"|undefined} kind
          * @memberof fh.ClientFrame
          * @instance
          */
         $Object.defineProperty(ClientFrame.prototype, "kind", {
-            get: $util.oneOfGetter($oneOfFields = ["hello", "upload", "ack", "ping", "typing", "historyRequest"]),
+            get: $util.oneOfGetter($oneOfFields = ["hello", "upload", "ack", "ping", "typing", "historyRequest", "nudge"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -1246,6 +1301,8 @@ export const fh = $root.fh = (() => {
                 $root.fh.TypingFrame.encode(message.typing, writer.uint32(/* id 5, wireType 2 =*/42).fork(), _depth + 1).ldelim();
             if (message.historyRequest != null && $Object.hasOwnProperty.call(message, "historyRequest"))
                 $root.fh.HistoryRequest.encode(message.historyRequest, writer.uint32(/* id 6, wireType 2 =*/50).fork(), _depth + 1).ldelim();
+            if (message.nudge != null && $Object.hasOwnProperty.call(message, "nudge"))
+                $root.fh.Nudge.encode(message.nudge, writer.uint32(/* id 7, wireType 2 =*/58).fork(), _depth + 1).ldelim();
             if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
                 for (let i = 0; i < message.$unknowns.length; ++i)
                     writer.raw(message.$unknowns[i]);
@@ -1343,6 +1400,13 @@ export const fh = $root.fh = (() => {
                             break;
                         message.historyRequest = $root.fh.HistoryRequest.decode(reader, reader.uint32(), $undefined, _depth + 1, message.historyRequest);
                         message.kind = "historyRequest";
+                        continue;
+                    }
+                case 7: {
+                        if (wireType !== 2)
+                            break;
+                        message.nudge = $root.fh.Nudge.decode(reader, reader.uint32(), $undefined, _depth + 1, message.nudge);
+                        message.kind = "nudge";
                         continue;
                     }
                 }
@@ -1452,6 +1516,16 @@ export const fh = $root.fh = (() => {
                         return "historyRequest." + error;
                 }
             }
+            if (message.nudge != null && $Object.hasOwnProperty.call(message, "nudge")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                {
+                    let error = $root.fh.Nudge.verify(message.nudge, _depth + 1);
+                    if (error)
+                        return "nudge." + error;
+                }
+            }
             return null;
         };
 
@@ -1503,6 +1577,11 @@ export const fh = $root.fh = (() => {
                     throw $TypeError(".fh.ClientFrame.historyRequest: object expected");
                 message.historyRequest = $root.fh.HistoryRequest.fromObject(object.historyRequest, _depth + 1);
             }
+            if (object.nudge != null) {
+                if (!$util.isObject(object.nudge))
+                    throw $TypeError(".fh.ClientFrame.nudge: object expected");
+                message.nudge = $root.fh.Nudge.fromObject(object.nudge, _depth + 1);
+            }
             return message;
         };
 
@@ -1552,6 +1631,11 @@ export const fh = $root.fh = (() => {
                 object.historyRequest = $root.fh.HistoryRequest.toObject(message.historyRequest, options, _depth + 1);
                 if (options.oneofs)
                     object.kind = "historyRequest";
+            }
+            if (message.nudge != null && $Object.hasOwnProperty.call(message, "nudge")) {
+                object.nudge = $root.fh.Nudge.toObject(message.nudge, options, _depth + 1);
+                if (options.oneofs)
+                    object.kind = "nudge";
             }
             return object;
         };
@@ -2983,7 +3067,13 @@ export const fh = $root.fh = (() => {
          * @property {fh.ReadReceiptDelivery.$Properties|null} [readReceipt] ServerFrame readReceipt
          * @property {fh.ConversationUpdatedDelivery.$Properties|null} [conversationUpdated] ServerFrame conversationUpdated
          * @property {fh.HistoryRequestRelay.$Properties|null} [historyRequestRelay] ServerFrame historyRequestRelay
-         * @property {"hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt"|"conversationUpdated"|"historyRequestRelay"} [kind] ServerFrame kind
+         * @property {fh.NudgeDelivery.$Properties|null} [nudge] ServerFrame nudge
+         * @property {fh.NudgeResult.$Properties|null} [nudgeResult] ServerFrame nudgeResult
+         * @property {fh.ConversationExpiredDelivery.$Properties|null} [conversationExpired] ServerFrame conversationExpired
+         * @property {fh.ScheduledEnvelopeCreated.$Properties|null} [scheduledCreated] ServerFrame scheduledCreated
+         * @property {fh.ScheduledEnvelopeCancelled.$Properties|null} [scheduledCancelled] ServerFrame scheduledCancelled
+         * @property {fh.FoldersUpdated.$Properties|null} [foldersUpdated] ServerFrame foldersUpdated
+         * @property {"hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt"|"conversationUpdated"|"historyRequestRelay"|"nudge"|"nudgeResult"|"conversationExpired"|"scheduledCreated"|"scheduledCancelled"|"foldersUpdated"} [kind] ServerFrame kind
          * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
          */
 
@@ -3010,9 +3100,15 @@ export const fh = $root.fh = (() => {
          *   readReceipt?: fh.ReadReceiptDelivery.$Shape|null;
          *   conversationUpdated?: fh.ConversationUpdatedDelivery.$Shape|null;
          *   historyRequestRelay?: fh.HistoryRequestRelay.$Shape|null;
+         *   nudge?: fh.NudgeDelivery.$Shape|null;
+         *   nudgeResult?: fh.NudgeResult.$Shape|null;
+         *   conversationExpired?: fh.ConversationExpiredDelivery.$Shape|null;
+         *   scheduledCreated?: fh.ScheduledEnvelopeCreated.$Shape|null;
+         *   scheduledCancelled?: fh.ScheduledEnvelopeCancelled.$Shape|null;
+         *   foldersUpdated?: fh.FoldersUpdated.$Shape|null;
          *   $unknowns?: Array.<Uint8Array>;
          * } & (
-         *   ({ kind?: undefined; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "hello"; hello: fh.ServerHello.$Shape; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "delivery"; hello?: null; delivery: fh.EnvelopeDelivery.$Shape; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "receipt"; hello?: null; delivery?: null; receipt: fh.EnvelopeAck.$Shape; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "pong"; hello?: null; delivery?: null; receipt?: null; pong: fh.Pong.$Shape; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "error"; hello?: null; delivery?: null; receipt?: null; pong?: null; error: fh.ErrorFrame.$Shape; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "presence"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence: fh.PresenceUpdate.$Shape; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "botMessage"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage: fh.BotMessageDelivery.$Shape; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "channelPost"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost: fh.ChannelPostDelivery.$Shape; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "typing"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing: fh.TypingDelivery.$Shape; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "readReceipt"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt: fh.ReadReceiptDelivery.$Shape; conversationUpdated?: null; historyRequestRelay?: null }|{ kind?: "conversationUpdated"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated: fh.ConversationUpdatedDelivery.$Shape; historyRequestRelay?: null }|{ kind?: "historyRequestRelay"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay: fh.HistoryRequestRelay.$Shape })
+         *   ({ kind?: undefined; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "hello"; hello: fh.ServerHello.$Shape; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "delivery"; hello?: null; delivery: fh.EnvelopeDelivery.$Shape; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "receipt"; hello?: null; delivery?: null; receipt: fh.EnvelopeAck.$Shape; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "pong"; hello?: null; delivery?: null; receipt?: null; pong: fh.Pong.$Shape; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "error"; hello?: null; delivery?: null; receipt?: null; pong?: null; error: fh.ErrorFrame.$Shape; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "presence"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence: fh.PresenceUpdate.$Shape; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "botMessage"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage: fh.BotMessageDelivery.$Shape; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "channelPost"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost: fh.ChannelPostDelivery.$Shape; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "typing"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing: fh.TypingDelivery.$Shape; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "readReceipt"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt: fh.ReadReceiptDelivery.$Shape; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "conversationUpdated"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated: fh.ConversationUpdatedDelivery.$Shape; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "historyRequestRelay"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay: fh.HistoryRequestRelay.$Shape; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "nudge"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge: fh.NudgeDelivery.$Shape; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "nudgeResult"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult: fh.NudgeResult.$Shape; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "conversationExpired"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired: fh.ConversationExpiredDelivery.$Shape; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "scheduledCreated"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated: fh.ScheduledEnvelopeCreated.$Shape; scheduledCancelled?: null; foldersUpdated?: null }|{ kind?: "scheduledCancelled"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled: fh.ScheduledEnvelopeCancelled.$Shape; foldersUpdated?: null }|{ kind?: "foldersUpdated"; hello?: null; delivery?: null; receipt?: null; pong?: null; error?: null; presence?: null; botMessage?: null; channelPost?: null; typing?: null; readReceipt?: null; conversationUpdated?: null; historyRequestRelay?: null; nudge?: null; nudgeResult?: null; conversationExpired?: null; scheduledCreated?: null; scheduledCancelled?: null; foldersUpdated: fh.FoldersUpdated.$Shape })
          * )} fh.ServerFrame.$Shape
          */
 
@@ -3127,17 +3223,65 @@ export const fh = $root.fh = (() => {
          */
         ServerFrame.prototype.historyRequestRelay = null;
 
+        /**
+         * ServerFrame nudge.
+         * @member {fh.NudgeDelivery.$Properties|null|undefined} nudge
+         * @memberof fh.ServerFrame
+         * @instance
+         */
+        ServerFrame.prototype.nudge = null;
+
+        /**
+         * ServerFrame nudgeResult.
+         * @member {fh.NudgeResult.$Properties|null|undefined} nudgeResult
+         * @memberof fh.ServerFrame
+         * @instance
+         */
+        ServerFrame.prototype.nudgeResult = null;
+
+        /**
+         * ServerFrame conversationExpired.
+         * @member {fh.ConversationExpiredDelivery.$Properties|null|undefined} conversationExpired
+         * @memberof fh.ServerFrame
+         * @instance
+         */
+        ServerFrame.prototype.conversationExpired = null;
+
+        /**
+         * ServerFrame scheduledCreated.
+         * @member {fh.ScheduledEnvelopeCreated.$Properties|null|undefined} scheduledCreated
+         * @memberof fh.ServerFrame
+         * @instance
+         */
+        ServerFrame.prototype.scheduledCreated = null;
+
+        /**
+         * ServerFrame scheduledCancelled.
+         * @member {fh.ScheduledEnvelopeCancelled.$Properties|null|undefined} scheduledCancelled
+         * @memberof fh.ServerFrame
+         * @instance
+         */
+        ServerFrame.prototype.scheduledCancelled = null;
+
+        /**
+         * ServerFrame foldersUpdated.
+         * @member {fh.FoldersUpdated.$Properties|null|undefined} foldersUpdated
+         * @memberof fh.ServerFrame
+         * @instance
+         */
+        ServerFrame.prototype.foldersUpdated = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         /**
          * ServerFrame kind.
-         * @member {"hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt"|"conversationUpdated"|"historyRequestRelay"|undefined} kind
+         * @member {"hello"|"delivery"|"receipt"|"pong"|"error"|"presence"|"botMessage"|"channelPost"|"typing"|"readReceipt"|"conversationUpdated"|"historyRequestRelay"|"nudge"|"nudgeResult"|"conversationExpired"|"scheduledCreated"|"scheduledCancelled"|"foldersUpdated"|undefined} kind
          * @memberof fh.ServerFrame
          * @instance
          */
         $Object.defineProperty(ServerFrame.prototype, "kind", {
-            get: $util.oneOfGetter($oneOfFields = ["hello", "delivery", "receipt", "pong", "error", "presence", "botMessage", "channelPost", "typing", "readReceipt", "conversationUpdated", "historyRequestRelay"]),
+            get: $util.oneOfGetter($oneOfFields = ["hello", "delivery", "receipt", "pong", "error", "presence", "botMessage", "channelPost", "typing", "readReceipt", "conversationUpdated", "historyRequestRelay", "nudge", "nudgeResult", "conversationExpired", "scheduledCreated", "scheduledCancelled", "foldersUpdated"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -3197,6 +3341,18 @@ export const fh = $root.fh = (() => {
                 $root.fh.ConversationUpdatedDelivery.encode(message.conversationUpdated, writer.uint32(/* id 11, wireType 2 =*/90).fork(), _depth + 1).ldelim();
             if (message.historyRequestRelay != null && $Object.hasOwnProperty.call(message, "historyRequestRelay"))
                 $root.fh.HistoryRequestRelay.encode(message.historyRequestRelay, writer.uint32(/* id 12, wireType 2 =*/98).fork(), _depth + 1).ldelim();
+            if (message.nudge != null && $Object.hasOwnProperty.call(message, "nudge"))
+                $root.fh.NudgeDelivery.encode(message.nudge, writer.uint32(/* id 13, wireType 2 =*/106).fork(), _depth + 1).ldelim();
+            if (message.nudgeResult != null && $Object.hasOwnProperty.call(message, "nudgeResult"))
+                $root.fh.NudgeResult.encode(message.nudgeResult, writer.uint32(/* id 14, wireType 2 =*/114).fork(), _depth + 1).ldelim();
+            if (message.conversationExpired != null && $Object.hasOwnProperty.call(message, "conversationExpired"))
+                $root.fh.ConversationExpiredDelivery.encode(message.conversationExpired, writer.uint32(/* id 15, wireType 2 =*/122).fork(), _depth + 1).ldelim();
+            if (message.scheduledCreated != null && $Object.hasOwnProperty.call(message, "scheduledCreated"))
+                $root.fh.ScheduledEnvelopeCreated.encode(message.scheduledCreated, writer.uint32(/* id 16, wireType 2 =*/130).fork(), _depth + 1).ldelim();
+            if (message.scheduledCancelled != null && $Object.hasOwnProperty.call(message, "scheduledCancelled"))
+                $root.fh.ScheduledEnvelopeCancelled.encode(message.scheduledCancelled, writer.uint32(/* id 17, wireType 2 =*/138).fork(), _depth + 1).ldelim();
+            if (message.foldersUpdated != null && $Object.hasOwnProperty.call(message, "foldersUpdated"))
+                $root.fh.FoldersUpdated.encode(message.foldersUpdated, writer.uint32(/* id 18, wireType 2 =*/146).fork(), _depth + 1).ldelim();
             if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
                 for (let i = 0; i < message.$unknowns.length; ++i)
                     writer.raw(message.$unknowns[i]);
@@ -3336,6 +3492,48 @@ export const fh = $root.fh = (() => {
                             break;
                         message.historyRequestRelay = $root.fh.HistoryRequestRelay.decode(reader, reader.uint32(), $undefined, _depth + 1, message.historyRequestRelay);
                         message.kind = "historyRequestRelay";
+                        continue;
+                    }
+                case 13: {
+                        if (wireType !== 2)
+                            break;
+                        message.nudge = $root.fh.NudgeDelivery.decode(reader, reader.uint32(), $undefined, _depth + 1, message.nudge);
+                        message.kind = "nudge";
+                        continue;
+                    }
+                case 14: {
+                        if (wireType !== 2)
+                            break;
+                        message.nudgeResult = $root.fh.NudgeResult.decode(reader, reader.uint32(), $undefined, _depth + 1, message.nudgeResult);
+                        message.kind = "nudgeResult";
+                        continue;
+                    }
+                case 15: {
+                        if (wireType !== 2)
+                            break;
+                        message.conversationExpired = $root.fh.ConversationExpiredDelivery.decode(reader, reader.uint32(), $undefined, _depth + 1, message.conversationExpired);
+                        message.kind = "conversationExpired";
+                        continue;
+                    }
+                case 16: {
+                        if (wireType !== 2)
+                            break;
+                        message.scheduledCreated = $root.fh.ScheduledEnvelopeCreated.decode(reader, reader.uint32(), $undefined, _depth + 1, message.scheduledCreated);
+                        message.kind = "scheduledCreated";
+                        continue;
+                    }
+                case 17: {
+                        if (wireType !== 2)
+                            break;
+                        message.scheduledCancelled = $root.fh.ScheduledEnvelopeCancelled.decode(reader, reader.uint32(), $undefined, _depth + 1, message.scheduledCancelled);
+                        message.kind = "scheduledCancelled";
+                        continue;
+                    }
+                case 18: {
+                        if (wireType !== 2)
+                            break;
+                        message.foldersUpdated = $root.fh.FoldersUpdated.decode(reader, reader.uint32(), $undefined, _depth + 1, message.foldersUpdated);
+                        message.kind = "foldersUpdated";
                         continue;
                     }
                 }
@@ -3505,6 +3703,66 @@ export const fh = $root.fh = (() => {
                         return "historyRequestRelay." + error;
                 }
             }
+            if (message.nudge != null && $Object.hasOwnProperty.call(message, "nudge")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                {
+                    let error = $root.fh.NudgeDelivery.verify(message.nudge, _depth + 1);
+                    if (error)
+                        return "nudge." + error;
+                }
+            }
+            if (message.nudgeResult != null && $Object.hasOwnProperty.call(message, "nudgeResult")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                {
+                    let error = $root.fh.NudgeResult.verify(message.nudgeResult, _depth + 1);
+                    if (error)
+                        return "nudgeResult." + error;
+                }
+            }
+            if (message.conversationExpired != null && $Object.hasOwnProperty.call(message, "conversationExpired")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                {
+                    let error = $root.fh.ConversationExpiredDelivery.verify(message.conversationExpired, _depth + 1);
+                    if (error)
+                        return "conversationExpired." + error;
+                }
+            }
+            if (message.scheduledCreated != null && $Object.hasOwnProperty.call(message, "scheduledCreated")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                {
+                    let error = $root.fh.ScheduledEnvelopeCreated.verify(message.scheduledCreated, _depth + 1);
+                    if (error)
+                        return "scheduledCreated." + error;
+                }
+            }
+            if (message.scheduledCancelled != null && $Object.hasOwnProperty.call(message, "scheduledCancelled")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                {
+                    let error = $root.fh.ScheduledEnvelopeCancelled.verify(message.scheduledCancelled, _depth + 1);
+                    if (error)
+                        return "scheduledCancelled." + error;
+                }
+            }
+            if (message.foldersUpdated != null && $Object.hasOwnProperty.call(message, "foldersUpdated")) {
+                if (properties.kind === 1)
+                    return "kind: multiple values";
+                properties.kind = 1;
+                {
+                    let error = $root.fh.FoldersUpdated.verify(message.foldersUpdated, _depth + 1);
+                    if (error)
+                        return "foldersUpdated." + error;
+                }
+            }
             return null;
         };
 
@@ -3586,6 +3844,36 @@ export const fh = $root.fh = (() => {
                     throw $TypeError(".fh.ServerFrame.historyRequestRelay: object expected");
                 message.historyRequestRelay = $root.fh.HistoryRequestRelay.fromObject(object.historyRequestRelay, _depth + 1);
             }
+            if (object.nudge != null) {
+                if (!$util.isObject(object.nudge))
+                    throw $TypeError(".fh.ServerFrame.nudge: object expected");
+                message.nudge = $root.fh.NudgeDelivery.fromObject(object.nudge, _depth + 1);
+            }
+            if (object.nudgeResult != null) {
+                if (!$util.isObject(object.nudgeResult))
+                    throw $TypeError(".fh.ServerFrame.nudgeResult: object expected");
+                message.nudgeResult = $root.fh.NudgeResult.fromObject(object.nudgeResult, _depth + 1);
+            }
+            if (object.conversationExpired != null) {
+                if (!$util.isObject(object.conversationExpired))
+                    throw $TypeError(".fh.ServerFrame.conversationExpired: object expected");
+                message.conversationExpired = $root.fh.ConversationExpiredDelivery.fromObject(object.conversationExpired, _depth + 1);
+            }
+            if (object.scheduledCreated != null) {
+                if (!$util.isObject(object.scheduledCreated))
+                    throw $TypeError(".fh.ServerFrame.scheduledCreated: object expected");
+                message.scheduledCreated = $root.fh.ScheduledEnvelopeCreated.fromObject(object.scheduledCreated, _depth + 1);
+            }
+            if (object.scheduledCancelled != null) {
+                if (!$util.isObject(object.scheduledCancelled))
+                    throw $TypeError(".fh.ServerFrame.scheduledCancelled: object expected");
+                message.scheduledCancelled = $root.fh.ScheduledEnvelopeCancelled.fromObject(object.scheduledCancelled, _depth + 1);
+            }
+            if (object.foldersUpdated != null) {
+                if (!$util.isObject(object.foldersUpdated))
+                    throw $TypeError(".fh.ServerFrame.foldersUpdated: object expected");
+                message.foldersUpdated = $root.fh.FoldersUpdated.fromObject(object.foldersUpdated, _depth + 1);
+            }
             return message;
         };
 
@@ -3665,6 +3953,36 @@ export const fh = $root.fh = (() => {
                 object.historyRequestRelay = $root.fh.HistoryRequestRelay.toObject(message.historyRequestRelay, options, _depth + 1);
                 if (options.oneofs)
                     object.kind = "historyRequestRelay";
+            }
+            if (message.nudge != null && $Object.hasOwnProperty.call(message, "nudge")) {
+                object.nudge = $root.fh.NudgeDelivery.toObject(message.nudge, options, _depth + 1);
+                if (options.oneofs)
+                    object.kind = "nudge";
+            }
+            if (message.nudgeResult != null && $Object.hasOwnProperty.call(message, "nudgeResult")) {
+                object.nudgeResult = $root.fh.NudgeResult.toObject(message.nudgeResult, options, _depth + 1);
+                if (options.oneofs)
+                    object.kind = "nudgeResult";
+            }
+            if (message.conversationExpired != null && $Object.hasOwnProperty.call(message, "conversationExpired")) {
+                object.conversationExpired = $root.fh.ConversationExpiredDelivery.toObject(message.conversationExpired, options, _depth + 1);
+                if (options.oneofs)
+                    object.kind = "conversationExpired";
+            }
+            if (message.scheduledCreated != null && $Object.hasOwnProperty.call(message, "scheduledCreated")) {
+                object.scheduledCreated = $root.fh.ScheduledEnvelopeCreated.toObject(message.scheduledCreated, options, _depth + 1);
+                if (options.oneofs)
+                    object.kind = "scheduledCreated";
+            }
+            if (message.scheduledCancelled != null && $Object.hasOwnProperty.call(message, "scheduledCancelled")) {
+                object.scheduledCancelled = $root.fh.ScheduledEnvelopeCancelled.toObject(message.scheduledCancelled, options, _depth + 1);
+                if (options.oneofs)
+                    object.kind = "scheduledCancelled";
+            }
+            if (message.foldersUpdated != null && $Object.hasOwnProperty.call(message, "foldersUpdated")) {
+                object.foldersUpdated = $root.fh.FoldersUpdated.toObject(message.foldersUpdated, options, _depth + 1);
+                if (options.oneofs)
+                    object.kind = "foldersUpdated";
             }
             return object;
         };
@@ -8636,6 +8954,2147 @@ export const fh = $root.fh = (() => {
         };
 
         return HistoryRequestRelay;
+    })();
+
+    fh.Nudge = (function() {
+
+        /**
+         * Properties of a Nudge.
+         * @typedef {Object} fh.Nudge.$Properties
+         * @property {Uint8Array|null} [conversationId] Nudge conversationId
+         * @property {Uint8Array|null} [targetAccountId] Nudge targetAccountId
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+
+        /**
+         * Properties of a Nudge.
+         * @memberof fh
+         * @interface INudge
+         * @augments fh.Nudge.$Properties
+         * @deprecated Use fh.Nudge.$Properties instead.
+         */
+
+        /**
+         * Shape of a Nudge.
+         * @typedef {fh.Nudge.$Properties} fh.Nudge.$Shape
+         */
+
+        /**
+         * Constructs a new Nudge.
+         * @memberof fh
+         * @classdesc Represents a Nudge.
+         * @constructor
+         * @param {fh.Nudge.$Properties=} [properties] Properties to set
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+        const Nudge = function (properties) {
+            if (properties)
+                for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                        this[keys[i]] = properties[keys[i]];
+        };
+
+        /**
+         * Nudge conversationId.
+         * @member {Uint8Array} conversationId
+         * @memberof fh.Nudge
+         * @instance
+         */
+        Nudge.prototype.conversationId = $util.newBuffer([]);
+
+        /**
+         * Nudge targetAccountId.
+         * @member {Uint8Array} targetAccountId
+         * @memberof fh.Nudge
+         * @instance
+         */
+        Nudge.prototype.targetAccountId = $util.newBuffer([]);
+
+        /**
+         * Creates a new Nudge instance using the specified properties.
+         * @function create
+         * @memberof fh.Nudge
+         * @static
+         * @param {fh.Nudge.$Properties=} [properties] Properties to set
+         * @returns {fh.Nudge} Nudge instance
+         * @type {{
+         *   (properties: fh.Nudge.$Shape): fh.Nudge & fh.Nudge.$Shape;
+         *   (properties?: fh.Nudge.$Properties): fh.Nudge;
+         * }}
+         */
+        Nudge.create = function(properties) {
+            return new Nudge(properties);
+        };
+
+        /**
+         * Encodes the specified Nudge message. Does not implicitly {@link fh.Nudge.verify|verify} messages.
+         * @function encode
+         * @memberof fh.Nudge
+         * @static
+         * @param {fh.Nudge.$Properties} message Nudge message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        Nudge.encode = function (message, writer, _depth) {
+            if (!writer)
+                writer = $Writer.create();
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId") && message.conversationId.length)
+                writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.conversationId);
+            if (message.targetAccountId != null && $Object.hasOwnProperty.call(message, "targetAccountId") && message.targetAccountId.length)
+                writer.uint32(/* id 2, wireType 2 =*/18).bytes(message.targetAccountId);
+            if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified Nudge message, length delimited. Does not implicitly {@link fh.Nudge.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof fh.Nudge
+         * @static
+         * @param {fh.Nudge.$Properties} message Nudge message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        Nudge.encodeDelimited = function(message, writer) {
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+        };
+
+        /**
+         * Decodes a Nudge message from the specified reader or buffer.
+         * @function decode
+         * @memberof fh.Nudge
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {fh.Nudge & fh.Nudge.$Shape} Nudge
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        Nudge.decode = function (reader, length, _end, _depth, _target) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw $Error("max depth exceeded");
+            let end, message, value;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.fh.Nudge();
+            while (reader.pos < end) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = $undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 2)
+                            break;
+                        if ((value = reader.bytes()).length)
+                            message.conversationId = value;
+                        else
+                            delete message.conversationId;
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 2)
+                            break;
+                        if ((value = reader.bytes()).length)
+                            message.targetAccountId = value;
+                        else
+                            delete message.targetAccountId;
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                if (!reader.discardUnknown) {
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                }
+            }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
+            if (_end !== $undefined)
+                throw $Error("missing end group");
+            return message;
+        };
+
+        /**
+         * Decodes a Nudge message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof fh.Nudge
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {fh.Nudge & fh.Nudge.$Shape} Nudge
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        Nudge.decodeDelimited = function(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a Nudge message.
+         * @function verify
+         * @memberof fh.Nudge
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        Nudge.verify = function (message, _depth) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                return "max depth exceeded";
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId"))
+                if (!(message.conversationId && typeof message.conversationId.length === "number" || $util.isString(message.conversationId)))
+                    return "conversationId: buffer expected";
+            if (message.targetAccountId != null && $Object.hasOwnProperty.call(message, "targetAccountId"))
+                if (!(message.targetAccountId && typeof message.targetAccountId.length === "number" || $util.isString(message.targetAccountId)))
+                    return "targetAccountId: buffer expected";
+            return null;
+        };
+
+        /**
+         * Creates a Nudge message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof fh.Nudge
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {fh.Nudge} Nudge
+         */
+        Nudge.fromObject = function (object, _depth) {
+            if (object instanceof $root.fh.Nudge)
+                return object;
+            if (!$util.isObject(object))
+                throw $TypeError(".fh.Nudge: object expected");
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let message = new $root.fh.Nudge();
+            if (object.conversationId != null)
+                if (object.conversationId.length)
+                    if (typeof object.conversationId === "string")
+                        $util.base64.decode(object.conversationId, message.conversationId = $util.newBuffer($util.base64.length(object.conversationId)), 0);
+                    else if (object.conversationId.length >= 0)
+                        message.conversationId = object.conversationId;
+            if (object.targetAccountId != null)
+                if (object.targetAccountId.length)
+                    if (typeof object.targetAccountId === "string")
+                        $util.base64.decode(object.targetAccountId, message.targetAccountId = $util.newBuffer($util.base64.length(object.targetAccountId)), 0);
+                    else if (object.targetAccountId.length >= 0)
+                        message.targetAccountId = object.targetAccountId;
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a Nudge message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof fh.Nudge
+         * @static
+         * @param {fh.Nudge} message Nudge
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        Nudge.toObject = function (message, options, _depth) {
+            if (!options)
+                options = {};
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let object = {};
+            if (options.defaults) {
+                if (options.bytes === $String)
+                    object.conversationId = "";
+                else {
+                    object.conversationId = [];
+                    if (options.bytes !== $Array)
+                        object.conversationId = $util.newBuffer(object.conversationId);
+                }
+                if (options.bytes === $String)
+                    object.targetAccountId = "";
+                else {
+                    object.targetAccountId = [];
+                    if (options.bytes !== $Array)
+                        object.targetAccountId = $util.newBuffer(object.targetAccountId);
+                }
+            }
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId"))
+                object.conversationId = options.bytes === $String ? $util.base64.encode(message.conversationId, 0, message.conversationId.length) : options.bytes === $Array ? $Array.prototype.slice.call(message.conversationId) : message.conversationId;
+            if (message.targetAccountId != null && $Object.hasOwnProperty.call(message, "targetAccountId"))
+                object.targetAccountId = options.bytes === $String ? $util.base64.encode(message.targetAccountId, 0, message.targetAccountId.length) : options.bytes === $Array ? $Array.prototype.slice.call(message.targetAccountId) : message.targetAccountId;
+            return object;
+        };
+
+        /**
+         * Converts this Nudge to JSON.
+         * @function toJSON
+         * @memberof fh.Nudge
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        Nudge.prototype.toJSON = function() {
+            return Nudge.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the type url for Nudge
+         * @function getTypeUrl
+         * @memberof fh.Nudge
+         * @static
+         * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns {string} The type url
+         */
+        Nudge.getTypeUrl = function(prefix) {
+            if (prefix === $undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/fh.Nudge";
+        };
+
+        return Nudge;
+    })();
+
+    fh.NudgeDelivery = (function() {
+
+        /**
+         * Properties of a NudgeDelivery.
+         * @typedef {Object} fh.NudgeDelivery.$Properties
+         * @property {Uint8Array|null} [conversationId] NudgeDelivery conversationId
+         * @property {Uint8Array|null} [fromAccountId] NudgeDelivery fromAccountId
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+
+        /**
+         * Properties of a NudgeDelivery.
+         * @memberof fh
+         * @interface INudgeDelivery
+         * @augments fh.NudgeDelivery.$Properties
+         * @deprecated Use fh.NudgeDelivery.$Properties instead.
+         */
+
+        /**
+         * Shape of a NudgeDelivery.
+         * @typedef {fh.NudgeDelivery.$Properties} fh.NudgeDelivery.$Shape
+         */
+
+        /**
+         * Constructs a new NudgeDelivery.
+         * @memberof fh
+         * @classdesc Represents a NudgeDelivery.
+         * @constructor
+         * @param {fh.NudgeDelivery.$Properties=} [properties] Properties to set
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+        const NudgeDelivery = function (properties) {
+            if (properties)
+                for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                        this[keys[i]] = properties[keys[i]];
+        };
+
+        /**
+         * NudgeDelivery conversationId.
+         * @member {Uint8Array} conversationId
+         * @memberof fh.NudgeDelivery
+         * @instance
+         */
+        NudgeDelivery.prototype.conversationId = $util.newBuffer([]);
+
+        /**
+         * NudgeDelivery fromAccountId.
+         * @member {Uint8Array} fromAccountId
+         * @memberof fh.NudgeDelivery
+         * @instance
+         */
+        NudgeDelivery.prototype.fromAccountId = $util.newBuffer([]);
+
+        /**
+         * Creates a new NudgeDelivery instance using the specified properties.
+         * @function create
+         * @memberof fh.NudgeDelivery
+         * @static
+         * @param {fh.NudgeDelivery.$Properties=} [properties] Properties to set
+         * @returns {fh.NudgeDelivery} NudgeDelivery instance
+         * @type {{
+         *   (properties: fh.NudgeDelivery.$Shape): fh.NudgeDelivery & fh.NudgeDelivery.$Shape;
+         *   (properties?: fh.NudgeDelivery.$Properties): fh.NudgeDelivery;
+         * }}
+         */
+        NudgeDelivery.create = function(properties) {
+            return new NudgeDelivery(properties);
+        };
+
+        /**
+         * Encodes the specified NudgeDelivery message. Does not implicitly {@link fh.NudgeDelivery.verify|verify} messages.
+         * @function encode
+         * @memberof fh.NudgeDelivery
+         * @static
+         * @param {fh.NudgeDelivery.$Properties} message NudgeDelivery message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        NudgeDelivery.encode = function (message, writer, _depth) {
+            if (!writer)
+                writer = $Writer.create();
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId") && message.conversationId.length)
+                writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.conversationId);
+            if (message.fromAccountId != null && $Object.hasOwnProperty.call(message, "fromAccountId") && message.fromAccountId.length)
+                writer.uint32(/* id 2, wireType 2 =*/18).bytes(message.fromAccountId);
+            if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified NudgeDelivery message, length delimited. Does not implicitly {@link fh.NudgeDelivery.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof fh.NudgeDelivery
+         * @static
+         * @param {fh.NudgeDelivery.$Properties} message NudgeDelivery message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        NudgeDelivery.encodeDelimited = function(message, writer) {
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+        };
+
+        /**
+         * Decodes a NudgeDelivery message from the specified reader or buffer.
+         * @function decode
+         * @memberof fh.NudgeDelivery
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {fh.NudgeDelivery & fh.NudgeDelivery.$Shape} NudgeDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        NudgeDelivery.decode = function (reader, length, _end, _depth, _target) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw $Error("max depth exceeded");
+            let end, message, value;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.fh.NudgeDelivery();
+            while (reader.pos < end) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = $undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 2)
+                            break;
+                        if ((value = reader.bytes()).length)
+                            message.conversationId = value;
+                        else
+                            delete message.conversationId;
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 2)
+                            break;
+                        if ((value = reader.bytes()).length)
+                            message.fromAccountId = value;
+                        else
+                            delete message.fromAccountId;
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                if (!reader.discardUnknown) {
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                }
+            }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
+            if (_end !== $undefined)
+                throw $Error("missing end group");
+            return message;
+        };
+
+        /**
+         * Decodes a NudgeDelivery message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof fh.NudgeDelivery
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {fh.NudgeDelivery & fh.NudgeDelivery.$Shape} NudgeDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        NudgeDelivery.decodeDelimited = function(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a NudgeDelivery message.
+         * @function verify
+         * @memberof fh.NudgeDelivery
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        NudgeDelivery.verify = function (message, _depth) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                return "max depth exceeded";
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId"))
+                if (!(message.conversationId && typeof message.conversationId.length === "number" || $util.isString(message.conversationId)))
+                    return "conversationId: buffer expected";
+            if (message.fromAccountId != null && $Object.hasOwnProperty.call(message, "fromAccountId"))
+                if (!(message.fromAccountId && typeof message.fromAccountId.length === "number" || $util.isString(message.fromAccountId)))
+                    return "fromAccountId: buffer expected";
+            return null;
+        };
+
+        /**
+         * Creates a NudgeDelivery message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof fh.NudgeDelivery
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {fh.NudgeDelivery} NudgeDelivery
+         */
+        NudgeDelivery.fromObject = function (object, _depth) {
+            if (object instanceof $root.fh.NudgeDelivery)
+                return object;
+            if (!$util.isObject(object))
+                throw $TypeError(".fh.NudgeDelivery: object expected");
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let message = new $root.fh.NudgeDelivery();
+            if (object.conversationId != null)
+                if (object.conversationId.length)
+                    if (typeof object.conversationId === "string")
+                        $util.base64.decode(object.conversationId, message.conversationId = $util.newBuffer($util.base64.length(object.conversationId)), 0);
+                    else if (object.conversationId.length >= 0)
+                        message.conversationId = object.conversationId;
+            if (object.fromAccountId != null)
+                if (object.fromAccountId.length)
+                    if (typeof object.fromAccountId === "string")
+                        $util.base64.decode(object.fromAccountId, message.fromAccountId = $util.newBuffer($util.base64.length(object.fromAccountId)), 0);
+                    else if (object.fromAccountId.length >= 0)
+                        message.fromAccountId = object.fromAccountId;
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a NudgeDelivery message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof fh.NudgeDelivery
+         * @static
+         * @param {fh.NudgeDelivery} message NudgeDelivery
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        NudgeDelivery.toObject = function (message, options, _depth) {
+            if (!options)
+                options = {};
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let object = {};
+            if (options.defaults) {
+                if (options.bytes === $String)
+                    object.conversationId = "";
+                else {
+                    object.conversationId = [];
+                    if (options.bytes !== $Array)
+                        object.conversationId = $util.newBuffer(object.conversationId);
+                }
+                if (options.bytes === $String)
+                    object.fromAccountId = "";
+                else {
+                    object.fromAccountId = [];
+                    if (options.bytes !== $Array)
+                        object.fromAccountId = $util.newBuffer(object.fromAccountId);
+                }
+            }
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId"))
+                object.conversationId = options.bytes === $String ? $util.base64.encode(message.conversationId, 0, message.conversationId.length) : options.bytes === $Array ? $Array.prototype.slice.call(message.conversationId) : message.conversationId;
+            if (message.fromAccountId != null && $Object.hasOwnProperty.call(message, "fromAccountId"))
+                object.fromAccountId = options.bytes === $String ? $util.base64.encode(message.fromAccountId, 0, message.fromAccountId.length) : options.bytes === $Array ? $Array.prototype.slice.call(message.fromAccountId) : message.fromAccountId;
+            return object;
+        };
+
+        /**
+         * Converts this NudgeDelivery to JSON.
+         * @function toJSON
+         * @memberof fh.NudgeDelivery
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        NudgeDelivery.prototype.toJSON = function() {
+            return NudgeDelivery.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the type url for NudgeDelivery
+         * @function getTypeUrl
+         * @memberof fh.NudgeDelivery
+         * @static
+         * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns {string} The type url
+         */
+        NudgeDelivery.getTypeUrl = function(prefix) {
+            if (prefix === $undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/fh.NudgeDelivery";
+        };
+
+        return NudgeDelivery;
+    })();
+
+    fh.NudgeResult = (function() {
+
+        /**
+         * Properties of a NudgeResult.
+         * @typedef {Object} fh.NudgeResult.$Properties
+         * @property {boolean|null} [delivered] NudgeResult delivered
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+
+        /**
+         * Properties of a NudgeResult.
+         * @memberof fh
+         * @interface INudgeResult
+         * @augments fh.NudgeResult.$Properties
+         * @deprecated Use fh.NudgeResult.$Properties instead.
+         */
+
+        /**
+         * Shape of a NudgeResult.
+         * @typedef {fh.NudgeResult.$Properties} fh.NudgeResult.$Shape
+         */
+
+        /**
+         * Constructs a new NudgeResult.
+         * @memberof fh
+         * @classdesc Represents a NudgeResult.
+         * @constructor
+         * @param {fh.NudgeResult.$Properties=} [properties] Properties to set
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+        const NudgeResult = function (properties) {
+            if (properties)
+                for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                        this[keys[i]] = properties[keys[i]];
+        };
+
+        /**
+         * NudgeResult delivered.
+         * @member {boolean} delivered
+         * @memberof fh.NudgeResult
+         * @instance
+         */
+        NudgeResult.prototype.delivered = false;
+
+        /**
+         * Creates a new NudgeResult instance using the specified properties.
+         * @function create
+         * @memberof fh.NudgeResult
+         * @static
+         * @param {fh.NudgeResult.$Properties=} [properties] Properties to set
+         * @returns {fh.NudgeResult} NudgeResult instance
+         * @type {{
+         *   (properties: fh.NudgeResult.$Shape): fh.NudgeResult & fh.NudgeResult.$Shape;
+         *   (properties?: fh.NudgeResult.$Properties): fh.NudgeResult;
+         * }}
+         */
+        NudgeResult.create = function(properties) {
+            return new NudgeResult(properties);
+        };
+
+        /**
+         * Encodes the specified NudgeResult message. Does not implicitly {@link fh.NudgeResult.verify|verify} messages.
+         * @function encode
+         * @memberof fh.NudgeResult
+         * @static
+         * @param {fh.NudgeResult.$Properties} message NudgeResult message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        NudgeResult.encode = function (message, writer, _depth) {
+            if (!writer)
+                writer = $Writer.create();
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            if (message.delivered != null && $Object.hasOwnProperty.call(message, "delivered") && message.delivered !== false)
+                writer.uint32(/* id 1, wireType 0 =*/8).bool(message.delivered);
+            if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified NudgeResult message, length delimited. Does not implicitly {@link fh.NudgeResult.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof fh.NudgeResult
+         * @static
+         * @param {fh.NudgeResult.$Properties} message NudgeResult message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        NudgeResult.encodeDelimited = function(message, writer) {
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+        };
+
+        /**
+         * Decodes a NudgeResult message from the specified reader or buffer.
+         * @function decode
+         * @memberof fh.NudgeResult
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {fh.NudgeResult & fh.NudgeResult.$Shape} NudgeResult
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        NudgeResult.decode = function (reader, length, _end, _depth, _target) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw $Error("max depth exceeded");
+            let end, message, value;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.fh.NudgeResult();
+            while (reader.pos < end) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = $undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 0)
+                            break;
+                        if (value = reader.bool())
+                            message.delivered = value;
+                        else
+                            delete message.delivered;
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                if (!reader.discardUnknown) {
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                }
+            }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
+            if (_end !== $undefined)
+                throw $Error("missing end group");
+            return message;
+        };
+
+        /**
+         * Decodes a NudgeResult message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof fh.NudgeResult
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {fh.NudgeResult & fh.NudgeResult.$Shape} NudgeResult
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        NudgeResult.decodeDelimited = function(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a NudgeResult message.
+         * @function verify
+         * @memberof fh.NudgeResult
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        NudgeResult.verify = function (message, _depth) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                return "max depth exceeded";
+            if (message.delivered != null && $Object.hasOwnProperty.call(message, "delivered"))
+                if (typeof message.delivered !== "boolean")
+                    return "delivered: boolean expected";
+            return null;
+        };
+
+        /**
+         * Creates a NudgeResult message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof fh.NudgeResult
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {fh.NudgeResult} NudgeResult
+         */
+        NudgeResult.fromObject = function (object, _depth) {
+            if (object instanceof $root.fh.NudgeResult)
+                return object;
+            if (!$util.isObject(object))
+                throw $TypeError(".fh.NudgeResult: object expected");
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let message = new $root.fh.NudgeResult();
+            if (object.delivered != null)
+                if (object.delivered)
+                    message.delivered = $Boolean(object.delivered);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a NudgeResult message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof fh.NudgeResult
+         * @static
+         * @param {fh.NudgeResult} message NudgeResult
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        NudgeResult.toObject = function (message, options, _depth) {
+            if (!options)
+                options = {};
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let object = {};
+            if (options.defaults)
+                object.delivered = false;
+            if (message.delivered != null && $Object.hasOwnProperty.call(message, "delivered"))
+                object.delivered = message.delivered;
+            return object;
+        };
+
+        /**
+         * Converts this NudgeResult to JSON.
+         * @function toJSON
+         * @memberof fh.NudgeResult
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        NudgeResult.prototype.toJSON = function() {
+            return NudgeResult.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the type url for NudgeResult
+         * @function getTypeUrl
+         * @memberof fh.NudgeResult
+         * @static
+         * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns {string} The type url
+         */
+        NudgeResult.getTypeUrl = function(prefix) {
+            if (prefix === $undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/fh.NudgeResult";
+        };
+
+        return NudgeResult;
+    })();
+
+    fh.ConversationExpiredDelivery = (function() {
+
+        /**
+         * Properties of a ConversationExpiredDelivery.
+         * @typedef {Object} fh.ConversationExpiredDelivery.$Properties
+         * @property {Uint8Array|null} [conversationId] ConversationExpiredDelivery conversationId
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+
+        /**
+         * Properties of a ConversationExpiredDelivery.
+         * @memberof fh
+         * @interface IConversationExpiredDelivery
+         * @augments fh.ConversationExpiredDelivery.$Properties
+         * @deprecated Use fh.ConversationExpiredDelivery.$Properties instead.
+         */
+
+        /**
+         * Shape of a ConversationExpiredDelivery.
+         * @typedef {fh.ConversationExpiredDelivery.$Properties} fh.ConversationExpiredDelivery.$Shape
+         */
+
+        /**
+         * Constructs a new ConversationExpiredDelivery.
+         * @memberof fh
+         * @classdesc Represents a ConversationExpiredDelivery.
+         * @constructor
+         * @param {fh.ConversationExpiredDelivery.$Properties=} [properties] Properties to set
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+        const ConversationExpiredDelivery = function (properties) {
+            if (properties)
+                for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                        this[keys[i]] = properties[keys[i]];
+        };
+
+        /**
+         * ConversationExpiredDelivery conversationId.
+         * @member {Uint8Array} conversationId
+         * @memberof fh.ConversationExpiredDelivery
+         * @instance
+         */
+        ConversationExpiredDelivery.prototype.conversationId = $util.newBuffer([]);
+
+        /**
+         * Creates a new ConversationExpiredDelivery instance using the specified properties.
+         * @function create
+         * @memberof fh.ConversationExpiredDelivery
+         * @static
+         * @param {fh.ConversationExpiredDelivery.$Properties=} [properties] Properties to set
+         * @returns {fh.ConversationExpiredDelivery} ConversationExpiredDelivery instance
+         * @type {{
+         *   (properties: fh.ConversationExpiredDelivery.$Shape): fh.ConversationExpiredDelivery & fh.ConversationExpiredDelivery.$Shape;
+         *   (properties?: fh.ConversationExpiredDelivery.$Properties): fh.ConversationExpiredDelivery;
+         * }}
+         */
+        ConversationExpiredDelivery.create = function(properties) {
+            return new ConversationExpiredDelivery(properties);
+        };
+
+        /**
+         * Encodes the specified ConversationExpiredDelivery message. Does not implicitly {@link fh.ConversationExpiredDelivery.verify|verify} messages.
+         * @function encode
+         * @memberof fh.ConversationExpiredDelivery
+         * @static
+         * @param {fh.ConversationExpiredDelivery.$Properties} message ConversationExpiredDelivery message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ConversationExpiredDelivery.encode = function (message, writer, _depth) {
+            if (!writer)
+                writer = $Writer.create();
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId") && message.conversationId.length)
+                writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.conversationId);
+            if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified ConversationExpiredDelivery message, length delimited. Does not implicitly {@link fh.ConversationExpiredDelivery.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof fh.ConversationExpiredDelivery
+         * @static
+         * @param {fh.ConversationExpiredDelivery.$Properties} message ConversationExpiredDelivery message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ConversationExpiredDelivery.encodeDelimited = function(message, writer) {
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+        };
+
+        /**
+         * Decodes a ConversationExpiredDelivery message from the specified reader or buffer.
+         * @function decode
+         * @memberof fh.ConversationExpiredDelivery
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {fh.ConversationExpiredDelivery & fh.ConversationExpiredDelivery.$Shape} ConversationExpiredDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ConversationExpiredDelivery.decode = function (reader, length, _end, _depth, _target) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw $Error("max depth exceeded");
+            let end, message, value;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.fh.ConversationExpiredDelivery();
+            while (reader.pos < end) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = $undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 2)
+                            break;
+                        if ((value = reader.bytes()).length)
+                            message.conversationId = value;
+                        else
+                            delete message.conversationId;
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                if (!reader.discardUnknown) {
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                }
+            }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
+            if (_end !== $undefined)
+                throw $Error("missing end group");
+            return message;
+        };
+
+        /**
+         * Decodes a ConversationExpiredDelivery message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof fh.ConversationExpiredDelivery
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {fh.ConversationExpiredDelivery & fh.ConversationExpiredDelivery.$Shape} ConversationExpiredDelivery
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ConversationExpiredDelivery.decodeDelimited = function(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a ConversationExpiredDelivery message.
+         * @function verify
+         * @memberof fh.ConversationExpiredDelivery
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        ConversationExpiredDelivery.verify = function (message, _depth) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                return "max depth exceeded";
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId"))
+                if (!(message.conversationId && typeof message.conversationId.length === "number" || $util.isString(message.conversationId)))
+                    return "conversationId: buffer expected";
+            return null;
+        };
+
+        /**
+         * Creates a ConversationExpiredDelivery message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof fh.ConversationExpiredDelivery
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {fh.ConversationExpiredDelivery} ConversationExpiredDelivery
+         */
+        ConversationExpiredDelivery.fromObject = function (object, _depth) {
+            if (object instanceof $root.fh.ConversationExpiredDelivery)
+                return object;
+            if (!$util.isObject(object))
+                throw $TypeError(".fh.ConversationExpiredDelivery: object expected");
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let message = new $root.fh.ConversationExpiredDelivery();
+            if (object.conversationId != null)
+                if (object.conversationId.length)
+                    if (typeof object.conversationId === "string")
+                        $util.base64.decode(object.conversationId, message.conversationId = $util.newBuffer($util.base64.length(object.conversationId)), 0);
+                    else if (object.conversationId.length >= 0)
+                        message.conversationId = object.conversationId;
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a ConversationExpiredDelivery message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof fh.ConversationExpiredDelivery
+         * @static
+         * @param {fh.ConversationExpiredDelivery} message ConversationExpiredDelivery
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        ConversationExpiredDelivery.toObject = function (message, options, _depth) {
+            if (!options)
+                options = {};
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let object = {};
+            if (options.defaults)
+                if (options.bytes === $String)
+                    object.conversationId = "";
+                else {
+                    object.conversationId = [];
+                    if (options.bytes !== $Array)
+                        object.conversationId = $util.newBuffer(object.conversationId);
+                }
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId"))
+                object.conversationId = options.bytes === $String ? $util.base64.encode(message.conversationId, 0, message.conversationId.length) : options.bytes === $Array ? $Array.prototype.slice.call(message.conversationId) : message.conversationId;
+            return object;
+        };
+
+        /**
+         * Converts this ConversationExpiredDelivery to JSON.
+         * @function toJSON
+         * @memberof fh.ConversationExpiredDelivery
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        ConversationExpiredDelivery.prototype.toJSON = function() {
+            return ConversationExpiredDelivery.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the type url for ConversationExpiredDelivery
+         * @function getTypeUrl
+         * @memberof fh.ConversationExpiredDelivery
+         * @static
+         * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns {string} The type url
+         */
+        ConversationExpiredDelivery.getTypeUrl = function(prefix) {
+            if (prefix === $undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/fh.ConversationExpiredDelivery";
+        };
+
+        return ConversationExpiredDelivery;
+    })();
+
+    fh.ScheduledEnvelopeCreated = (function() {
+
+        /**
+         * Properties of a ScheduledEnvelopeCreated.
+         * @typedef {Object} fh.ScheduledEnvelopeCreated.$Properties
+         * @property {Uint8Array|null} [envelopeId] ScheduledEnvelopeCreated envelopeId
+         * @property {Uint8Array|null} [conversationId] ScheduledEnvelopeCreated conversationId
+         * @property {number|Long|null} [sendAt] ScheduledEnvelopeCreated sendAt
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+
+        /**
+         * Properties of a ScheduledEnvelopeCreated.
+         * @memberof fh
+         * @interface IScheduledEnvelopeCreated
+         * @augments fh.ScheduledEnvelopeCreated.$Properties
+         * @deprecated Use fh.ScheduledEnvelopeCreated.$Properties instead.
+         */
+
+        /**
+         * Shape of a ScheduledEnvelopeCreated.
+         * @typedef {fh.ScheduledEnvelopeCreated.$Properties} fh.ScheduledEnvelopeCreated.$Shape
+         */
+
+        /**
+         * Constructs a new ScheduledEnvelopeCreated.
+         * @memberof fh
+         * @classdesc Represents a ScheduledEnvelopeCreated.
+         * @constructor
+         * @param {fh.ScheduledEnvelopeCreated.$Properties=} [properties] Properties to set
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+        const ScheduledEnvelopeCreated = function (properties) {
+            if (properties)
+                for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                        this[keys[i]] = properties[keys[i]];
+        };
+
+        /**
+         * ScheduledEnvelopeCreated envelopeId.
+         * @member {Uint8Array} envelopeId
+         * @memberof fh.ScheduledEnvelopeCreated
+         * @instance
+         */
+        ScheduledEnvelopeCreated.prototype.envelopeId = $util.newBuffer([]);
+
+        /**
+         * ScheduledEnvelopeCreated conversationId.
+         * @member {Uint8Array} conversationId
+         * @memberof fh.ScheduledEnvelopeCreated
+         * @instance
+         */
+        ScheduledEnvelopeCreated.prototype.conversationId = $util.newBuffer([]);
+
+        /**
+         * ScheduledEnvelopeCreated sendAt.
+         * @member {number|Long} sendAt
+         * @memberof fh.ScheduledEnvelopeCreated
+         * @instance
+         */
+        ScheduledEnvelopeCreated.prototype.sendAt = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+
+        /**
+         * Creates a new ScheduledEnvelopeCreated instance using the specified properties.
+         * @function create
+         * @memberof fh.ScheduledEnvelopeCreated
+         * @static
+         * @param {fh.ScheduledEnvelopeCreated.$Properties=} [properties] Properties to set
+         * @returns {fh.ScheduledEnvelopeCreated} ScheduledEnvelopeCreated instance
+         * @type {{
+         *   (properties: fh.ScheduledEnvelopeCreated.$Shape): fh.ScheduledEnvelopeCreated & fh.ScheduledEnvelopeCreated.$Shape;
+         *   (properties?: fh.ScheduledEnvelopeCreated.$Properties): fh.ScheduledEnvelopeCreated;
+         * }}
+         */
+        ScheduledEnvelopeCreated.create = function(properties) {
+            return new ScheduledEnvelopeCreated(properties);
+        };
+
+        /**
+         * Encodes the specified ScheduledEnvelopeCreated message. Does not implicitly {@link fh.ScheduledEnvelopeCreated.verify|verify} messages.
+         * @function encode
+         * @memberof fh.ScheduledEnvelopeCreated
+         * @static
+         * @param {fh.ScheduledEnvelopeCreated.$Properties} message ScheduledEnvelopeCreated message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ScheduledEnvelopeCreated.encode = function (message, writer, _depth) {
+            if (!writer)
+                writer = $Writer.create();
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            if (message.envelopeId != null && $Object.hasOwnProperty.call(message, "envelopeId") && message.envelopeId.length)
+                writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.envelopeId);
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId") && message.conversationId.length)
+                writer.uint32(/* id 2, wireType 2 =*/18).bytes(message.conversationId);
+            if (message.sendAt != null && $Object.hasOwnProperty.call(message, "sendAt") && (typeof message.sendAt === "object" ? message.sendAt.low || message.sendAt.high : message.sendAt !== 0))
+                writer.uint32(/* id 3, wireType 0 =*/24).int64(message.sendAt);
+            if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified ScheduledEnvelopeCreated message, length delimited. Does not implicitly {@link fh.ScheduledEnvelopeCreated.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof fh.ScheduledEnvelopeCreated
+         * @static
+         * @param {fh.ScheduledEnvelopeCreated.$Properties} message ScheduledEnvelopeCreated message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ScheduledEnvelopeCreated.encodeDelimited = function(message, writer) {
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+        };
+
+        /**
+         * Decodes a ScheduledEnvelopeCreated message from the specified reader or buffer.
+         * @function decode
+         * @memberof fh.ScheduledEnvelopeCreated
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {fh.ScheduledEnvelopeCreated & fh.ScheduledEnvelopeCreated.$Shape} ScheduledEnvelopeCreated
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ScheduledEnvelopeCreated.decode = function (reader, length, _end, _depth, _target) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw $Error("max depth exceeded");
+            let end, message, value;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.fh.ScheduledEnvelopeCreated();
+            while (reader.pos < end) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = $undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 2)
+                            break;
+                        if ((value = reader.bytes()).length)
+                            message.envelopeId = value;
+                        else
+                            delete message.envelopeId;
+                        continue;
+                    }
+                case 2: {
+                        if (wireType !== 2)
+                            break;
+                        if ((value = reader.bytes()).length)
+                            message.conversationId = value;
+                        else
+                            delete message.conversationId;
+                        continue;
+                    }
+                case 3: {
+                        if (wireType !== 0)
+                            break;
+                        if (typeof (value = reader.int64()) === "object" ? value.low || value.high : value !== 0)
+                            message.sendAt = value;
+                        else
+                            delete message.sendAt;
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                if (!reader.discardUnknown) {
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                }
+            }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
+            if (_end !== $undefined)
+                throw $Error("missing end group");
+            return message;
+        };
+
+        /**
+         * Decodes a ScheduledEnvelopeCreated message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof fh.ScheduledEnvelopeCreated
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {fh.ScheduledEnvelopeCreated & fh.ScheduledEnvelopeCreated.$Shape} ScheduledEnvelopeCreated
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ScheduledEnvelopeCreated.decodeDelimited = function(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a ScheduledEnvelopeCreated message.
+         * @function verify
+         * @memberof fh.ScheduledEnvelopeCreated
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        ScheduledEnvelopeCreated.verify = function (message, _depth) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                return "max depth exceeded";
+            if (message.envelopeId != null && $Object.hasOwnProperty.call(message, "envelopeId"))
+                if (!(message.envelopeId && typeof message.envelopeId.length === "number" || $util.isString(message.envelopeId)))
+                    return "envelopeId: buffer expected";
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId"))
+                if (!(message.conversationId && typeof message.conversationId.length === "number" || $util.isString(message.conversationId)))
+                    return "conversationId: buffer expected";
+            if (message.sendAt != null && $Object.hasOwnProperty.call(message, "sendAt"))
+                if (!$util.isInteger(message.sendAt) && !(message.sendAt && $util.isInteger(message.sendAt.low) && $util.isInteger(message.sendAt.high)))
+                    return "sendAt: integer|Long expected";
+            return null;
+        };
+
+        /**
+         * Creates a ScheduledEnvelopeCreated message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof fh.ScheduledEnvelopeCreated
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {fh.ScheduledEnvelopeCreated} ScheduledEnvelopeCreated
+         */
+        ScheduledEnvelopeCreated.fromObject = function (object, _depth) {
+            if (object instanceof $root.fh.ScheduledEnvelopeCreated)
+                return object;
+            if (!$util.isObject(object))
+                throw $TypeError(".fh.ScheduledEnvelopeCreated: object expected");
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let message = new $root.fh.ScheduledEnvelopeCreated();
+            if (object.envelopeId != null)
+                if (object.envelopeId.length)
+                    if (typeof object.envelopeId === "string")
+                        $util.base64.decode(object.envelopeId, message.envelopeId = $util.newBuffer($util.base64.length(object.envelopeId)), 0);
+                    else if (object.envelopeId.length >= 0)
+                        message.envelopeId = object.envelopeId;
+            if (object.conversationId != null)
+                if (object.conversationId.length)
+                    if (typeof object.conversationId === "string")
+                        $util.base64.decode(object.conversationId, message.conversationId = $util.newBuffer($util.base64.length(object.conversationId)), 0);
+                    else if (object.conversationId.length >= 0)
+                        message.conversationId = object.conversationId;
+            if (object.sendAt != null)
+                if (typeof object.sendAt === "object" ? object.sendAt.low || object.sendAt.high : $Number(object.sendAt) !== 0)
+                    if ($util.Long)
+                        message.sendAt = $util.Long.fromValue(object.sendAt, false);
+                    else if (typeof object.sendAt === "string")
+                        message.sendAt = $parseInt(object.sendAt, 10);
+                    else if (typeof object.sendAt === "number")
+                        message.sendAt = object.sendAt;
+                    else if (typeof object.sendAt === "object")
+                        message.sendAt = new $util.LongBits(object.sendAt.low >>> 0, object.sendAt.high >>> 0).toNumber();
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a ScheduledEnvelopeCreated message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof fh.ScheduledEnvelopeCreated
+         * @static
+         * @param {fh.ScheduledEnvelopeCreated} message ScheduledEnvelopeCreated
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        ScheduledEnvelopeCreated.toObject = function (message, options, _depth) {
+            if (!options)
+                options = {};
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let object = {};
+            if (options.defaults) {
+                if (options.bytes === $String)
+                    object.envelopeId = "";
+                else {
+                    object.envelopeId = [];
+                    if (options.bytes !== $Array)
+                        object.envelopeId = $util.newBuffer(object.envelopeId);
+                }
+                if (options.bytes === $String)
+                    object.conversationId = "";
+                else {
+                    object.conversationId = [];
+                    if (options.bytes !== $Array)
+                        object.conversationId = $util.newBuffer(object.conversationId);
+                }
+                if ($util.Long) {
+                    let long = new $util.Long(0, 0, false);
+                    object.sendAt = options.longs === $String ? long.toString() : options.longs === $Number ? long.toNumber() : typeof $BigInt !== "undefined" && options.longs === $BigInt ? long.toBigInt() : long;
+                } else
+                    object.sendAt = options.longs === $String ? "0" : typeof $BigInt !== "undefined" && options.longs === $BigInt ? $BigInt("0") : 0;
+            }
+            if (message.envelopeId != null && $Object.hasOwnProperty.call(message, "envelopeId"))
+                object.envelopeId = options.bytes === $String ? $util.base64.encode(message.envelopeId, 0, message.envelopeId.length) : options.bytes === $Array ? $Array.prototype.slice.call(message.envelopeId) : message.envelopeId;
+            if (message.conversationId != null && $Object.hasOwnProperty.call(message, "conversationId"))
+                object.conversationId = options.bytes === $String ? $util.base64.encode(message.conversationId, 0, message.conversationId.length) : options.bytes === $Array ? $Array.prototype.slice.call(message.conversationId) : message.conversationId;
+            if (message.sendAt != null && $Object.hasOwnProperty.call(message, "sendAt"))
+                if (typeof $BigInt !== "undefined" && options.longs === $BigInt)
+                    object.sendAt = typeof message.sendAt === "number" ? $BigInt(message.sendAt) : $util.Long.fromBits(message.sendAt.low >>> 0, message.sendAt.high >>> 0, false).toBigInt();
+                else if (typeof message.sendAt === "number")
+                    object.sendAt = options.longs === $String ? $String(message.sendAt) : message.sendAt;
+                else
+                    object.sendAt = options.longs === $String ? $util.Long.prototype.toString.call(message.sendAt) : options.longs === $Number ? new $util.LongBits(message.sendAt.low >>> 0, message.sendAt.high >>> 0).toNumber() : message.sendAt;
+            return object;
+        };
+
+        /**
+         * Converts this ScheduledEnvelopeCreated to JSON.
+         * @function toJSON
+         * @memberof fh.ScheduledEnvelopeCreated
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        ScheduledEnvelopeCreated.prototype.toJSON = function() {
+            return ScheduledEnvelopeCreated.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the type url for ScheduledEnvelopeCreated
+         * @function getTypeUrl
+         * @memberof fh.ScheduledEnvelopeCreated
+         * @static
+         * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns {string} The type url
+         */
+        ScheduledEnvelopeCreated.getTypeUrl = function(prefix) {
+            if (prefix === $undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/fh.ScheduledEnvelopeCreated";
+        };
+
+        return ScheduledEnvelopeCreated;
+    })();
+
+    fh.ScheduledEnvelopeCancelled = (function() {
+
+        /**
+         * Properties of a ScheduledEnvelopeCancelled.
+         * @typedef {Object} fh.ScheduledEnvelopeCancelled.$Properties
+         * @property {Uint8Array|null} [envelopeId] ScheduledEnvelopeCancelled envelopeId
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+
+        /**
+         * Properties of a ScheduledEnvelopeCancelled.
+         * @memberof fh
+         * @interface IScheduledEnvelopeCancelled
+         * @augments fh.ScheduledEnvelopeCancelled.$Properties
+         * @deprecated Use fh.ScheduledEnvelopeCancelled.$Properties instead.
+         */
+
+        /**
+         * Shape of a ScheduledEnvelopeCancelled.
+         * @typedef {fh.ScheduledEnvelopeCancelled.$Properties} fh.ScheduledEnvelopeCancelled.$Shape
+         */
+
+        /**
+         * Constructs a new ScheduledEnvelopeCancelled.
+         * @memberof fh
+         * @classdesc Represents a ScheduledEnvelopeCancelled.
+         * @constructor
+         * @param {fh.ScheduledEnvelopeCancelled.$Properties=} [properties] Properties to set
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+        const ScheduledEnvelopeCancelled = function (properties) {
+            if (properties)
+                for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                        this[keys[i]] = properties[keys[i]];
+        };
+
+        /**
+         * ScheduledEnvelopeCancelled envelopeId.
+         * @member {Uint8Array} envelopeId
+         * @memberof fh.ScheduledEnvelopeCancelled
+         * @instance
+         */
+        ScheduledEnvelopeCancelled.prototype.envelopeId = $util.newBuffer([]);
+
+        /**
+         * Creates a new ScheduledEnvelopeCancelled instance using the specified properties.
+         * @function create
+         * @memberof fh.ScheduledEnvelopeCancelled
+         * @static
+         * @param {fh.ScheduledEnvelopeCancelled.$Properties=} [properties] Properties to set
+         * @returns {fh.ScheduledEnvelopeCancelled} ScheduledEnvelopeCancelled instance
+         * @type {{
+         *   (properties: fh.ScheduledEnvelopeCancelled.$Shape): fh.ScheduledEnvelopeCancelled & fh.ScheduledEnvelopeCancelled.$Shape;
+         *   (properties?: fh.ScheduledEnvelopeCancelled.$Properties): fh.ScheduledEnvelopeCancelled;
+         * }}
+         */
+        ScheduledEnvelopeCancelled.create = function(properties) {
+            return new ScheduledEnvelopeCancelled(properties);
+        };
+
+        /**
+         * Encodes the specified ScheduledEnvelopeCancelled message. Does not implicitly {@link fh.ScheduledEnvelopeCancelled.verify|verify} messages.
+         * @function encode
+         * @memberof fh.ScheduledEnvelopeCancelled
+         * @static
+         * @param {fh.ScheduledEnvelopeCancelled.$Properties} message ScheduledEnvelopeCancelled message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ScheduledEnvelopeCancelled.encode = function (message, writer, _depth) {
+            if (!writer)
+                writer = $Writer.create();
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            if (message.envelopeId != null && $Object.hasOwnProperty.call(message, "envelopeId") && message.envelopeId.length)
+                writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.envelopeId);
+            if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified ScheduledEnvelopeCancelled message, length delimited. Does not implicitly {@link fh.ScheduledEnvelopeCancelled.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof fh.ScheduledEnvelopeCancelled
+         * @static
+         * @param {fh.ScheduledEnvelopeCancelled.$Properties} message ScheduledEnvelopeCancelled message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ScheduledEnvelopeCancelled.encodeDelimited = function(message, writer) {
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+        };
+
+        /**
+         * Decodes a ScheduledEnvelopeCancelled message from the specified reader or buffer.
+         * @function decode
+         * @memberof fh.ScheduledEnvelopeCancelled
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {fh.ScheduledEnvelopeCancelled & fh.ScheduledEnvelopeCancelled.$Shape} ScheduledEnvelopeCancelled
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ScheduledEnvelopeCancelled.decode = function (reader, length, _end, _depth, _target) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw $Error("max depth exceeded");
+            let end, message, value;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.fh.ScheduledEnvelopeCancelled();
+            while (reader.pos < end) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = $undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 2)
+                            break;
+                        if ((value = reader.bytes()).length)
+                            message.envelopeId = value;
+                        else
+                            delete message.envelopeId;
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                if (!reader.discardUnknown) {
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                }
+            }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
+            if (_end !== $undefined)
+                throw $Error("missing end group");
+            return message;
+        };
+
+        /**
+         * Decodes a ScheduledEnvelopeCancelled message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof fh.ScheduledEnvelopeCancelled
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {fh.ScheduledEnvelopeCancelled & fh.ScheduledEnvelopeCancelled.$Shape} ScheduledEnvelopeCancelled
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ScheduledEnvelopeCancelled.decodeDelimited = function(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a ScheduledEnvelopeCancelled message.
+         * @function verify
+         * @memberof fh.ScheduledEnvelopeCancelled
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        ScheduledEnvelopeCancelled.verify = function (message, _depth) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                return "max depth exceeded";
+            if (message.envelopeId != null && $Object.hasOwnProperty.call(message, "envelopeId"))
+                if (!(message.envelopeId && typeof message.envelopeId.length === "number" || $util.isString(message.envelopeId)))
+                    return "envelopeId: buffer expected";
+            return null;
+        };
+
+        /**
+         * Creates a ScheduledEnvelopeCancelled message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof fh.ScheduledEnvelopeCancelled
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {fh.ScheduledEnvelopeCancelled} ScheduledEnvelopeCancelled
+         */
+        ScheduledEnvelopeCancelled.fromObject = function (object, _depth) {
+            if (object instanceof $root.fh.ScheduledEnvelopeCancelled)
+                return object;
+            if (!$util.isObject(object))
+                throw $TypeError(".fh.ScheduledEnvelopeCancelled: object expected");
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let message = new $root.fh.ScheduledEnvelopeCancelled();
+            if (object.envelopeId != null)
+                if (object.envelopeId.length)
+                    if (typeof object.envelopeId === "string")
+                        $util.base64.decode(object.envelopeId, message.envelopeId = $util.newBuffer($util.base64.length(object.envelopeId)), 0);
+                    else if (object.envelopeId.length >= 0)
+                        message.envelopeId = object.envelopeId;
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a ScheduledEnvelopeCancelled message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof fh.ScheduledEnvelopeCancelled
+         * @static
+         * @param {fh.ScheduledEnvelopeCancelled} message ScheduledEnvelopeCancelled
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        ScheduledEnvelopeCancelled.toObject = function (message, options, _depth) {
+            if (!options)
+                options = {};
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let object = {};
+            if (options.defaults)
+                if (options.bytes === $String)
+                    object.envelopeId = "";
+                else {
+                    object.envelopeId = [];
+                    if (options.bytes !== $Array)
+                        object.envelopeId = $util.newBuffer(object.envelopeId);
+                }
+            if (message.envelopeId != null && $Object.hasOwnProperty.call(message, "envelopeId"))
+                object.envelopeId = options.bytes === $String ? $util.base64.encode(message.envelopeId, 0, message.envelopeId.length) : options.bytes === $Array ? $Array.prototype.slice.call(message.envelopeId) : message.envelopeId;
+            return object;
+        };
+
+        /**
+         * Converts this ScheduledEnvelopeCancelled to JSON.
+         * @function toJSON
+         * @memberof fh.ScheduledEnvelopeCancelled
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        ScheduledEnvelopeCancelled.prototype.toJSON = function() {
+            return ScheduledEnvelopeCancelled.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the type url for ScheduledEnvelopeCancelled
+         * @function getTypeUrl
+         * @memberof fh.ScheduledEnvelopeCancelled
+         * @static
+         * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns {string} The type url
+         */
+        ScheduledEnvelopeCancelled.getTypeUrl = function(prefix) {
+            if (prefix === $undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/fh.ScheduledEnvelopeCancelled";
+        };
+
+        return ScheduledEnvelopeCancelled;
+    })();
+
+    fh.FoldersUpdated = (function() {
+
+        /**
+         * Properties of a FoldersUpdated.
+         * @typedef {Object} fh.FoldersUpdated.$Properties
+         * @property {Uint8Array|null} [accountId] FoldersUpdated accountId
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+
+        /**
+         * Properties of a FoldersUpdated.
+         * @memberof fh
+         * @interface IFoldersUpdated
+         * @augments fh.FoldersUpdated.$Properties
+         * @deprecated Use fh.FoldersUpdated.$Properties instead.
+         */
+
+        /**
+         * Shape of a FoldersUpdated.
+         * @typedef {fh.FoldersUpdated.$Properties} fh.FoldersUpdated.$Shape
+         */
+
+        /**
+         * Constructs a new FoldersUpdated.
+         * @memberof fh
+         * @classdesc Represents a FoldersUpdated.
+         * @constructor
+         * @param {fh.FoldersUpdated.$Properties=} [properties] Properties to set
+         * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+         */
+        const FoldersUpdated = function (properties) {
+            if (properties)
+                for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                        this[keys[i]] = properties[keys[i]];
+        };
+
+        /**
+         * FoldersUpdated accountId.
+         * @member {Uint8Array} accountId
+         * @memberof fh.FoldersUpdated
+         * @instance
+         */
+        FoldersUpdated.prototype.accountId = $util.newBuffer([]);
+
+        /**
+         * Creates a new FoldersUpdated instance using the specified properties.
+         * @function create
+         * @memberof fh.FoldersUpdated
+         * @static
+         * @param {fh.FoldersUpdated.$Properties=} [properties] Properties to set
+         * @returns {fh.FoldersUpdated} FoldersUpdated instance
+         * @type {{
+         *   (properties: fh.FoldersUpdated.$Shape): fh.FoldersUpdated & fh.FoldersUpdated.$Shape;
+         *   (properties?: fh.FoldersUpdated.$Properties): fh.FoldersUpdated;
+         * }}
+         */
+        FoldersUpdated.create = function(properties) {
+            return new FoldersUpdated(properties);
+        };
+
+        /**
+         * Encodes the specified FoldersUpdated message. Does not implicitly {@link fh.FoldersUpdated.verify|verify} messages.
+         * @function encode
+         * @memberof fh.FoldersUpdated
+         * @static
+         * @param {fh.FoldersUpdated.$Properties} message FoldersUpdated message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        FoldersUpdated.encode = function (message, writer, _depth) {
+            if (!writer)
+                writer = $Writer.create();
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            if (message.accountId != null && $Object.hasOwnProperty.call(message, "accountId") && message.accountId.length)
+                writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.accountId);
+            if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                for (let i = 0; i < message.$unknowns.length; ++i)
+                    writer.raw(message.$unknowns[i]);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified FoldersUpdated message, length delimited. Does not implicitly {@link fh.FoldersUpdated.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof fh.FoldersUpdated
+         * @static
+         * @param {fh.FoldersUpdated.$Properties} message FoldersUpdated message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        FoldersUpdated.encodeDelimited = function(message, writer) {
+            return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+        };
+
+        /**
+         * Decodes a FoldersUpdated message from the specified reader or buffer.
+         * @function decode
+         * @memberof fh.FoldersUpdated
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {fh.FoldersUpdated & fh.FoldersUpdated.$Shape} FoldersUpdated
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        FoldersUpdated.decode = function (reader, length, _end, _depth, _target) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $Reader.recursionLimit)
+                throw $Error("max depth exceeded");
+            let end, message, value;
+            if (length === $undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw $RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = _target || new $root.fh.FoldersUpdated();
+            while (reader.pos < end) {
+                let start = reader.pos;
+                let tag = reader.tag();
+                if (tag === _end) {
+                    _end = $undefined;
+                    break;
+                }
+                let wireType = tag & 7;
+                switch (tag >>>= 3) {
+                case 1: {
+                        if (wireType !== 2)
+                            break;
+                        if ((value = reader.bytes()).length)
+                            message.accountId = value;
+                        else
+                            delete message.accountId;
+                        continue;
+                    }
+                }
+                reader.skipType(wireType, _depth, tag);
+                if (!reader.discardUnknown) {
+                    $util.makeProp(message, "$unknowns", false);
+                    (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                }
+            }
+            if (length !== $undefined) {
+                if (reader.pos !== end)
+                    throw $RangeError("index out of range");
+                reader.len = length;
+            }
+            if (_end !== $undefined)
+                throw $Error("missing end group");
+            return message;
+        };
+
+        /**
+         * Decodes a FoldersUpdated message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof fh.FoldersUpdated
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {fh.FoldersUpdated & fh.FoldersUpdated.$Shape} FoldersUpdated
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        FoldersUpdated.decodeDelimited = function(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a FoldersUpdated message.
+         * @function verify
+         * @memberof fh.FoldersUpdated
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        FoldersUpdated.verify = function (message, _depth) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                return "max depth exceeded";
+            if (message.accountId != null && $Object.hasOwnProperty.call(message, "accountId"))
+                if (!(message.accountId && typeof message.accountId.length === "number" || $util.isString(message.accountId)))
+                    return "accountId: buffer expected";
+            return null;
+        };
+
+        /**
+         * Creates a FoldersUpdated message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof fh.FoldersUpdated
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {fh.FoldersUpdated} FoldersUpdated
+         */
+        FoldersUpdated.fromObject = function (object, _depth) {
+            if (object instanceof $root.fh.FoldersUpdated)
+                return object;
+            if (!$util.isObject(object))
+                throw $TypeError(".fh.FoldersUpdated: object expected");
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let message = new $root.fh.FoldersUpdated();
+            if (object.accountId != null)
+                if (object.accountId.length)
+                    if (typeof object.accountId === "string")
+                        $util.base64.decode(object.accountId, message.accountId = $util.newBuffer($util.base64.length(object.accountId)), 0);
+                    else if (object.accountId.length >= 0)
+                        message.accountId = object.accountId;
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a FoldersUpdated message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof fh.FoldersUpdated
+         * @static
+         * @param {fh.FoldersUpdated} message FoldersUpdated
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        FoldersUpdated.toObject = function (message, options, _depth) {
+            if (!options)
+                options = {};
+            if (_depth === $undefined)
+                _depth = 0;
+            if (_depth > $util.recursionLimit)
+                throw $Error("max depth exceeded");
+            let object = {};
+            if (options.defaults)
+                if (options.bytes === $String)
+                    object.accountId = "";
+                else {
+                    object.accountId = [];
+                    if (options.bytes !== $Array)
+                        object.accountId = $util.newBuffer(object.accountId);
+                }
+            if (message.accountId != null && $Object.hasOwnProperty.call(message, "accountId"))
+                object.accountId = options.bytes === $String ? $util.base64.encode(message.accountId, 0, message.accountId.length) : options.bytes === $Array ? $Array.prototype.slice.call(message.accountId) : message.accountId;
+            return object;
+        };
+
+        /**
+         * Converts this FoldersUpdated to JSON.
+         * @function toJSON
+         * @memberof fh.FoldersUpdated
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        FoldersUpdated.prototype.toJSON = function() {
+            return FoldersUpdated.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the type url for FoldersUpdated
+         * @function getTypeUrl
+         * @memberof fh.FoldersUpdated
+         * @static
+         * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+         * @returns {string} The type url
+         */
+        FoldersUpdated.getTypeUrl = function(prefix) {
+            if (prefix === $undefined)
+                prefix = "type.googleapis.com";
+            return prefix + "/fh.FoldersUpdated";
+        };
+
+        return FoldersUpdated;
     })();
 
     return fh;

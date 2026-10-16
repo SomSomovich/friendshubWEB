@@ -1,5 +1,5 @@
 import { Archive, ArchiveRestore, Check, CloudOff, MessageSquare, VolumeX, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { useMatch, useNavigate } from 'react-router-dom'
@@ -9,11 +9,13 @@ import {
   unarchiveConversation,
   unmuteConversation,
 } from '../../api/conversations'
+import { listFolders, type ChatFolder } from '../../api/folders'
 import { MIN_QUERY_LENGTH } from '../../api/search'
 import { useChatList, type ChatListRowData } from '../../hooks/useChatList'
 import { useToast } from '../../hooks/useToast'
 import { ROUTES, chatPath } from '../../router/paths'
 import { requireAccountStore } from '../../state/accountRegistry'
+import { useStore } from 'zustand'
 import { deleteConversationLocally } from '../../storage/conversations'
 import { hideConversation } from '../../storage/read_state'
 import type { Account } from '../../types'
@@ -21,7 +23,8 @@ import { Button } from '../ui/Button'
 import { ContextMenu } from '../ui/ContextMenu'
 import type { DropdownItem } from '../ui/DropdownMenu'
 import { EmptyState } from '../ui/EmptyState'
-import { ChatListFilters, type ChatListFilter } from './ChatListFilters'
+import { ChatListFilters, type BuiltInChatListFilter, type ChatListFilter } from './ChatListFilters'
+import { ChatFolderDialog } from './ChatFolderDialog'
 import { ChatListSkeleton } from './ChatListSkeleton'
 import { SearchResults } from './SearchResults'
 import { ChatListRow } from './ChatListRow'
@@ -41,12 +44,23 @@ export function ChatList({ account, query }: ChatListProps) {
   const activeId = match?.params.id
 
   const { rows, loading, error, reload } = useChatList(account)
+  const store = requireAccountStore(account.id)
+  const foldersVersion = useStore(store, (state) => state.foldersVersion)
   const [filter, setFilter] = useState<ChatListFilter>('all')
+  const [folders, setFolders] = useState<ChatFolder[]>([])
+  const [folderDialogTarget, setFolderDialogTarget] = useState<string | 'create' | null>(null)
   const [menu, setMenu] = useState<{ row: ChatListRowData; x: number; y: number } | null>(null)
   const [muteTarget, setMuteTarget] = useState<ChatListRowData | null>(null)
 
-  const visible = useMemo(() => filterRows(rows, filter, query), [rows, filter, query])
+  const visible = useMemo(() => filterRows(rows, filter, query, folders), [rows, filter, query, folders])
   const unreadByFilter = useMemo(() => countUnread(rows), [rows])
+  const folderTabs = useMemo(() => folders.map((folder) => ({
+    id: folder.id,
+    name: folder.name,
+    unread: rows
+      .filter((row) => folder.conversationIds.includes(row.conversation.id))
+      .reduce((count, row) => count + row.unread, 0),
+  })), [folders, rows])
   // The conversations already listed above the search results, so a hit for one
   // of them is not shown twice.
   const knownConversationIds = useMemo(
@@ -55,6 +69,16 @@ export function ChatList({ account, query }: ChatListProps) {
   )
   /** True once the query is long enough for the server; mirrors `useGlobalSearch`. */
   const searching = query.trim().replace(/^@/, '').trim().length >= MIN_QUERY_LENGTH
+
+  useEffect(() => {
+    let cancelled = false
+    void listFolders(account)
+      .then((loaded) => { if (!cancelled) setFolders(loaded) })
+      .catch((cause: unknown) => {
+        if (!cancelled) reportActionFailure(cause, t, toast)
+      })
+    return () => { cancelled = true }
+  }, [account, foldersVersion, t, toast])
 
   function refreshConversations(): void {
     void requireAccountStore(account.id)
@@ -149,7 +173,14 @@ export function ChatList({ account, query }: ChatListProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ChatListFilters value={filter} onChange={setFilter} unread={unreadByFilter} />
+      <ChatListFilters
+        value={filter}
+        onChange={setFilter}
+        unread={unreadByFilter}
+        folders={folderTabs}
+        onCreateFolder={() => setFolderDialogTarget('create')}
+        onEditFolder={(id) => setFolderDialogTarget(id)}
+      />
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {loading && rows.length === 0 ? (
@@ -238,15 +269,39 @@ export function ChatList({ account, query }: ChatListProps) {
           void chooseMute(choice)
         }}
       />
+
+      <ChatFolderDialog
+        open={folderDialogTarget !== null}
+        folder={folderDialogTarget === null || folderDialogTarget === 'create'
+          ? null
+          : folders.find((folder) => folder.id === folderDialogTarget) ?? null}
+        folders={folders}
+        rows={rows}
+        account={account}
+        onClose={() => setFolderDialogTarget(null)}
+        onSaved={(folderId) => {
+          setFolderDialogTarget(null)
+          void listFolders(account).then((loaded) => {
+            setFolders(loaded)
+            if (folderId !== null) setFilter(`folder:${folderId}`)
+          }).catch((cause: unknown) => reportActionFailure(cause, t, toast))
+        }}
+      />
     </div>
   )
 }
 
-function filterRows(rows: ChatListRowData[], filter: ChatListFilter, query: string): ChatListRowData[] {
+function filterRows(rows: ChatListRowData[], filter: ChatListFilter, query: string, folders: ChatFolder[]): ChatListRowData[] {
   const needle = query.trim().toLowerCase()
+  const folder = filter.startsWith('folder:')
+    ? folders.find((entry) => entry.id === filter.slice('folder:'.length))
+    : undefined
 
   return rows.filter((row) => {
-    if (filter !== 'all' && row.conversation.kind !== filter) {
+    if (filter.startsWith('folder:') && (folder === undefined || !folder.conversationIds.includes(row.conversation.id))) {
+      return false
+    }
+    if (!filter.startsWith('folder:') && filter !== 'all' && row.conversation.kind !== filter) {
       return false
     }
     if (needle.length === 0) {
@@ -257,8 +312,8 @@ function filterRows(rows: ChatListRowData[], filter: ChatListFilter, query: stri
 }
 
 /** Unread totals per tab, with "all" covering everything. */
-function countUnread(rows: ChatListRowData[]): Record<ChatListFilter, number> {
-  const counts: Record<ChatListFilter, number> = {
+function countUnread(rows: ChatListRowData[]): Record<BuiltInChatListFilter, number> {
+  const counts: Record<BuiltInChatListFilter, number> = {
     all: 0,
     direct: 0,
     group: 0,

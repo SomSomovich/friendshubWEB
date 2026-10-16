@@ -1,10 +1,12 @@
-import { FileText, Image as ImageIcon, Mic, Paperclip, Send, Trash2, Video, X } from 'lucide-react'
+import { CalendarClock, FileText, Image as ImageIcon, Mic, Paperclip, Send, Trash2, Video, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 import { cn } from '../../utils/cn'
 import { formatClipDuration } from '../../utils/duration'
 import { DropdownMenu, type DropdownItem } from '../ui/DropdownMenu'
+import { ContextMenu } from '../ui/ContextMenu'
+import { DurationDialog } from '../ui/DurationDialog'
 import { EmojiPicker } from './EmojiPicker'
 
 /** What the attachment menu offers. */
@@ -17,6 +19,8 @@ export type EditingState = {
 
 export type MessageComposerProps = {
   onSend: (text: string) => Promise<void>
+  onSchedule?: (text: string, delaySeconds: number) => Promise<void>
+  scheduleWarningForSeconds?: (seconds: number) => string | null
   /** Every file the picker returned, on its way to the preview overlay. */
   onPickFile: (file: File) => void
   /** A finished voice recording, on its way to the same overlay. */
@@ -42,9 +46,12 @@ const SWIPE_CANCEL_PX = -60
 /** Grows to five lines, then scrolls. Must match `leading-5` below. */
 const LINE_HEIGHT_PX = 20
 const MAX_ROWS = 5
+const SCHEDULE_HOLD_MS = 500
 
 export function MessageComposer({
   onSend,
+  onSchedule,
+  scheduleWarningForSeconds,
   onPickFile,
   onVoiceRecorded,
   editing,
@@ -66,6 +73,9 @@ export function MessageComposer({
   const dragRef = useRef<{ x: number; cancel: boolean } | null>(null)
   /** True between the press and the release, across the microphone's own delay. */
   const pressingRef = useRef(false)
+  const scheduleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scheduleMenuOpenedRef = useRef(false)
+  const suppressClickRef = useRef(false)
 
   // Seeded from the edit target and never synchronised afterwards: the caller
   // remounts this component when the target changes (its `key` carries the
@@ -73,6 +83,8 @@ export function MessageComposer({
   // fight the user's typing.
   const [value, setValue] = useState(() => editing?.text ?? initialDraft)
   const [busy, setBusy] = useState(false)
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
+  const [scheduleMenuPoint, setScheduleMenuPoint] = useState<{ x: number; y: number } | null>(null)
   function updateDraft(text: string): void {
     setValue(text)
     onDraftChange?.(text)
@@ -95,6 +107,11 @@ export function MessageComposer({
   }, [focusToken])
 
   const canSend = value.trim().length > 0 && !disabled && !busy
+  const canSchedule = onSchedule !== undefined && canSend && editing === null
+
+  useEffect(() => () => {
+    if (scheduleTimerRef.current !== null) clearTimeout(scheduleTimerRef.current)
+  }, [])
 
   async function submit(): Promise<void> {
     const text = value.trim()
@@ -117,6 +134,48 @@ export function MessageComposer({
     } finally {
       setBusy(false)
     }
+  }
+
+  async function schedule(delaySeconds: number): Promise<void> {
+    const text = value.trim()
+    if (text.length === 0 || !canSchedule || onSchedule === undefined) return
+    setBusy(true)
+    try {
+      await onSchedule(text, delaySeconds)
+      updateDraft('')
+      setScheduleDialogOpen(false)
+    } catch (error) {
+      console.error('[chat] the message was not scheduled', error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function startScheduleHold(event: PointerEvent<HTMLButtonElement>): void {
+    if (!canSchedule || event.button !== 0) return
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      // The long press still works without capture; the browser may have
+      // already released a pointer during a quick tap.
+    }
+    scheduleMenuOpenedRef.current = false
+    suppressClickRef.current = false
+    const x = event.clientX
+    const y = event.clientY
+    scheduleTimerRef.current = setTimeout(() => {
+      scheduleMenuOpenedRef.current = true
+      suppressClickRef.current = true
+      setScheduleMenuPoint({ x, y })
+    }, SCHEDULE_HOLD_MS)
+  }
+
+  function endScheduleHold(): void {
+    if (scheduleTimerRef.current !== null) {
+      clearTimeout(scheduleTimerRef.current)
+      scheduleTimerRef.current = null
+    }
+    if (scheduleMenuOpenedRef.current) suppressClickRef.current = true
   }
 
   function pick(kind: AttachmentKind): void {
@@ -313,7 +372,14 @@ export function MessageComposer({
             aria-label={editing === null ? t('chat.send') : t('chat.edit.save')}
             title={editing === null ? t('chat.send') : t('chat.edit.save')}
             disabled={!canSend}
+            onPointerDown={startScheduleHold}
+            onPointerUp={endScheduleHold}
+            onPointerCancel={endScheduleHold}
             onClick={() => {
+              if (suppressClickRef.current) {
+                suppressClickRef.current = false
+                return
+              }
               void submit()
             }}
             className={cn(
@@ -355,6 +421,41 @@ export function MessageComposer({
           </button>
         )}
       </div>
+
+      <ContextMenu
+        open={scheduleMenuPoint !== null}
+        x={scheduleMenuPoint?.x ?? 0}
+        y={scheduleMenuPoint?.y ?? 0}
+        items={[
+          {
+            id: 'schedule-send',
+            label: t('chat.scheduled.action'),
+            icon: CalendarClock,
+            disabled: !canSchedule,
+            onSelect: () => {
+              setScheduleMenuPoint(null)
+              setScheduleDialogOpen(true)
+            },
+          },
+        ]}
+        onClose={() => setScheduleMenuPoint(null)}
+      />
+
+      {onSchedule === undefined ? null : (
+        <DurationDialog
+          open={scheduleDialogOpen}
+          onClose={() => setScheduleDialogOpen(false)}
+          title={t('chat.scheduled.title')}
+          hint={t('chat.scheduled.hint')}
+          confirmLabel={t('chat.scheduled.confirm')}
+          minSeconds={60}
+          maxSeconds={24 * 60 * 60}
+          initialSeconds={60 * 60}
+          loading={busy}
+          warningForSeconds={scheduleWarningForSeconds}
+          onChoose={(seconds) => { void schedule(seconds) }}
+        />
+      )}
 
       <input
         ref={photoRef}

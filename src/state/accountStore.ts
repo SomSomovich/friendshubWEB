@@ -93,6 +93,9 @@ export type AccountStoreState = {
    * and their order.
    */
   messagesVersion: number
+  /** Bumped when another device changes folders or scheduled messages. */
+  foldersVersion: number
+  scheduledVersion: number
   loadingConversations: boolean
   loadingMessages: boolean
   /**
@@ -111,7 +114,7 @@ export type AccountActions = {
   /** Stops treating a conversation as open, so late envelopes do not touch it. */
   closeConversation: (conversationId: string) => void
   loadOlderMessages: () => Promise<void>
-  sendText: (plaintext: string) => Promise<void>
+  sendText: (plaintext: string, sendAt?: number) => Promise<void>
   /**
    * Sends a whole draft — text, replies, attachments.
    *
@@ -187,6 +190,8 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
     savedHistory: {},
     identityChanges: [],
     messagesVersion: 0,
+    foldersVersion: 0,
+    scheduledVersion: 0,
     loadingConversations: false,
     loadingMessages: false,
     hasOlder: false,
@@ -332,10 +337,14 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
         }
       },
 
-      async sendText(plaintext) {
+      async sendText(plaintext, sendAt) {
         const { activeConversationId } = get()
         if (activeConversationId === null) {
           throw new Error('[state] no conversation is open')
+        }
+
+        if (sendAt !== undefined && getActiveClientOrNull()?.isConnected !== true) {
+          throw new Error(i18n.t('chat.scheduled.offline'))
         }
 
         // No socket to send over: the message is written locally and queued, so
@@ -371,7 +380,20 @@ export function createAccountStore(account: Account): StoreApi<AccountStore> {
 
         set({ sending: true, error: null })
         try {
-          const record = await sendToOpenConversation(account, activeConversationId, { text: plaintext }, get())
+          const record = await sendToOpenConversation(
+            account,
+            activeConversationId,
+            { text: plaintext },
+            get(),
+            sendAt === undefined ? {} : { sendAt },
+          )
+          if (sendAt !== undefined) {
+            // The server keeps scheduled envelopes out of conversation history
+            // until delivery. Do not create a local bubble that implies the
+            // recipient can already read the message.
+            set({ sending: false, scheduledVersion: get().scheduledVersion + 1 })
+            return
+          }
           await saveMessage(record)
           set({
             messages: mergeById([record], get().messages),

@@ -23,6 +23,12 @@ import { fh } from './proto/friendshub.js'
 export type FrameHandlers = {
   onConversationUpdated(event: ConversationUpdatedEvent): void
   onHistoryRequest(event: HistoryRequestEvent): void
+  onNudge(event: { conversationId: string; fromAccountId: string }): void
+  onNudgeResult(delivered: boolean): void
+  onConversationExpired(conversationId: string): void
+  onScheduledCreated(event: { envelopeId: string; conversationId: string | null; sendAt: number }): void
+  onScheduledCancelled(envelopeId: string): void
+  onFoldersUpdated(accountId: string): void
   onHello(hello: fh.ServerHello): void
   onDelivery(envelopes: ReturnType<typeof fromProtoEnvelopesLenient>): void
   onReceipt(envelopeIds: string[], serverTimestamps: number[]): void
@@ -60,6 +66,41 @@ export function dispatchFrame(frame: fh.ServerFrame, handlers: FrameHandlers): v
         fromDeviceNumber: frame.historyRequestRelay.fromDeviceNumber ?? 0,
         conversationIds: (frame.historyRequestRelay.conversationIds ?? []).map((id) => bytesToUuid(id)),
       })
+      return
+    case 'nudge':
+      if (frame.nudge) handlers.onNudge({
+        conversationId: bytesToUuid(frame.nudge.conversationId ?? new Uint8Array()),
+        fromAccountId: bytesToUuid(frame.nudge.fromAccountId ?? new Uint8Array()),
+      })
+      return
+    case 'nudgeResult':
+      if (frame.nudgeResult) handlers.onNudgeResult(frame.nudgeResult.delivered ?? false)
+      return
+    case 'conversationExpired':
+      if (frame.conversationExpired) {
+        handlers.onConversationExpired(bytesToUuid(frame.conversationExpired.conversationId ?? new Uint8Array()))
+      }
+      return
+    case 'scheduledCreated':
+      if (frame.scheduledCreated) {
+        const event = frame.scheduledCreated
+        const conversationId = event.conversationId ?? new Uint8Array()
+        handlers.onScheduledCreated({
+          envelopeId: bytesToUuid(event.envelopeId ?? new Uint8Array()),
+          conversationId: conversationId.length === 0 ? null : bytesToUuid(conversationId),
+          sendAt: toPlainNumber(event.sendAt),
+        })
+      }
+      return
+    case 'scheduledCancelled':
+      if (frame.scheduledCancelled) {
+        handlers.onScheduledCancelled(bytesToUuid(frame.scheduledCancelled.envelopeId ?? new Uint8Array()))
+      }
+      return
+    case 'foldersUpdated':
+      if (frame.foldersUpdated) {
+        handlers.onFoldersUpdated(bytesToUuid(frame.foldersUpdated.accountId ?? new Uint8Array()))
+      }
       return
     case 'hello':
       if (frame.hello) {
