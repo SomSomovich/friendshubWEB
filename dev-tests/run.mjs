@@ -18,10 +18,10 @@
  */
 import { spawn, spawnSync } from 'node:child_process'
 import { capturePage } from './driver.mjs'
-import { closeSync, existsSync, openSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { accessSync, closeSync, constants, existsSync, openSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
-import { dirname, extname, join, resolve } from 'node:path'
+import { delimiter, dirname, extname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -43,6 +43,10 @@ const BROWSERS = [
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
 ]
+
+const PATH_BROWSERS = process.platform === 'win32'
+  ? ['msedge.exe', 'chrome.exe']
+  : ['google-chrome', 'google-chrome-stable', 'chrome', 'chromium', 'chromium-browser', 'microsoft-edge', 'msedge']
 
 /**
  * Flags shared by the launches that go through `launchAndCollect` and the
@@ -77,7 +81,23 @@ const MIME_TYPES = {
 const CORS_HEADERS = { 'Access-Control-Allow-Origin': '*' }
 
 function findBrowser() {
-  const browser = BROWSERS.find((candidate) => existsSync(candidate))
+  const configured = process.env.CHROME_BIN?.trim() || undefined
+  const explicitCandidates = [...(configured === undefined ? [] : [configured]), ...BROWSERS]
+  const browser = explicitCandidates.find((candidate) => existsSync(candidate)) ??
+    [configured, ...PATH_BROWSERS]
+      .filter((candidate) => candidate !== undefined)
+      .flatMap((candidate) => {
+        if (candidate.includes('/') || candidate.includes('\\')) return [candidate]
+        return (process.env.PATH ?? '').split(delimiter).map((directory) => join(directory, candidate))
+      })
+      .find((candidate) => {
+        try {
+          accessSync(candidate, constants.X_OK)
+          return true
+        } catch {
+          return false
+        }
+      })
   if (!browser) {
     console.error('[harness] neither Edge nor Chrome was found in its default location')
     process.exit(1)
@@ -201,7 +221,7 @@ async function startResultServer(port, collector) {
 
 /** Launches the browser on `url` and waits for the page to report. */
 async function launchAndCollect(browser, url, label, collector) {
-  clearProfileLocks()
+  clearProfileLocks(PROFILE_DIR)
   const logPath = join(here, `edge-${label}.log`)
   const logHandle = openSync(logPath, 'w')
   const child = spawn(
